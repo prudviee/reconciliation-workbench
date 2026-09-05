@@ -13,7 +13,7 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | Scenario | Result | Required evidence |
 |---|---|---|
 | FND-A01 | Pending | New-session integration plus expiry page assertion |
-| FND-A02 | Pending | Reusable cross-workspace read/mutation contract |
+| FND-A02 | Pass for persistence boundary | `FND-T03.md`: owner read/mutation succeeds; foreign and random IDs produce the same typed failure; scoped lists and counts exclude foreign books. Route coverage remains for FND-T04. |
 | FND-A03 | Pending | Same-client refresh integration |
 | FND-A04 | Pending | Revocation across current page/mutation/worker boundaries plus reusable contract registration for later resource types |
 | FND-A05 | Pass | `FND-T01.md`: isolated subprocess imported the domain package without Django settings/database and loaded no Django/Psycopg modules |
@@ -29,12 +29,12 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 
 | Requirement | Planned implementation | Planned tests/evidence | Result |
 |---|---|---|---|
-| FND-001 | Workspace session service | FND-A01 | Pending |
-| FND-002 | Workspace context and scoped repositories | FND-A02 | Pending |
+| FND-001 | Workspace session service | FND-A01 | Partial: schema and fixed ownership boundary passed; session resolution remains |
+| FND-002 | Workspace context and scoped repositories | FND-A02 | Partial: scoped book repository passed; request context remains |
 | FND-003 | Workspace disclosure view | FND-A01 plus content review | Pending |
 | FND-004 | Revocation service and boundary guards | FND-A04 | Pending |
 | FND-005 | Session resolution | FND-A03 | Pending |
-| FND-006 | Workspace-owned book/sample creation | FND-A12 | Pending |
+| FND-006 | Workspace-owned book/sample creation | FND-A12 | Partial: atomic workspace-owned user/demo book persistence passed; two-session route flow remains |
 | FND-007 | Pure domain package | FND-A05 and architecture check | Pass for current package |
 | FND-008 | CSRF/session production settings | FND-A08 | Pending |
 | FND-009 | Correlation and log redaction | FND-A09 | Pending |
@@ -48,10 +48,10 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | Check | Result | Evidence to record |
 |---|---|---|
 | Unit | Pass for current scope | Domain import, opaque IDs, lifecycle, expiry, quota boundaries, and generated quota combinations passed |
-| Integration | Partial | T01 PostgreSQL/web/worker startup passed; session, ownership, books, revocation, and constraints remain |
+| Integration | Partial | T01 stack passed; T03 PostgreSQL migrations, ownership, constraints, and scoped repository contract passed; session routes and revocation remain |
 | Property | Partial | Expiry/activity invariance and generated quota sum/boundary combinations passed; persistent concurrency remains |
 | Browser | Pending | Disclosure, refresh, demo-book, delete flow without JavaScript |
-| Security/isolation | Pending | CSRF, cookie flags, foreign/random ID parity, log redaction |
+| Security/isolation | Partial | Persistence-level foreign/random book ID parity and scoped list/count isolation passed; request, CSRF, cookie, and log coverage remain |
 | Performance | Pending | Workspace query count and clean startup duration |
 
 ## Manual review

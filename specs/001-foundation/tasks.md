@@ -25,7 +25,7 @@
 
 ## Phase 2: persistence and authorization
 
-- [ ] **FND-T03 — Migrate workspace and reconciliation-book ownership** (`FND-001`, `FND-002`, `FND-006`; `FND-A01`, `FND-A02`)
+- [x] **FND-T03 — Migrate workspace and reconciliation-book ownership** (`FND-001`, `FND-002`, `FND-006`; `FND-A01`, `FND-A02`)
   - Change: tables, constraints, indexes, scoped repositories, and atomic book ownership.
   - Verify: migration checks, owner access, cross-workspace read/mutation denial, and query inspection.
   - Evidence: schema/migration result and isolation-contract result.
@@ -73,12 +73,12 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| FND-001 | FND-T03, FND-T04, FND-T10 | FND-A01 | No |
-| FND-002 | FND-T03, FND-T04, FND-T10 | FND-A02 | No |
+| FND-001 | FND-T03, FND-T04, FND-T10 | FND-A01 | Partial: T03 passed |
+| FND-002 | FND-T03, FND-T04, FND-T10 | FND-A02 | Partial: T03 passed |
 | FND-003 | FND-T06, FND-T10 | FND-A01 | No |
 | FND-004 | FND-T07, FND-T10 | FND-A04 | No |
 | FND-005 | FND-T04, FND-T10 | FND-A03 | No |
-| FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | No |
+| FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | Partial: T03 passed |
 | FND-007 | FND-T01, FND-T09, FND-T10 | FND-A05 | Partial: T01 passed |
 | FND-008 | FND-T04, FND-T10 | FND-A08 | No |
 | FND-009 | FND-T08, FND-T10 | FND-A09 | No |
