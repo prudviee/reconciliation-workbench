@@ -23,6 +23,19 @@ def env_csv(name: str, default: str) -> list[str]:
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
 
+def env_nonnegative_int(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    try:
+        value = int(raw_value)
+    except ValueError as error:
+        raise ImproperlyConfigured(f"{name} must be a nonnegative integer") from error
+    if value < 0:
+        raise ImproperlyConfigured(f"{name} must be a nonnegative integer")
+    return value
+
+
 ENVIRONMENT = os.getenv("DJANGO_ENV", "development").strip().lower()
 IS_PRODUCTION = ENVIRONMENT == "production"
 DEBUG = env_bool("DJANGO_DEBUG", default=not IS_PRODUCTION)
@@ -147,3 +160,9 @@ SECURE_SSL_REDIRECT = IS_PRODUCTION
 SECURE_HSTS_SECONDS = 31_536_000 if IS_PRODUCTION else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = IS_PRODUCTION
 SECURE_HSTS_PRELOAD = IS_PRODUCTION
+
+WORKSPACE_RETAINED_BYTES_LIMIT = env_nonnegative_int(
+    "WORKSPACE_RETAINED_BYTES_LIMIT", 250 * 1024 * 1024
+)
+WORKSPACE_BOOK_LIMIT = env_nonnegative_int("WORKSPACE_BOOK_LIMIT", 10)
+WORKSPACE_ACTIVE_JOB_LIMIT = env_nonnegative_int("WORKSPACE_ACTIVE_JOB_LIMIT", 2)

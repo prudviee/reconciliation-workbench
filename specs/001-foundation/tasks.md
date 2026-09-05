@@ -35,7 +35,7 @@
   - Verify: two independent clients, refresh persistence, foreign/random ID parity, CSRF rejection, cookie flags.
   - Evidence: integration results and sanitized response-header inspection.
 
-- [ ] **FND-T05 — Make quota reservations concurrency-safe** (`FND-013`; `FND-A11`)
+- [x] **FND-T05 — Make quota reservations concurrency-safe** (`FND-013`; `FND-A11`)
   - Change: row-locked atomic reservations for retained bytes, books, and active jobs with clear failures.
   - Verify: concurrent at-limit attempts admit no more than configured capacity and preserve prior resources.
   - Evidence: concurrency test with final counters and invariant checks.
@@ -85,4 +85,4 @@
 | FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | Partial: T01 passed |
 | FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | Partial: T02 passed |
 | FND-012 | FND-T06, FND-T10 | FND-A07 | No |
-| FND-013 | FND-T02, FND-T05, FND-T10 | FND-A11 | Partial: T02 passed |
+| FND-013 | FND-T02, FND-T05, FND-T10 | FND-A11 | Partial: T02 and T05 passed |

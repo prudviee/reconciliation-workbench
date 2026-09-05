@@ -22,7 +22,7 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | FND-A08 | Pass | `FND-T04.md`: missing CSRF proof was rejected; session cookie and fail-closed production settings were inspected. |
 | FND-A09 | Pending | Structured-log capture/redaction assertion |
 | FND-A10 | Pass for T01 scope | `FND-T01.md`: clean image build; PostgreSQL, web, and worker healthy; readiness and homepage returned 200 |
-| FND-A11 | Partial | `FND-T02.md`: immutable quota policy and typed limit failures pass; database concurrency remains for FND-T05 |
+| FND-A11 | Pass for current build | `FND-T02.md` and `FND-T05.md`: typed policy, row-locked persistence, atomic book creation/deletion, rollback, and concurrent capacity checks passed. Later bounded resource types must use the same service. |
 | FND-A12 | Pending | Two-session sample ownership and mutation isolation |
 
 ## Requirement traceability
@@ -41,7 +41,7 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | FND-010 | Compose stack and health commands | FND-A10 | Pass; repeat at final release gate |
 | FND-011 | Fixed expiry policy | FND-A06 | Pass for pure policy; persistence remains |
 | FND-012 | Independent demo-book creation | FND-A07 | Pending |
-| FND-013 | Atomic quota reservation | FND-A11 | Partial: pure policy passed; atomic persistence remains |
+| FND-013 | Atomic quota reservation | FND-A11 | Pass for foundation resources; later bounded resource types must integrate the shared service |
 
 ## Automated checks
 
@@ -49,7 +49,7 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 |---|---|---|
 | Unit | Pass for current scope | Domain import, opaque IDs, lifecycle, expiry, quota boundaries, and generated quota combinations passed |
 | Integration | Partial | T01 stack, T03 persistence, and T04 session/HTTP ownership flows passed; visitor UI and revocation remain |
-| Property | Partial | Expiry/activity invariance and generated quota sum/boundary combinations passed; persistent concurrency remains |
+| Property | Pass for current scope | Expiry/activity invariance, generated quota combinations, and six-way concurrent reservations for every quota counter passed |
 | Browser | Pending | Disclosure, refresh, demo-book, delete flow without JavaScript |
 | Security/isolation | Partial | Persistence and HTTP foreign/random parity, CSRF rejection, secure cookie attributes, and production fail-closed settings passed; log coverage remains |
 | Performance | Pending | Workspace query count and clean startup duration |
@@ -64,7 +64,7 @@ Pending review of expiry/no-recovery wording, quota errors, keyboard behavior, v
 |---|---|---:|---:|
 | Workspace-resolution database lookups | One same-session home-page refresh after middleware | At most 1 additional indexed lookup | 1 workspace-table lookup |
 | Clean local startup | Named reference environment from empty application volumes | Record honestly; no advance claim | Pending |
-| Concurrent book quota | Requests at configured limit | Never exceed configured count | Pending |
+| Concurrent book quota | Six simultaneous one-book reservations with capacity 2 | Never exceed configured count | 2 admitted, 4 refused, final count 2 |
 
 ## Known limitations
 

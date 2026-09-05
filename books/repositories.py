@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from django.db import transaction
 
-from reconciliation.domain import BookId, WorkspaceId
+from reconciliation.domain import BookId, QuotaAmounts, WorkspaceId
+from workspaces.models import Workspace
+from workspaces.quotas import WorkspaceQuotaService
 
 from .models import BookKind, ReconciliationBook
 
@@ -19,6 +21,7 @@ class BookUnavailable(LookupError):
 @dataclass(frozen=True, slots=True)
 class WorkspaceBookRepository:
     workspace_id: WorkspaceId
+    quota_service: WorkspaceQuotaService = field(default_factory=WorkspaceQuotaService)
 
     def list(self) -> tuple[ReconciliationBook, ...]:
         return tuple(
@@ -69,13 +72,23 @@ class WorkspaceBookRepository:
 
     def delete(self, book_id: BookId) -> None:
         with transaction.atomic():
-            _, deleted_by_model = (
-                ReconciliationBook.objects.owned_by(self.workspace_id)
-                .filter(id=book_id.value)
-                .delete()
+            try:
+                Workspace.objects.select_for_update().get(id=self.workspace_id.value)
+            except Workspace.DoesNotExist as error:
+                raise BookUnavailable from error
+            try:
+                book = (
+                    ReconciliationBook.objects.select_for_update()
+                    .owned_by(self.workspace_id)
+                    .get(id=book_id.value)
+                )
+            except ReconciliationBook.DoesNotExist as error:
+                raise BookUnavailable from error
+            self.quota_service.release(
+                self.workspace_id,
+                QuotaAmounts(books=1),
             )
-            if deleted_by_model.get("books.ReconciliationBook", 0) != 1:
-                raise BookUnavailable
+            book.delete()
 
     def _create(
         self,
@@ -86,6 +99,10 @@ class WorkspaceBookRepository:
         created_at: datetime,
     ) -> ReconciliationBook:
         with transaction.atomic():
+            self.quota_service.reserve(
+                self.workspace_id,
+                QuotaAmounts(books=1),
+            )
             return ReconciliationBook.objects.create(
                 workspace_id=self.workspace_id.value,
                 name=name,
