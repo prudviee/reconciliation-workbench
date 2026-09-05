@@ -1,6 +1,6 @@
 # 001 Foundation and Anonymous Workspace — Implementation Plan
 
-- **Status:** Ready
+- **Status:** In progress
 - **Specification:** [spec.md](./spec.md)
 - **Target branch:** `codex/001-foundation`
 - **Last updated:** 5 September 2026

@@ -1,6 +1,6 @@
 # 001 Foundation and Anonymous Workspace — Tasks
 
-- **Status:** Ready
+- **Status:** In progress
 - **Specification:** [spec.md](./spec.md)
 - **Plan:** [plan.md](./plan.md)
 
@@ -13,7 +13,7 @@
 
 ## Phase 1: executable boundaries
 
-- [ ] **FND-T01 — Create the versioned Python/Django project and local stack** (`FND-007`, `FND-010`; `FND-A05`, `FND-A10`)
+- [x] **FND-T01 — Create the versioned Python/Django project and local stack** (`FND-007`, `FND-010`; `FND-A05`, `FND-A10`)
   - Change: dependency lock, Django project, pure domain package, PostgreSQL service, web command, temporary worker command, readiness checks.
   - Verify: clean-machine/container startup plus domain import with Django settings and database unavailable.
   - Evidence: exact startup/check commands, versions, health outputs, import-boundary result.
@@ -79,10 +79,10 @@
 | FND-004 | FND-T07, FND-T10 | FND-A04 | No |
 | FND-005 | FND-T04, FND-T10 | FND-A03 | No |
 | FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | No |
-| FND-007 | FND-T01, FND-T09, FND-T10 | FND-A05 | No |
+| FND-007 | FND-T01, FND-T09, FND-T10 | FND-A05 | Partial: T01 passed |
 | FND-008 | FND-T04, FND-T10 | FND-A08 | No |
 | FND-009 | FND-T08, FND-T10 | FND-A09 | No |
-| FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | No |
+| FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | Partial: T01 passed |
 | FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | No |
 | FND-012 | FND-T06, FND-T10 | FND-A07 | No |
 | FND-013 | FND-T02, FND-T05, FND-T10 | FND-A11 | No |

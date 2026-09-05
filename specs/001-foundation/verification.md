@@ -16,12 +16,12 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | FND-A02 | Pending | Reusable cross-workspace read/mutation contract |
 | FND-A03 | Pending | Same-client refresh integration |
 | FND-A04 | Pending | Revocation across current page/mutation/worker boundaries plus reusable contract registration for later resource types |
-| FND-A05 | Pending | Domain import/architecture boundary check |
+| FND-A05 | Pass | `FND-T01.md`: isolated subprocess imported the domain package without Django settings/database and loaded no Django/Psycopg modules |
 | FND-A06 | Pending | Injected-clock seven-day boundary test with activity |
 | FND-A07 | Pending | Multiple-book and cross-session sample integration |
 | FND-A08 | Pending | CSRF rejection and production-like cookie/header inspection |
 | FND-A09 | Pending | Structured-log capture/redaction assertion |
-| FND-A10 | Pending | Clean local-stack startup, readiness, database, worker evidence |
+| FND-A10 | Pass for T01 scope | `FND-T01.md`: clean image build; PostgreSQL, web, and worker healthy; readiness and homepage returned 200 |
 | FND-A11 | Pending | Storage/book/job quota boundary and concurrency tests |
 | FND-A12 | Pending | Two-session sample ownership and mutation isolation |
 
@@ -35,10 +35,10 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | FND-004 | Revocation service and boundary guards | FND-A04 | Pending |
 | FND-005 | Session resolution | FND-A03 | Pending |
 | FND-006 | Workspace-owned book/sample creation | FND-A12 | Pending |
-| FND-007 | Pure domain package | FND-A05 and architecture check | Pending |
+| FND-007 | Pure domain package | FND-A05 and architecture check | Pass for current package |
 | FND-008 | CSRF/session production settings | FND-A08 | Pending |
 | FND-009 | Correlation and log redaction | FND-A09 | Pending |
-| FND-010 | Compose stack and health commands | FND-A10 | Pending |
+| FND-010 | Compose stack and health commands | FND-A10 | Pass; repeat at final release gate |
 | FND-011 | Fixed expiry policy | FND-A06 | Pending |
 | FND-012 | Independent demo-book creation | FND-A07 | Pending |
 | FND-013 | Atomic quota reservation | FND-A11 | Pending |
@@ -47,8 +47,8 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 
 | Check | Result | Evidence to record |
 |---|---|---|
-| Unit | Pending | Lifecycle, expiry, quota, ID value objects |
-| Integration | Pending | Session, ownership, books, revocation, database constraints |
+| Unit | Partial | Domain import boundary passed; lifecycle, expiry, quota, and ID value objects remain |
+| Integration | Partial | T01 PostgreSQL/web/worker startup passed; session, ownership, books, revocation, and constraints remain |
 | Property | Pending | Expiry/activity invariance and nonnegative quota reservations |
 | Browser | Pending | Disclosure, refresh, demo-book, delete flow without JavaScript |
 | Security/isolation | Pending | CSRF, cookie flags, foreign/random ID parity, log redaction |

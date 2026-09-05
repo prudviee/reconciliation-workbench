@@ -1,6 +1,6 @@
 # 001 Foundation and Anonymous Workspace — Specification
 
-- **Status:** Ready
+- **Status:** In progress
 - **Prefix:** `FND`
 - **Depends on:** Constitution
 - **Reviewed:** 5 September 2026
@@ -85,3 +85,4 @@ Accounts, password recovery, cross-device access, verified reviewer identity, an
 |---|---|---|
 | 5 September 2026 | Initial draft | Establish anonymous foundation behavior |
 | 5 September 2026 | Fixed retention, added isolation/failure invariants and traceability; marked Ready | Critical SDD review |
+| 5 September 2026 | Began implementation after `FND-T01` verification | Versioned project, domain boundary, and local web/worker/PostgreSQL stack passed their task gate |
