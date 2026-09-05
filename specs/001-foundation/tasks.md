@@ -42,7 +42,7 @@
 
 ## Phase 3: visitor workflow
 
-- [ ] **FND-T06 — Render workspace disclosures and independent demo books** (`FND-003`, `FND-006`, `FND-012`; `FND-A01`, `FND-A07`, `FND-A12`)
+- [x] **FND-T06 — Render workspace disclosures and independent demo books** (`FND-003`, `FND-006`, `FND-012`; `FND-A01`, `FND-A07`, `FND-A12`)
   - Change: workspace page, exact expiry/no-recovery/export/delete text, book list, demo-book creation form.
   - Verify: ordinary form flow without JavaScript; existing book remains after multiple demo creations; second session remains independent.
   - Evidence: browser test and reviewed page capture.
@@ -75,14 +75,14 @@
 |---|---|---|---|
 | FND-001 | FND-T03, FND-T04, FND-T10 | FND-A01 | Partial: T03-T04 passed |
 | FND-002 | FND-T03, FND-T04, FND-T10 | FND-A02 | Partial: T03-T04 passed |
-| FND-003 | FND-T06, FND-T10 | FND-A01 | No |
+| FND-003 | FND-T06, FND-T10 | FND-A01 | Partial: T06 passed |
 | FND-004 | FND-T07, FND-T10 | FND-A04 | No |
 | FND-005 | FND-T04, FND-T10 | FND-A03 | Partial: T04 passed |
-| FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | Partial: T03 passed |
+| FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | Partial: T03 and T06 passed |
 | FND-007 | FND-T01, FND-T09, FND-T10 | FND-A05 | Partial: T01 passed |
 | FND-008 | FND-T04, FND-T10 | FND-A08 | Partial: T04 passed |
 | FND-009 | FND-T08, FND-T10 | FND-A09 | No |
 | FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | Partial: T01 passed |
 | FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | Partial: T02 passed |
-| FND-012 | FND-T06, FND-T10 | FND-A07 | No |
+| FND-012 | FND-T06, FND-T10 | FND-A07 | Partial: T06 passed |
 | FND-013 | FND-T02, FND-T05, FND-T10 | FND-A11 | Partial: T02 and T05 passed |

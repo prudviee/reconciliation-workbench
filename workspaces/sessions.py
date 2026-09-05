@@ -25,6 +25,12 @@ from .repositories import WorkspaceRepository, WorkspaceUnavailable
 SESSION_DIGEST_SALT = "reconciliation-workbench.workspace-session.v1"
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedWorkspace:
+    access: WorkspaceAccess
+    record: Workspace
+
+
 def digest_session_key(session_key: str) -> str:
     return salted_hmac(SESSION_DIGEST_SALT, session_key, algorithm="sha256").hexdigest()
 
@@ -35,7 +41,7 @@ class WorkspaceSessionResolver:
     clock: Callable[[], datetime] = timezone.now
     expiry_policy: ExpiryPolicy = ExpiryPolicy()
 
-    def resolve(self, session: SessionBase) -> WorkspaceAccess:
+    def resolve(self, session: SessionBase) -> ResolvedWorkspace:
         existing = self._find_existing(session)
         if existing is not None:
             return self._authorize(existing)
@@ -62,7 +68,7 @@ class WorkspaceSessionResolver:
         digest = digest_session_key(session.session_key)
         return self.repository.find_by_session_digest(digest)
 
-    def _authorize(self, workspace: Workspace) -> WorkspaceAccess:
+    def _authorize(self, workspace: Workspace) -> ResolvedWorkspace:
         lifecycle = self.expiry_policy.evaluate(
             state=WorkspaceState(workspace.state),
             expires_at=workspace.expires_at,
@@ -70,7 +76,10 @@ class WorkspaceSessionResolver:
         )
         if not lifecycle.access_allowed:
             raise WorkspaceUnavailable
-        return WorkspaceAccess(
-            workspace_id=WorkspaceId(workspace.id),
-            expires_at=workspace.expires_at,
+        return ResolvedWorkspace(
+            access=WorkspaceAccess(
+                workspace_id=WorkspaceId(workspace.id),
+                expires_at=workspace.expires_at,
+            ),
+            record=workspace,
         )

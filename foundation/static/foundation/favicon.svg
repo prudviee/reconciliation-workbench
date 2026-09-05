@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Reconciliation Workbench">
+  <rect width="64" height="64" rx="16" fill="#10233e"/>
+  <rect x="14" y="33" width="8" height="17" rx="4" fill="#fff" opacity=".7"/>
+  <rect x="28" y="13" width="8" height="37" rx="4" fill="#fff"/>
+  <rect x="42" y="25" width="8" height="25" rx="4" fill="#fff" opacity=".85"/>
+</svg>

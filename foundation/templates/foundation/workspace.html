@@ -1,0 +1,171 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A private, explainable transaction reconciliation workspace.">
+  <title>Workspace · Reconciliation Workbench</title>
+  <link rel="icon" href="{% static 'foundation/favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'foundation/workspace.css' %}">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to workspace</a>
+
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Reconciliation Workbench home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Reconciliation <strong>Workbench</strong></span>
+    </a>
+    <div class="session-label">
+      <span class="status-dot" aria-hidden="true"></span>
+      Private workspace <span aria-hidden="true">·</span> {{ workspace_short_id }}
+    </div>
+  </header>
+
+  <main id="main-content" tabindex="-1">
+    {% if demo_created %}
+      <div class="notice notice-success" role="status">
+        <span aria-hidden="true">✓</span>
+        A new demo reconciliation was added. Your other books were not changed.
+      </div>
+    {% endif %}
+    {% if error %}
+      <div class="notice notice-error" role="alert">
+        <span aria-hidden="true">!</span>
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <section class="hero" aria-labelledby="workspace-heading">
+      <div class="eyebrow">Anonymous workspace</div>
+      <div class="hero-grid">
+        <div>
+          <h1 id="workspace-heading">Good evidence makes<br><em>clean decisions.</em></h1>
+          <p class="hero-copy">Compare two transaction sources, investigate exceptions, and keep every conclusion tied to its evidence.</p>
+          <div class="hero-actions">
+            <form method="post" action="{% url 'foundation:book-demo-create' %}">
+              {% csrf_token %}
+              <button class="button button-primary" type="submit">
+                <span aria-hidden="true">＋</span> Use demo dataset
+              </button>
+            </form>
+            <button class="button button-secondary" type="button" disabled aria-describedby="upload-note">
+              New reconciliation
+            </button>
+          </div>
+          <p id="upload-note" class="action-note">CSV upload becomes available in the preparation workspace.</p>
+        </div>
+
+        <aside class="privacy-card" aria-labelledby="privacy-heading">
+          <div class="privacy-icon" aria-hidden="true">⌁</div>
+          <div>
+            <p class="card-kicker">Session protected</p>
+            <h2 id="privacy-heading">Private to this browser</h2>
+          </div>
+          <dl class="privacy-facts">
+            <div>
+              <dt>Expires exactly</dt>
+              <dd><time datetime="{{ expires_iso }}">{{ expires_display }}</time></dd>
+            </div>
+            <div>
+              <dt>Recovery</dt>
+              <dd>None after browser data is cleared</dd>
+            </div>
+          </dl>
+          <p>Uploaded files and results are isolated to this workspace. Activity does not extend the expiry time.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="Workspace usage">
+      <article>
+        <span class="metric-icon" aria-hidden="true">▤</span>
+        <div><strong>{{ workspace.book_count }} / {{ book_limit }}</strong><span>Reconciliation books</span></div>
+      </article>
+      <article>
+        <span class="metric-icon" aria-hidden="true">◫</span>
+        <div><strong>{{ workspace.retained_bytes|filesizeformat }} / {{ storage_limit_mb }} MB</strong><span>Private storage</span></div>
+      </article>
+      <article>
+        <span class="metric-icon" aria-hidden="true">↻</span>
+        <div><strong>{{ workspace.active_job_count }} / {{ active_job_limit }}</strong><span>Active jobs</span></div>
+      </article>
+    </section>
+
+    <section class="books-section" aria-labelledby="books-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Your work</p>
+          <h2 id="books-heading">Reconciliations</h2>
+        </div>
+        <span class="count-pill">{{ books|length }} total</span>
+      </div>
+
+      {% if books %}
+        <div class="book-grid">
+          {% for book in books %}
+            <article class="book-card">
+              <div class="book-card-top">
+                <span class="book-kind">{{ book.get_kind_display }}</span>
+                <span class="book-state"><span aria-hidden="true"></span> Ready for sources</span>
+              </div>
+              <h3>{{ book.name }}</h3>
+              <p>Two-source transaction reconciliation</p>
+              <dl>
+                <div><dt>Created</dt><dd>{{ book.created_at|date:"d M Y, H:i" }} UTC</dd></div>
+                <div><dt>Template</dt><dd>{{ book.sample_template_version|default:"Custom" }}</dd></div>
+              </dl>
+              <div class="book-footer">
+                <span>Book {{ book.id|stringformat:"s"|slice:":8"|upper }}</span>
+                <span class="coming-next">Preparation pending</span>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-visual" aria-hidden="true"><span></span><span></span><span></span></div>
+          <h3>No reconciliations yet</h3>
+          <p>Start with the curated demo to see the complete workflow, or create a reconciliation from your own CSV files.</p>
+          <form method="post" action="{% url 'foundation:book-demo-create' %}">
+            {% csrf_token %}
+            <button class="text-button" type="submit">Create the demo reconciliation <span aria-hidden="true">→</span></button>
+          </form>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="workspace-policy" aria-labelledby="policy-heading">
+      <div>
+        <p class="section-kicker">Before you begin</p>
+        <h2 id="policy-heading">A temporary workspace, by design</h2>
+      </div>
+      <div class="policy-grid">
+        <article>
+          <span class="policy-number">01</span>
+          <h3>Keep this browser</h3>
+          <p>Clearing this browser’s site data permanently loses access. There is no account or recovery link.</p>
+        </article>
+        <article>
+          <span class="policy-number">02</span>
+          <h3>Export completed work</h3>
+          <p>Export results from each completed run before the expiry shown above. Exports include their source and policy versions.</p>
+        </article>
+        <article id="workspace-controls">
+          <span class="policy-number">03</span>
+          <h3>Delete when finished</h3>
+          <p>Immediate deletion revokes browser access before private data is removed.</p>
+          <button class="danger-button" type="button" disabled>Delete workspace</button>
+          <span class="control-note">Deletion control is being finalized</span>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Reconciliation Workbench</span>
+    <span>Evidence first · Explainable by design</span>
+  </footer>
+</body>
+</html>

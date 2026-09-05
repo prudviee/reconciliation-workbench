@@ -9,6 +9,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
 
 from reconciliation.domain import WorkspaceAccess
 
+from .models import Workspace
 from .repositories import WorkspaceUnavailable
 from .sessions import WorkspaceSessionResolver
 
@@ -26,6 +27,13 @@ def workspace_access(request: HttpRequest) -> WorkspaceAccess:
     if not isinstance(access, WorkspaceAccess):
         raise RuntimeError("The view requires WorkspaceMiddleware")
     return access
+
+
+def workspace_record(request: HttpRequest) -> Workspace:
+    record = getattr(request, "workspace_record", None)
+    if not isinstance(record, Workspace):
+        raise RuntimeError("The view requires WorkspaceMiddleware")
+    return record
 
 
 class WorkspaceMiddleware:
@@ -47,7 +55,9 @@ class WorkspaceMiddleware:
         if not getattr(view_func, "workspace_required", False):
             return None
         try:
-            request.workspace_access = self.resolver.resolve(request.session)  # type: ignore[attr-defined]
+            resolved = self.resolver.resolve(request.session)  # type: ignore[attr-defined]
+            request.workspace_access = resolved.access  # type: ignore[attr-defined]
+            request.workspace_record = resolved.record  # type: ignore[attr-defined]
         except WorkspaceUnavailable:
             return HttpResponseNotFound("Not found")
         return None
