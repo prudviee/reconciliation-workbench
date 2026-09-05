@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+from django.core.exceptions import ImproperlyConfigured
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,9 +23,49 @@ def env_csv(name: str, default: str) -> list[str]:
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
 
-DEBUG = env_bool("DJANGO_DEBUG", default=True)
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-development-key")
-ALLOWED_HOSTS = env_csv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+ENVIRONMENT = os.getenv("DJANGO_ENV", "development").strip().lower()
+IS_PRODUCTION = ENVIRONMENT == "production"
+DEBUG = env_bool("DJANGO_DEBUG", default=not IS_PRODUCTION)
+
+_secret_key = os.getenv("DJANGO_SECRET_KEY")
+_allowed_hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
+_trusted_origins = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS")
+_database_url = os.getenv("DATABASE_URL")
+
+if IS_PRODUCTION:
+    missing = [
+        name
+        for name, value in (
+            ("DJANGO_SECRET_KEY", _secret_key),
+            ("DJANGO_ALLOWED_HOSTS", _allowed_hosts),
+            ("DJANGO_CSRF_TRUSTED_ORIGINS", _trusted_origins),
+            ("DATABASE_URL", _database_url),
+        )
+        if not value
+    ]
+    if missing:
+        raise ImproperlyConfigured(
+            "Production configuration is missing: " + ", ".join(missing)
+        )
+
+SECRET_KEY = _secret_key or "unsafe-development-key"
+ALLOWED_HOSTS = env_csv(
+    "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver"
+)
+CSRF_TRUSTED_ORIGINS = env_csv("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+
+if IS_PRODUCTION:
+    insecure = []
+    if DEBUG:
+        insecure.append("DJANGO_DEBUG must be false")
+    if len(SECRET_KEY) < 32:
+        insecure.append("DJANGO_SECRET_KEY must contain at least 32 characters")
+    if "*" in ALLOWED_HOSTS:
+        insecure.append("DJANGO_ALLOWED_HOSTS must not contain a wildcard")
+    if any(not origin.startswith("https://") for origin in CSRF_TRUSTED_ORIGINS):
+        insecure.append("DJANGO_CSRF_TRUSTED_ORIGINS must use HTTPS")
+    if insecure:
+        raise ImproperlyConfigured("; ".join(insecure))
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
@@ -38,6 +81,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "workspaces.middleware.WorkspaceMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -54,17 +98,36 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-DATABASES = {
-    "default": {
+def database_configuration() -> dict[str, object]:
+    if not _database_url:
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME", "reconciliation"),
+            "USER": os.getenv("DB_USER", "reconciliation"),
+            "PASSWORD": os.getenv("DB_PASSWORD", "reconciliation-local-only"),
+            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+            "PORT": os.getenv("DB_PORT", "55432"),
+            "CONN_MAX_AGE": 0,
+        }
+
+    parsed = urlparse(_database_url)
+    if parsed.scheme not in {"postgres", "postgresql"} or not parsed.hostname:
+        raise ImproperlyConfigured("DATABASE_URL must be a PostgreSQL URL")
+    database_name = parsed.path.lstrip("/")
+    if not database_name:
+        raise ImproperlyConfigured("DATABASE_URL must include a database name")
+    return {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME", "reconciliation"),
-        "USER": os.getenv("DB_USER", "reconciliation"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "reconciliation-local-only"),
-        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-        "PORT": os.getenv("DB_PORT", "55432"),
-        "CONN_MAX_AGE": 0,
+        "NAME": unquote(database_name),
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname,
+        "PORT": str(parsed.port or 5432),
+        "CONN_MAX_AGE": 60 if IS_PRODUCTION else 0,
     }
-}
+
+
+DATABASES = {"default": database_configuration()}
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -73,3 +136,14 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_SECURE = IS_PRODUCTION
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = IS_PRODUCTION
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_SSL_REDIRECT = IS_PRODUCTION
+SECURE_HSTS_SECONDS = 31_536_000 if IS_PRODUCTION else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = IS_PRODUCTION
+SECURE_HSTS_PRELOAD = IS_PRODUCTION

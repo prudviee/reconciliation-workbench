@@ -26,6 +26,19 @@ class WorkspaceId:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkspaceAccess:
+    workspace_id: WorkspaceId
+    expires_at: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "expires_at",
+            _as_utc(self.expires_at, "expires_at"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class BookId:
     value: UUID
 

@@ -30,7 +30,7 @@
   - Verify: migration checks, owner access, cross-workspace read/mutation denial, and query inspection.
   - Evidence: schema/migration result and isolation-contract result.
 
-- [ ] **FND-T04 — Resolve workspaces through secure server-side sessions** (`FND-001`, `FND-002`, `FND-005`, `FND-008`; `FND-A01`, `FND-A02`, `FND-A03`, `FND-A08`)
+- [x] **FND-T04 — Resolve workspaces through secure server-side sessions** (`FND-001`, `FND-002`, `FND-005`, `FND-008`; `FND-A01`, `FND-A02`, `FND-A03`, `FND-A08`)
   - Change: session rotation/binding, workspace middleware/context, CSRF path, production-cookie configuration.
   - Verify: two independent clients, refresh persistence, foreign/random ID parity, CSRF rejection, cookie flags.
   - Evidence: integration results and sanitized response-header inspection.
@@ -73,14 +73,14 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| FND-001 | FND-T03, FND-T04, FND-T10 | FND-A01 | Partial: T03 passed |
-| FND-002 | FND-T03, FND-T04, FND-T10 | FND-A02 | Partial: T03 passed |
+| FND-001 | FND-T03, FND-T04, FND-T10 | FND-A01 | Partial: T03-T04 passed |
+| FND-002 | FND-T03, FND-T04, FND-T10 | FND-A02 | Partial: T03-T04 passed |
 | FND-003 | FND-T06, FND-T10 | FND-A01 | No |
 | FND-004 | FND-T07, FND-T10 | FND-A04 | No |
-| FND-005 | FND-T04, FND-T10 | FND-A03 | No |
+| FND-005 | FND-T04, FND-T10 | FND-A03 | Partial: T04 passed |
 | FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | Partial: T03 passed |
 | FND-007 | FND-T01, FND-T09, FND-T10 | FND-A05 | Partial: T01 passed |
-| FND-008 | FND-T04, FND-T10 | FND-A08 | No |
+| FND-008 | FND-T04, FND-T10 | FND-A08 | Partial: T04 passed |
 | FND-009 | FND-T08, FND-T10 | FND-A09 | No |
 | FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | Partial: T01 passed |
 | FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | Partial: T02 passed |

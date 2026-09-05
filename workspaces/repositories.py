@@ -36,3 +36,6 @@ class WorkspaceRepository:
             return Workspace.objects.get(id=workspace_id.value)
         except Workspace.DoesNotExist as error:
             raise WorkspaceUnavailable from error
+
+    def find_by_session_digest(self, session_digest: str) -> Workspace | None:
+        return Workspace.objects.filter(session_digest=session_digest).first()
