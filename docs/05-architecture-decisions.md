@@ -37,7 +37,7 @@ Each decision records the problem, chosen direction, why it fits, what was rejec
 
 **Status:** Accepted by user
 
-**Decision:** Bind one server-side workspace to an opaque secure browser session. Apply workspace scope to every operation and expire data after a displayed retention period.
+**Decision:** Bind one server-side workspace to an opaque secure browser session. Apply workspace scope to every operation, enforce per-workspace resource quotas, and expire live data at a displayed fixed deadline seven days after creation.
 
 **Why:** Visitors can try the showcase immediately. Authentication does not demonstrate reconciliation and would consume design and implementation time.
 
@@ -47,7 +47,7 @@ Each decision records the problem, chosen direction, why it fits, what was rejec
 - Shared public demo state: visitors would interfere with one another and see other uploads.
 - Read-only demo only: prevents people from experiencing the complete workflow.
 
-**Consequences:** There is no verified actor identity, recovery, or cross-device access. Audit entries identify a workspace visitor. Losing the session cookie loses access. These limitations must be visible.
+**Consequences:** There is no verified actor identity, recovery, or cross-device access. Audit entries identify a workspace visitor. Losing the session cookie loses access. Activity does not extend expiry. Quota and backup-retention behavior must be visible and verified against deployment.
 
 ## ADR-004: Preserve evidence and version observations
 
@@ -85,7 +85,7 @@ Each decision records the problem, chosen direction, why it fits, what was rejec
 
 **Status:** Accepted
 
-**Decision:** Every versioned source contract declares whether a file replaces membership for its coverage or patches a prior revision.
+**Decision:** Every versioned source contract declares whether a file replaces membership for its coverage or patches a prior revision. Delta rows declare upsert, cancellation, or retraction; omission has no effect, and activation is bound to the previewed base revision.
 
 **Why:** An absent record means removal in a complete snapshot and means nothing in a delta. Guessing this from file contents is unsafe.
 

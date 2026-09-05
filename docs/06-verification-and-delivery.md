@@ -20,8 +20,10 @@ Passing a few sample rows is insufficient. The tests target the invariants that 
 - Produce expected canonical records from representative fixtures.
 - Normalize `BUY/B`, dates, decimals, instruments, currencies, and statuses.
 - Preserve raw values and row provenance.
+- Decode UTF-8 and optional BOM deterministically for comma, semicolon, and tab delimiters.
 - Reject ambiguous dates and unknown required enums.
 - Reject NaN, infinity, overflow, and unsupported precision.
+- Enforce byte, row, column, and field-length limits without partial activation.
 - Produce deterministic output under equivalent formatting.
 - Pass one shared adapter contract suite.
 
@@ -42,6 +44,7 @@ Passing a few sample rows is insufficient. The tests target the invariants that 
 - Zero band equality and inequality.
 - Missing evidence contributes zero without renormalization.
 - Required-evidence coverage blocks automatic acceptance.
+- Minimum automatic evidence includes instrument, side, currency, quantity, timestamp, and at least one monetary field.
 - Decimal-to-basis-point rounding follows the configured mode.
 - Weight sum and score range validation.
 - Reference contradiction behavior follows the contract revision.
@@ -55,6 +58,7 @@ Passing a few sample rows is insufficient. The tests target the invariants that 
 - Empty, one-sided, and rectangular components.
 - Weak real edges choose dummy unmatched options.
 - Forbidden/rejected edges are never selected.
+- Duplicate trusted references produce ambiguity rather than an arbitrary authoritative pair.
 - Tiny graph objective agrees with exhaustive enumeration.
 - Disconnected components equal a whole-graph reference solution.
 - Stable input reordering does not change domain outcomes.
@@ -70,9 +74,11 @@ Passing a few sample rows is insufficient. The tests target the invariants that 
 - Intentional restore creates a new correction revision.
 - Full-snapshot omission removes current membership only.
 - Delta omission preserves current membership.
+- Delta upsert, cancellation, and retraction affect only their explicit identities and activation rejects a stale preview base.
 - A malformed full snapshot never replaces the valid head.
 - Historical membership retains its original observations after correction.
 - Reprocessing the same bytes under a new mapping requires explicit preview.
+- Physical, semantic-input, and resolved-state hashes remain distinct; multiplicity and missing/null/empty representations affect semantic identity.
 
 ### Decisions
 
@@ -103,12 +109,18 @@ Passing a few sample rows is insufficient. The tests target the invariants that 
 ### Isolation and security
 
 - Substituting another workspace's book, import, case, run, artifact, job, or export ID returns no data.
+- Full-page, fragment, filter, action-preview, history, download, and export routes return no foreign values, counts, filenames, or existence distinction.
+- A worker rejects a manifest whose persisted resources cross workspace ownership.
 - State-changing requests require valid CSRF protection.
+- Production-like session cookies are Secure, HttpOnly, and SameSite.
 - Downloads require the active workspace session.
 - Filenames cannot escape storage paths.
 - Displayed CSV strings are HTML-escaped.
 - Spreadsheet-formula cells are safely exported.
 - Expired/deleted workspace cannot start new work.
+- Storage, book, and active-job quotas refuse only the new request under concurrent load.
+- Logs, traces, metrics, and errors retain correlation/stage data while excluding raw rows, cookies, and secrets.
+- Live expiry and any longer backup-retention statement match measured deployment behavior.
 
 ## 4. Property and metamorphic tests
 
@@ -195,6 +207,7 @@ Initial targets to measure:
 - Immediate acknowledgement for asynchronous imports and runs.
 - 100 real nodes and 2,500 edges per solved component initially.
 - 250,000 candidate edges per run initially.
+- 200 enumerated candidates per record initially; reaching the cap withholds affected heuristic automation.
 
 Tests report measurements rather than converting targets into claims. A missed target triggers profiling of parsing, candidate enumeration, solver sensitivity, persistence, or queries before changing architecture.
 
@@ -254,7 +267,7 @@ The release is ready when:
 - No known defect contradicts a core invariant.
 - Historical evidence survives the complete correction workflow.
 - Cross-workspace isolation is verified.
-- The deployed limits and retention behavior match the documentation.
+- The deployed quotas, live expiry, cleanup, and backup-retention behavior match the documentation.
 - The demo completes reliably within five minutes.
 - README setup, assumptions, algorithm, measurements, known limits, and demo steps are complete.
 

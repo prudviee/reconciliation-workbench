@@ -100,7 +100,7 @@ if b == 0: feature = 1 for equality, else 0
 score = sum(weight * feature)
 ```
 
-Missing features contribute zero. Weights are not renormalized over available fields, because one agreeing field must not become a perfect score. Required evidence coverage is a separate automatic-acceptance condition.
+Missing features contribute zero. Weights are not renormalized over available fields, because one agreeing field must not become a perfect score. Automatic heuristic matching requires valid instrument, side, currency, quantity, timestamp, and at least one monetary field. A source policy may require more evidence but cannot weaken this first-release floor.
 
 All feature evidence is retained: raw and normalized values, difference, band, contribution, missingness, blocking reasons, and contradictions.
 

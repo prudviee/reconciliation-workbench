@@ -1,7 +1,7 @@
 # Project Constitution
 
-Version: 1.0.0
-Ratified: 5 September 2026
+- **Version:** 1.0.0
+- **Ratified:** 5 September 2026
 
 These principles constrain every specification, plan, task, implementation, and review.
 

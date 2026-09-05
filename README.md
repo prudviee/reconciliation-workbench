@@ -9,6 +9,7 @@ This project uses spec-driven development end to end.
 - [Specification workflow](./specs/README.md)
 - [Project constitution](./specs/constitution.md)
 - [Feature roadmap](./specs/roadmap.md)
+- [Critical design review](./specs/reviews/2026-09-05-critical-review.md)
 - [Design documentation](./docs/README.md)
 - [Consolidated design](./DESIGN.md)
 

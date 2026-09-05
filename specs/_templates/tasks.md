@@ -1,8 +1,8 @@
 # [NNN] Feature Name — Tasks
 
-Status: Draft
-Specification: [link]
-Plan: [link]
+- **Status:** Draft
+- **Specification:** [link]
+- **Plan:** [link]
 
 ## Task conventions
 

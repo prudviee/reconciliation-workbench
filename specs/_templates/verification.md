@@ -1,10 +1,10 @@
 # [NNN] Feature Name — Verification
 
-Status: Pending
-Specification: [link]
-Plan: [link]
-Verified commit: [hash]
-Environment: [versions and relevant capacity]
+- **Status:** Pending
+- **Specification:** [link]
+- **Plan:** [link]
+- **Verified commit:** [hash]
+- **Environment:** [versions and relevant capacity]
 
 ## Acceptance results
 

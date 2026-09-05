@@ -25,7 +25,7 @@ Each feature directory contains:
 | `tasks.md` | Ordered, independently verifiable work items mapped to requirements | After plan review |
 | `verification.md` | Test results, measurements, screenshots/links, remaining limitations | During and after implementation |
 
-Templates live in [`_templates`](./_templates). The project-wide non-negotiable rules are in the [constitution](./constitution.md), and feature order is in the [roadmap](./roadmap.md).
+Templates live in [`_templates`](./_templates). The project-wide non-negotiable rules are in the [constitution](./constitution.md), feature order is in the [roadmap](./roadmap.md), and recorded audits are in [`reviews`](./reviews/).
 
 ## Status model
 
@@ -65,12 +65,14 @@ Commit: feat(REC-014): abstain on equal global assignments
 
 IDs are never reused after publication. Removed behavior remains in history and is marked superseded or withdrawn.
 
+Prefixes contain two to four uppercase letters. Requirements use `<PREFIX>-NNN`, scenarios use `<PREFIX>-ANN`, and tasks use `<PREFIX>-TNN`. A requirement ID appears exactly once as a definition, although traceability tables may reference it repeatedly.
+
 ## Spec review checklist
 
 A feature can become `Ready` only when:
 
 - The user/problem and desired outcome are clear.
-- Every normative statement has a stable requirement ID.
+- Every independently testable behavior has a stable requirement ID. Supporting prose and invariants cite the requirements they refine or a constitutional principle; they cannot introduce an untraceable contract.
 - Acceptance scenarios use concrete inputs and observable outcomes.
 - Error, empty, retry, and concurrency behavior are defined where relevant.
 - Privacy and workspace-isolation effects are stated.
@@ -79,6 +81,8 @@ A feature can become `Ready` only when:
 - Dependencies on other specs and design decisions are named.
 - No unresolved question changes the public contract or data model.
 - Terms match the shared domain glossary.
+- The requirement-to-scenario matrix covers every requirement and every scenario.
+- The change history explains why the current status is justified.
 
 ## Plan review checklist
 

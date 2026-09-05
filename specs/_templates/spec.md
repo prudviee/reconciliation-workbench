@@ -1,10 +1,10 @@
 # [NNN] Feature Name — Specification
 
-Status: Draft
-Owner: [name]
-Created: [date]
-Last updated: [date]
-Depends on: [spec IDs or none]
+- **Status:** Draft
+- **Owner:** [name]
+- **Created:** [date]
+- **Last updated:** [date]
+- **Depends on:** [spec IDs or none]
 
 ## Problem
 
@@ -18,10 +18,10 @@ Describe the observable result and why it matters.
 
 ### [PREFIX-A01] Scenario name
 
-**Given** concrete starting state
-**When** the user or system performs an action
-**Then** observable outcome
-**And** additional observable outcome
+- **Given** concrete starting state
+- **When** the user or system performs an action
+- **Then** observable outcome
+- **And** additional observable outcome
 
 ## Requirements
 
@@ -33,6 +33,7 @@ Use MUST for normative behavior, SHOULD for a justified default, and MAY for opt
 ## Invariants
 
 - State what must remain true across every path, retry, and concurrent action.
+- End each invariant with the requirement IDs or constitutional principle it refines. Add a requirement when the invariant introduces independently testable behavior.
 
 ## Error, empty, retry, and concurrency behavior
 

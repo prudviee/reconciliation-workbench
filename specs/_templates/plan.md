@@ -1,9 +1,9 @@
 # [NNN] Feature Name — Implementation Plan
 
-Status: Draft
-Specification: [link]
-Target branch: `codex/NNN-short-name`
-Last updated: [date]
+- **Status:** Draft
+- **Specification:** [link]
+- **Target branch:** `codex/NNN-short-name`
+- **Last updated:** [date]
 
 ## Summary
 
@@ -22,7 +22,9 @@ Explain the technical approach and the smallest coherent vertical slice.
 | Decimal/time semantics are explicit | ... |
 | Anonymous access is isolated | ... |
 | Domain core is framework-independent | ... |
+| Specifications precede behavior | ... |
 | Claims require evidence | ... |
+| Complexity earns its place | ... |
 
 ## Affected architecture
 

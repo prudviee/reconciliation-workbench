@@ -130,11 +130,11 @@ Django's explicit transaction blocks support short atomic mutations. HTMX suppor
 
 Opening the product creates a workspace associated with a server-side Django session. The browser receives a secure, HttpOnly, SameSite cookie. Workspace IDs in URLs are identifiers, not access credentials. Queries resolve resources through the session's workspace; knowing another workspace's UUID grants no access.
 
-The default retention target is seven days from workspace creation, displayed with an exact expiry time. The same browser can return until expiry. Clearing the session cookie loses access; there is no account recovery or automatic cross-device access. The user can export results or explicitly delete the workspace.
+The first-release live workspace expiry is fixed at seven days from creation, displayed with an exact expiry time. Activity does not extend it. The same browser can return until expiry. Clearing the session cookie loses access; there is no account recovery or automatic cross-device access. The user can export results or explicitly delete the workspace. Any longer backup-retention period is disclosed separately and is never hidden behind a claim of immediate erasure.
 
 Each workspace receives independent sample data. Loading another sample creates another reconciliation book and never resets uploaded work. CSRF checks apply to every state-changing form or endpoint. Session support is an authentication-free access mechanism here, not a claim of verified user identity. [Django sessions](https://docs.djangoproject.com/en/5.2/topics/http/sessions/)
 
-Audit events identify the anonymous session actor and timestamp, not a verified person. Data is private within this access model and expires under the published retention policy.
+Audit events identify the anonymous session actor and timestamp, not a verified person. Data is private within this access model and expires under the published retention policy. Configurable storage, book-count, and active-job quotas protect the public anonymous service; reaching a quota refuses only the new request and never discards existing work.
 
 ### Long-lived book versus run scope
 
@@ -169,7 +169,7 @@ Decisions belong to the long-lived book, not merely a dated run. If their transa
 | state | Canonical state including SETTLED, PENDING, and CANCELLED |
 | provenance | Artifact, row number, mapping revision, contract revision, and observation revision |
 
-An adapter owns column mapping, decimal parsing, date format, timezone, instrument aliases, enum mapping, and natural-key interpretation. Mappings use allowlisted transformations, not user-supplied executable expressions.
+An adapter owns column mapping, decimal parsing, date format, timezone, instrument aliases, enum mapping, and natural-key interpretation. Mappings use allowlisted transformations, not user-supplied executable expressions. The first release accepts UTF-8 CSV with an optional UTF-8 BOM and an explicitly previewed comma, semicolon, or tab delimiter.
 
 Ambiguous dates, unknown enum values, missing required fields, non-finite numbers, and unsupported numeric precision block activation. The default supports positive trade quantities and nonnegative prices/amounts, with direction in side; other sign conventions must be explicitly normalized.
 
@@ -184,14 +184,14 @@ Each source contract declares one import mode:
 | FULL_SNAPSHOT | Complete replacement membership for the declared dataset coverage | No longer present in that dataset revision; historical evidence remains |
 | DELTA | A patch against the current dataset revision | Unchanged; it remains present |
 
-The curated statement example uses full snapshots. The uploader must see and confirm the selected contract, coverage, and change preview. A delta constructs a new materialized membership from its base plus changes. Cancellation is an explicit state change; deletion by omission is never inferred for deltas.
+The curated statement example uses full snapshots. The uploader must see and confirm the selected contract, coverage, and change preview. A delta constructs a new materialized membership from its previewed base plus explicit upserts, cancellations, and retractions. Omission has no effect. Activation fails as stale if the base changed after preview.
 
 An empty full snapshot is a deliberate empty replacement and needs an explicit preview confirmation. A file with malformed required rows cannot become a full snapshot: treating rejected rows as absent would produce false removals.
 
 ### Three distinct hashes
 
 1. **Physical hash:** SHA-256 of the original bytes. Artifact storage may be reused, but import identity also includes dataset and interpretation.
-2. **Semantic input hash:** digest of sorted normalized rows, including multiplicity, mapping/contract versions, and dataset identity.
+2. **Semantic input hash:** digest of sorted normalized rows, including multiplicity, distinct missing/null/empty representations, mapping/contract versions, and dataset identity.
 3. **Resolved state hash:** digest of the resulting complete dataset membership. A delta's patch hash is not its resolved state hash.
 
 Canonical hashing preserves significant values, normalizes equivalent decimal formatting, and uses an unambiguous serialization. Conflicting or repeated source keys in a file are reported with row numbers; the default rejects duplicate keys instead of choosing a row by order.
@@ -299,7 +299,7 @@ if b is zero: feature = 1 for equality, otherwise 0
 score = sum(weight * feature)
 ~~~
 
-Missing features contribute zero; weights are not renormalized over available fields. Required evidence coverage must be satisfied for automatic acceptance. Score arithmetic uses Decimal, followed by an explicit ROUND_HALF_EVEN quantization to integers from 0 to 10,000 for the solver.
+Missing features contribute zero; weights are not renormalized over available fields. Automatic heuristic matching requires valid instrument, side, currency, quantity, timestamp, and at least one monetary field. A source policy may demand more evidence, never less. Score arithmetic uses Decimal, followed by an explicit ROUND_HALF_EVEN quantization to integers from 0 to 10,000 for the solver.
 
 All solver arithmetic uses the integer scale consistently: score_bp = ROUND_HALF_EVEN(score * 100), assignment floor = 7000, automatic threshold = 9000, and global margin = 800. Utilities and counterfactual objectives use these same units. Divide by 100 only for the 0–100 user-facing score and example tables.
 

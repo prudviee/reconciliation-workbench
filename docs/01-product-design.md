@@ -24,7 +24,9 @@ The interface must state:
 - How to export results.
 - How to delete the workspace immediately.
 
-The initial retention target is seven days. This is a product setting to verify during deployment, not a claim about the eventual hosting provider.
+The first-release live workspace expiry is seven days from creation and does not extend with activity. Deployment verification must confirm the displayed deadline and disclose any longer backup-retention period separately.
+
+Configurable storage, book-count, and active-job quotas keep the public anonymous showcase usable. A limit refusal explains the reason and leaves existing work untouched.
 
 ## 3. Core concepts shown to the user
 

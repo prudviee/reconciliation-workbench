@@ -2,14 +2,14 @@
 
 This roadmap orders feature specifications by dependency. It does not reduce the advanced first-release scope.
 
-| Order | Specification | Prefix | Depends on | Initial status | Outcome |
+| Order | Specification | Prefix | Depends on | Current status | Outcome |
 |---:|---|---|---|---|---|
-| 001 | Foundation and anonymous workspace | FND | Constitution | Draft | Runnable project, workspace isolation, shared domain vocabulary |
-| 002 | Source mapping and ingestion | ING | 001 | Draft | Immutable evidence, validation preview, dataset revisions |
-| 003 | Reconciliation engine | REC | 001, 002 | Draft | Exact, weighted-global, ambiguity, comparison, pure engine |
-| 004 | Decisions and stable cases | REV | 001–003 | Draft | Durable review authority, case history, concurrency safety |
-| 005 | Workbench and run history | UX | 001–004 | Draft | Polished complete user workflow and accessible evidence |
-| 006 | Jobs, operations, and deployment | OPS | 001–005 | Draft | Reliable background execution, observability, retention, deployment |
+| 001 | Foundation and anonymous workspace | FND | Constitution | Ready | Runnable project, workspace isolation, shared domain vocabulary |
+| 002 | Source mapping and ingestion | ING | 001 | Ready | Immutable evidence, validation preview, dataset revisions |
+| 003 | Reconciliation engine | REC | 001, 002 | Ready | Exact, weighted-global, ambiguity, comparison, pure engine |
+| 004 | Decisions and stable cases | REV | 001–003 | Ready | Durable review authority, case history, concurrency safety |
+| 005 | Workbench and run history | UX | 001–004 | Ready | Polished complete user workflow and accessible evidence |
+| 006 | Jobs, operations, and deployment | OPS | 001–005 | Ready | Reliable background execution, observability, retention, deployment |
 
 ## Milestone 1: executable foundation
 
@@ -78,3 +78,5 @@ Exit evidence:
 - Cross-spec changes update every affected spec and plan in the same branch.
 - Specifications are verified in order of dependency, while design and test work may overlap.
 - A milestone is complete only when its verification evidence is committed.
+
+`Ready` means the behavioral specification is ready for implementation planning. It does not mean the dependency has been implemented or the feature has been verified.
