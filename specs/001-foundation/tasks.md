@@ -18,7 +18,7 @@
   - Verify: clean-machine/container startup plus domain import with Django settings and database unavailable.
   - Evidence: exact startup/check commands, versions, health outputs, import-boundary result.
 
-- [ ] **FND-T02 — Add workspace lifecycle and quota domain contracts** (`FND-011`, `FND-013`; `FND-A06`, `FND-A11`)
+- [x] **FND-T02 — Add workspace lifecycle and quota domain contracts** (`FND-011`, `FND-013`; `FND-A06`, `FND-A11`)
   - Change: immutable IDs, fixed-expiry policy, lifecycle results, quota reservations, typed failures.
   - Verify: boundary and property tests for UTC instants, fixed seven-day expiry, nonnegative counts, and refusal without mutation.
   - Evidence: named test results and representative boundary cases.
@@ -83,6 +83,6 @@
 | FND-008 | FND-T04, FND-T10 | FND-A08 | No |
 | FND-009 | FND-T08, FND-T10 | FND-A09 | No |
 | FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | Partial: T01 passed |
-| FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | No |
+| FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | Partial: T02 passed |
 | FND-012 | FND-T06, FND-T10 | FND-A07 | No |
-| FND-013 | FND-T02, FND-T05, FND-T10 | FND-A11 | No |
+| FND-013 | FND-T02, FND-T05, FND-T10 | FND-A11 | Partial: T02 passed |
