@@ -34,7 +34,7 @@
   - Verify: assignment golden fixtures, adapter parity, all row-error categories, duplicate row-number attribution, previewed delimiter, and no partial ready state.
   - Evidence: adapter contract matrix and retained preview examples.
 
-- [ ] **ING-T05 — Separate physical, semantic-input, observation, and state hashes** (`ING-008`, `ING-015`; `ING-A06`, `ING-A09`, `ING-A17`)
+- [x] **ING-T05 — Separate physical, semantic-input, observation, and state hashes** (`ING-008`, `ING-015`; `ING-A06`, `ING-A09`, `ING-A17`)
   - Change: versioned canonical serialization and deterministic digest functions.
   - Verify: byte differences vs semantic equivalence, order independence, multiplicity, missing/null/empty distinction, and different-base state divergence.
   - Evidence: golden digests and generated permutation/multiplicity tests.
@@ -86,14 +86,14 @@
 | ING-005 | ING-T06, ING-T11 | ING-A05 | No |
 | ING-006 | ING-T06, ING-T08, ING-T11 | ING-A04 | No |
 | ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | Partial: T02 passed |
-| ING-008 | ING-T05–ING-T08, ING-T11 | ING-A03, ING-A06, ING-A09, ING-A17 | No |
+| ING-008 | ING-T05–ING-T08, ING-T11 | ING-A03, ING-A06, ING-A09, ING-A17 | Partial: T05 passed |
 | ING-009 | ING-T07, ING-T11 | ING-A03 | No |
 | ING-010 | ING-T07, ING-T11 | ING-A03 | No |
 | ING-011 | ING-T04, ING-T10, ING-T11 | ING-A11 | Partial: T04 passed |
 | ING-012 | ING-T01, ING-T09, ING-T11 | ING-A12 | Partial: T01 passed |
 | ING-013 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A07 | Partial: T03–T04 passed |
 | ING-014 | ING-T01, ING-T11 | ING-A08 | Partial: T01 passed |
-| ING-015 | ING-T01, ING-T05, ING-T11 | ING-A09 | Partial: T01 passed |
+| ING-015 | ING-T01, ING-T05, ING-T11 | ING-A09 | Partial: T01, T05 passed |
 | ING-016 | ING-T01, ING-T08, ING-T11 | ING-A13 | Partial: T01 passed |
 | ING-017 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A14 | Partial: T03–T04 passed |
 | ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | Partial: T02–T03 passed |

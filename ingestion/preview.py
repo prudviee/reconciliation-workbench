@@ -23,14 +23,24 @@ from reconciliation.domain import (
     FieldProvenance,
     IngestionOperation,
     RawCell,
+    RawCellKind,
     RowErrorCode,
     RowIssue,
     SourceContract,
+    SemanticInputRow,
+    SemanticValue,
+    SemanticValueTag,
+    canonical_datetime,
+    canonical_decimal,
+    mapping_revision_digest,
     WorkspaceId,
     parse_datetime_value,
     parse_decimal_value,
     parse_enum_value,
     parse_required_text,
+    semantic_input_hash,
+    semantic_row_from_canonical,
+    source_contract_digest,
 )
 from sources.adapters import InvalidSourceContract, contract_from_payload
 from sources.models import SourceContractRevision
@@ -119,6 +129,11 @@ class PreviewService:
             contract=contract,
         )
         state = AttemptState.READY if interpreted.error_count == 0 else AttemptState.REJECTED
+        semantic_hash = semantic_input_hash(
+            contract_digest=contract_revision.digest,
+            header=interpreted.header,
+            rows=(_semantic_row(row) for row in interpreted.rows),
+        )
         completed_at = self.clock()
         with transaction.atomic():
             attempt = repository.create_attempt(
@@ -128,7 +143,7 @@ class PreviewService:
                 expected_base_id=dataset.current_revision_id,
                 state=state,
                 physical_hash=artifact.physical_hash,
-                semantic_hash=None,
+                semantic_hash=semantic_hash,
                 delimiter=delimiter,
                 row_count=len(interpreted.rows),
                 error_count=interpreted.error_count,
@@ -153,9 +168,17 @@ class PreviewService:
         return attempt
 
     @staticmethod
-    def _verify_revision_contract(revision, contract: SourceContract) -> None:
+    def _verify_revision_contract(
+        revision: SourceContractRevision,
+        contract: SourceContract,
+    ) -> None:
         if (
-            revision.mode != contract.mode
+            revision.digest != source_contract_digest(revision.contract)
+            or revision.mapping_revision.digest
+            != mapping_revision_digest(revision.mapping_revision.mapping)
+            or revision.mapping_revision.mapping.get("bindings")
+            != revision.contract.get("bindings")
+            or revision.mode != contract.mode
             or revision.timezone_name != contract.timezone_name
             or revision.identity_namespace != contract.identity_namespace
             or revision.reference_semantics != contract.reference_semantics
@@ -463,12 +486,12 @@ def canonical_to_payload(row: CanonicalRow) -> dict[str, Any]:
         "row_number": row.row_number,
         "source_record_key": row.source_record_key,
         "business_reference": row.business_reference,
-        "executed_at_utc": row.executed_at_utc.isoformat(),
+        "executed_at_utc": canonical_datetime(row.executed_at_utc),
         "instrument": row.instrument,
         "side": row.side.value,
-        "quantity": str(row.quantity),
-        "unit_price": str(row.unit_price),
-        "gross_amount": str(row.gross_amount),
+        "quantity": canonical_decimal(row.quantity),
+        "unit_price": canonical_decimal(row.unit_price),
+        "gross_amount": canonical_decimal(row.gross_amount),
         "currency": row.currency,
         "state": row.state.value,
         "eligible_for_matching": row.eligible_for_matching,
@@ -496,9 +519,9 @@ def partial_canonical_to_payload(
         if value is None and field != "business_reference":
             continue
         if isinstance(value, datetime):
-            payload[field] = value.isoformat()
+            payload[field] = canonical_datetime(value)
         elif isinstance(value, Decimal):
-            payload[field] = str(value)
+            payload[field] = canonical_decimal(value)
         elif hasattr(value, "value"):
             payload[field] = value.value
         else:
@@ -514,3 +537,58 @@ def partial_canonical_to_payload(
         for item in provenance
     ]
     return payload
+
+
+def _semantic_row(row: InterpretedRow) -> SemanticInputRow:
+    if row.canonical is not None:
+        return semantic_row_from_canonical(row.canonical)
+
+    preview = row.canonical_preview or {}
+    required = {
+        "source_record_key",
+        "executed_at_utc",
+        "instrument",
+        "side",
+        "quantity",
+        "unit_price",
+        "gross_amount",
+        "currency",
+        "state",
+        "operation",
+    }
+    if required <= preview.keys():
+        tags = {
+            "source_record_key": SemanticValueTag.TEXT,
+            "business_reference": SemanticValueTag.TEXT,
+            "executed_at_utc": SemanticValueTag.DATETIME,
+            "instrument": SemanticValueTag.TEXT,
+            "side": SemanticValueTag.ENUM,
+            "quantity": SemanticValueTag.DECIMAL,
+            "unit_price": SemanticValueTag.DECIMAL,
+            "gross_amount": SemanticValueTag.DECIMAL,
+            "currency": SemanticValueTag.TEXT,
+            "state": SemanticValueTag.ENUM,
+        }
+        fields = tuple(
+            (
+                name,
+                SemanticValue(tags[name], "" if value is None else str(value)),
+            )
+            for name, value in preview.items()
+            if name in tags
+        )
+        return SemanticInputRow(str(preview["operation"]), fields)
+
+    return SemanticInputRow(
+        "UNRESOLVED",
+        tuple(
+            (
+                f"{index}:{item['column']}",
+                SemanticValue.from_raw(
+                    RawCellKind(item["kind"]),
+                    item["original"],
+                ),
+            )
+            for index, item in enumerate(row.raw_values)
+        ),
+    )

@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from django.db import connection
 
 from books.models import BookKind, ReconciliationBook
 from ingestion.artifacts import IntakeLimits, PrivateArtifactStore
@@ -22,8 +23,11 @@ from reconciliation.domain import (
     RowErrorCode,
     SourceContract,
     WorkspaceId,
+    mapping_revision_digest,
+    source_contract_digest,
 )
 from sources.adapters import (
+    InvalidSourceContract,
     configurable_contract,
     contract_to_payload,
     counterparty_contract,
@@ -301,7 +305,7 @@ def prepare_persistent_preview(
         revision=1,
         mapping={"bindings": contract_payload["bindings"]},
         parser_version=selected_contract.parser_version,
-        digest="a" * 64,
+        digest=mapping_revision_digest({"bindings": contract_payload["bindings"]}),
         created_at=NOW,
     )
     contract_revision = source_repository.create_contract_revision(
@@ -313,7 +317,7 @@ def prepare_persistent_preview(
         identity_namespace=selected_contract.identity_namespace,
         reference_semantics=selected_contract.reference_semantics,
         contract=contract_payload,
-        digest="b" * 64,
+        digest=source_contract_digest(contract_payload),
         created_at=NOW,
     )
     dataset = ingestion_repository.create_dataset(
@@ -451,6 +455,70 @@ def test_cancelled_preview_remains_visible_and_ineligible(tmp_path: Path) -> Non
     assert attempt.state == AttemptState.READY
     assert row.canonical_preview["state"] == "CANCELLED"
     assert row.canonical_preview["eligible_for_matching"] is False
+
+
+def test_preview_persists_same_semantic_hash_for_order_and_format_equivalence(
+    tmp_path: Path,
+) -> None:
+    first_payload = (
+        LEDGER_HEADER
+        + LEDGER_ROW
+        + LEDGER_ROW.replace("T-1001", "T-1002")
+    ).encode()
+    reordered_payload = (
+        "state,gross_amount,price,quantity,side,instrument,traded_at,trade_id\n"
+        "SETTLED,31000.000,62000.0,0.5000,BUY,BTC-USD,2025-07-01T09:15:00+00:00,T-1002\n"
+        "SETTLED,31000.0,62000.00,0.50,BUY,BTC-USD,2025-07-01T09:15:00Z,T-1001\n"
+    ).encode()
+    first_workspace, first_service, first_graph = prepare_persistent_preview(
+        tmp_path / "first",
+        payload=first_payload,
+    )
+    second_workspace, second_service, second_graph = prepare_persistent_preview(
+        tmp_path / "second",
+        payload=reordered_payload,
+    )
+
+    first = run_preview(first_workspace, first_service, first_graph)
+    second = run_preview(second_workspace, second_service, second_graph)
+
+    assert first.physical_hash != second.physical_hash
+    assert first.semantic_hash == second.semantic_hash
+
+
+def test_preview_semantic_hash_preserves_duplicate_multiplicity(tmp_path: Path) -> None:
+    once_workspace, once_service, once_graph = prepare_persistent_preview(
+        tmp_path / "once",
+        payload=(LEDGER_HEADER + LEDGER_ROW).encode(),
+    )
+    twice_workspace, twice_service, twice_graph = prepare_persistent_preview(
+        tmp_path / "twice",
+        payload=(LEDGER_HEADER + LEDGER_ROW + LEDGER_ROW).encode(),
+    )
+
+    once = run_preview(once_workspace, once_service, once_graph)
+    twice = run_preview(twice_workspace, twice_service, twice_graph)
+
+    assert once.semantic_hash != twice.semantic_hash
+
+
+def test_preview_refuses_contract_payload_with_a_mismatched_digest(
+    tmp_path: Path,
+) -> None:
+    workspace, preview_service, graph = prepare_persistent_preview(
+        tmp_path,
+        payload=(LEDGER_HEADER + LEDGER_ROW).encode(),
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "UPDATE source_contract_revision SET digest = %s WHERE id = %s",
+            ["f" * 64, graph["contract"].id],
+        )
+
+    with pytest.raises(InvalidSourceContract, match="metadata"):
+        run_preview(workspace, preview_service, graph)
+
+    assert not IngestionAttempt.objects.exists()
 
 
 def test_preview_persistence_rolls_back_if_any_raw_row_fails(
