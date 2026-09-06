@@ -26,4 +26,11 @@ python_files = ["test_*.py"]
 testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
-include = ["config*", "foundation*", "reconciliation*"]
+include = [
+    "books*",
+    "config*",
+    "foundation*",
+    "observability*",
+    "reconciliation*",
+    "workspaces*",
+]

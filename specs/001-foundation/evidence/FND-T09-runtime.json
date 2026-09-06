@@ -1,0 +1,23 @@
+{
+  "verified_at": "2026-09-06T07:00:22.018482+00:00",
+  "startup_seconds": 18.375,
+  "services": [
+    "db",
+    "web",
+    "worker"
+  ],
+  "readiness": {
+    "status": "ready",
+    "database": "ready"
+  },
+  "database_probe": "/var/run/postgresql:5432 - accepting connections",
+  "worker_heartbeat": "ready",
+  "migrations": "fully_applied_by_web_only",
+  "versions": {
+    "docker": "29.7.2",
+    "compose": "5.5.0",
+    "python": "Python 3.12.14",
+    "django": "5.2.17",
+    "postgresql": "postgres (PostgreSQL) 17.6"
+  }
+}

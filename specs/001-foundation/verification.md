@@ -4,9 +4,9 @@
 - **Specification:** [spec.md](./spec.md)
 - **Plan:** [plan.md](./plan.md)
 - **Verified commit:** Pending
-- **Environment:** Pending; record Python, Django, PostgreSQL, browser, OS/container, CPU, and memory
+- **Environment:** Windows 11 10.0.26200; Intel Core i7-1260P; 15.6 GiB memory; Docker Engine 29.7.2; Compose 5.5.0; Python 3.12.14 and Django 5.2.17 containers; PostgreSQL 17.6; Chrome 152.0.7977.76; Edge 152.0.4191.62
 
-No implementation exists yet. `Pending` entries are deliberate and must not be represented as passed.
+Implementation evidence is recorded per task. Remaining `Pending` entries must not be represented as passed.
 
 ## Acceptance results
 
@@ -21,7 +21,7 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | FND-A07 | Pass | `FND-T06.md`: two demo creations remained separate and preserved an existing user book. |
 | FND-A08 | Pass | `FND-T04.md`: missing CSRF proof was rejected; session cookie and fail-closed production settings were inspected. |
 | FND-A09 | Pass | `FND-T08.md`: successful and failed request events carried bounded correlation IDs while request bodies, query values, cookies, and session secrets were excluded. |
-| FND-A10 | Pass for T01 scope | `FND-T01.md`: clean image build; PostgreSQL, web, and worker healthy; readiness and homepage returned 200 |
+| FND-A10 | Pass | `FND-T01.md`, `FND-T09.md`, and `FND-T09-runtime.json`: clean images and empty application volume; PostgreSQL, web, and worker healthy; readiness returned 200; migrations fully applied. |
 | FND-A11 | Pass for current build | `FND-T02.md` and `FND-T05.md`: typed policy, row-locked persistence, atomic book creation/deletion, rollback, and concurrent capacity checks passed. Later bounded resource types must use the same service. |
 | FND-A12 | Pass | `FND-T06.md`: two independent sessions created demo books with isolated lists and counts. |
 
@@ -35,10 +35,10 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | FND-004 | Revocation service and boundary guards | FND-A04 | Pass for every resource and worker path in the current build; later types must register |
 | FND-005 | Session resolution | FND-A03 | Pass |
 | FND-006 | Workspace-owned book/sample creation | FND-A12 | Pass |
-| FND-007 | Pure domain package | FND-A05 and architecture check | Pass for current package |
+| FND-007 | Pure domain package | FND-A05 and architecture check | Pass; runtime import and static source boundaries both verified |
 | FND-008 | CSRF/session production settings | FND-A08 | Pass |
 | FND-009 | Correlation and log redaction | FND-A09 | Pass for request-boundary telemetry; later domain-event producers must use the same fixed-schema formatter |
-| FND-010 | Compose stack and health commands | FND-A10 | Pass; repeat at final release gate |
+| FND-010 | Compose stack and health commands | FND-A10 | Pass from empty project volumes with measured evidence |
 | FND-011 | Fixed expiry policy | FND-A06 | Pass |
 | FND-012 | Independent demo-book creation | FND-A07 | Pass |
 | FND-013 | Atomic quota reservation | FND-A11 | Pass for foundation resources; later bounded resource types must integrate the shared service |
@@ -47,12 +47,12 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 
 | Check | Result | Evidence to record |
 |---|---|---|
-| Unit | Pass for current scope | Domain import, opaque IDs, lifecycle, expiry, quota boundaries, and generated quota combinations passed |
+| Unit | Pass for current scope | Domain import, static architecture constraints, opaque IDs, lifecycle, expiry, quota boundaries, generated quota combinations, and timestamp heartbeat passed |
 | Integration | Pass for current feature scope | Stack, persistence, session/HTTP ownership, demo books, deletion, expiry, cleanup signal, worker boundary, and request telemetry passed |
 | Property | Pass for current scope | Expiry/activity invariance, generated quota combinations, and six-way concurrent reservations for every quota counter passed |
 | Browser | Pass for current feature scope | Desktop/mobile disclosure, refresh, keyboard skip, demo creation, and deletion confirmation passed without JavaScript; deletion POST passed through the server integration client |
 | Security/isolation | Pass for current feature scope | Persistence and HTTP foreign/random parity, CSRF rejection, secure cookie attributes, production fail-closed settings, and request-log redaction passed |
-| Performance | Pending | Workspace query count and clean startup duration |
+| Performance | Pass for foundation scope | Workspace query count and clean startup duration measured on the named reference environment |
 
 ## Manual review
 
@@ -63,7 +63,7 @@ Pass for the current workspace surface: expiry/no-recovery wording, quota errors
 | Metric | Workload/environment | Target | Observed |
 |---|---|---:|---:|
 | Workspace-resolution database lookups | One same-session home-page refresh after middleware | At most 1 additional indexed lookup | 1 workspace-table lookup |
-| Clean local startup | Named reference environment from empty application volumes | Record honestly; no advance claim | Pending |
+| Clean local startup | Named reference environment from empty application volumes | Record honestly; no advance claim | 18.375 seconds |
 | Concurrent book quota | Six simultaneous one-book reservations with capacity 2 | Never exceed configured count | 2 admitted, 4 refused, final count 2 |
 
 ## Known limitations

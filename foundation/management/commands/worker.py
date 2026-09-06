@@ -45,7 +45,10 @@ class Command(BaseCommand):
 
             heartbeat_path = os.getenv("WORKER_HEARTBEAT_FILE")
             if heartbeat_path:
-                Path(heartbeat_path).touch()
+                Path(heartbeat_path).write_text(
+                    timezone.now().isoformat() + "\n",
+                    encoding="utf-8",
+                )
             self.stdout.write("worker heartbeat ready")
 
             if options["once"]:

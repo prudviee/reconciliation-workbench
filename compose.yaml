@@ -63,7 +63,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "test -f /tmp/reconciliation-worker-heartbeat && find /tmp/reconciliation-worker-heartbeat -mmin -1 | grep -q .",
+          "test -s /tmp/reconciliation-worker-heartbeat && find /tmp/reconciliation-worker-heartbeat -mmin -1 | grep -q .",
         ]
       interval: 5s
       timeout: 3s
