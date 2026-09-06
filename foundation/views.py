@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from books.repositories import BookUnavailable, WorkspaceBookRepository
 from reconciliation.domain import BookId, QuotaExceeded, QuotaResource
 from workspaces.middleware import workspace_access, workspace_record, workspace_required
+from workspaces.lifecycle import WorkspaceLifecycleService
 
 
 @workspace_required
@@ -108,4 +109,63 @@ def quota_message(error: QuotaExceeded) -> str:
     return (
         f"This workspace has reached its limit of {error.limit} {label}. "
         "Your existing work is unchanged."
+    )
+
+
+@workspace_required
+@require_GET
+def workspace_delete_confirm(request: HttpRequest) -> HttpResponse:
+    access = workspace_access(request)
+    return render(
+        request,
+        "foundation/workspace_delete.html",
+        {
+            "expires_display": access.expires_at.strftime(
+                "%d %B %Y at %H:%M UTC"
+            )
+        },
+    )
+
+
+@workspace_required
+@require_POST
+def workspace_delete(request: HttpRequest) -> HttpResponse:
+    access = workspace_access(request)
+    WorkspaceLifecycleService().delete(access.workspace_id, now=timezone.now())
+    request.session.flush()
+    return redirect("foundation:workspace-deleted")
+
+
+@require_GET
+def workspace_deleted(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "foundation/workspace_message.html",
+        {
+            "eyebrow": "Deletion requested",
+            "title": "Workspace access revoked",
+            "message": (
+                "This browser can no longer access that workspace. "
+                "Its private data is queued for cleanup."
+            ),
+            "action": "Start a new workspace",
+        },
+    )
+
+
+@require_GET
+def workspace_unavailable(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "foundation/workspace_message.html",
+        {
+            "eyebrow": "Workspace unavailable",
+            "title": "This workspace has ended",
+            "message": (
+                "It may have expired, been deleted, or become unavailable. "
+                "There is no recovery path for an anonymous workspace."
+            ),
+            "action": "Create a new workspace",
+        },
+        status=410,
     )

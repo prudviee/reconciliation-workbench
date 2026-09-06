@@ -323,9 +323,21 @@ h1 em { color: var(--blue); font-weight: 500; }
 .policy-number { color: #88aaff; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; }
 .policy-grid h3 { margin: 17px 0 7px; font-size: 16px; }
 .policy-grid p { margin: 0; color: #b8c4d5; font-size: 13px; }
-.danger-button { margin-top: 16px; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 7px; background: transparent; color: white; font-size: 12px; font-weight: 700; }
-.danger-button:disabled { cursor: not-allowed; opacity: 0.55; }
-.control-note { display: block; margin-top: 6px; color: #92a1b7; font-size: 10px; }
+.danger-button { display: inline-block; margin-top: 16px; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 7px; background: transparent; color: white; font-size: 12px; font-weight: 700; text-decoration: none; }
+.danger-button:hover { border-color: rgba(255, 255, 255, 0.7); background: rgba(255, 255, 255, 0.07); }
+
+.standalone-page { min-height: 100vh; background: #edf1f6; }
+.standalone-shell { width: min(720px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0; }
+.decision-card { margin-top: clamp(54px, 10vh, 110px); padding: clamp(28px, 6vw, 58px); border: 1px solid var(--line); border-radius: 18px; background: white; box-shadow: var(--shadow); }
+.decision-card h1 { max-width: 580px; font-size: clamp(40px, 7vw, 66px); line-height: 1; }
+.decision-card > p:not(.section-kicker) { max-width: 570px; margin: 24px 0 0; color: var(--muted); font-size: 17px; }
+.decision-warning { margin-top: 28px; padding: 16px 18px; border-left: 4px solid #d27737; background: #fff7ed; color: #6e4426; font-size: 13px; }
+.decision-warning strong { display: block; color: #4e2f1b; }
+.decision-actions { margin-top: 32px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.decision-actions form { margin: 0; }
+.button-danger { background: #a43c3c; color: white; }
+.button-danger:hover { background: #842e2e; }
+.button-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 
 footer {
   max-width: 1440px;

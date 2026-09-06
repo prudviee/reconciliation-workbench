@@ -12,13 +12,12 @@ from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
 from reconciliation.domain import (
-    ExpiryPolicy,
     WorkspaceAccess,
     WorkspaceId,
-    WorkspaceState,
 )
 
 from .models import Workspace
+from .lifecycle import WorkspaceLifecycleService
 from .repositories import WorkspaceRepository, WorkspaceUnavailable
 
 
@@ -39,7 +38,9 @@ def digest_session_key(session_key: str) -> str:
 class WorkspaceSessionResolver:
     repository: WorkspaceRepository = field(default_factory=WorkspaceRepository)
     clock: Callable[[], datetime] = timezone.now
-    expiry_policy: ExpiryPolicy = ExpiryPolicy()
+    lifecycle_service: WorkspaceLifecycleService = field(
+        default_factory=WorkspaceLifecycleService
+    )
 
     def resolve(self, session: SessionBase) -> ResolvedWorkspace:
         existing = self._find_existing(session)
@@ -69,13 +70,7 @@ class WorkspaceSessionResolver:
         return self.repository.find_by_session_digest(digest)
 
     def _authorize(self, workspace: Workspace) -> ResolvedWorkspace:
-        lifecycle = self.expiry_policy.evaluate(
-            state=WorkspaceState(workspace.state),
-            expires_at=workspace.expires_at,
-            now=self.clock(),
-        )
-        if not lifecycle.access_allowed:
-            raise WorkspaceUnavailable
+        self.lifecycle_service.require_active(workspace, now=self.clock())
         return ResolvedWorkspace(
             access=WorkspaceAccess(
                 workspace_id=WorkspaceId(workspace.id),

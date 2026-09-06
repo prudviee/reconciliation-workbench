@@ -6,10 +6,12 @@ from dataclasses import dataclass, field
 
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from reconciliation.domain import QuotaAmounts, QuotaPolicy, WorkspaceId
 
 from .models import Workspace
+from .lifecycle import WorkspaceLifecycleService
 from .repositories import WorkspaceUnavailable
 
 
@@ -30,12 +32,16 @@ def configured_quota_policy() -> QuotaPolicy:
 @dataclass(slots=True)
 class WorkspaceQuotaService:
     policy: QuotaPolicy = field(default_factory=configured_quota_policy)
+    lifecycle_service: WorkspaceLifecycleService = field(
+        default_factory=WorkspaceLifecycleService
+    )
 
     def reserve(
         self, workspace_id: WorkspaceId, requested: QuotaAmounts
     ) -> QuotaAmounts:
         with transaction.atomic():
             workspace = self._locked_workspace(workspace_id)
+            self.lifecycle_service.require_active(workspace, now=timezone.now())
             resulting = self.policy.reserve(
                 usage=self._usage(workspace),
                 requested=requested,
@@ -48,6 +54,7 @@ class WorkspaceQuotaService:
     ) -> QuotaAmounts:
         with transaction.atomic():
             workspace = self._locked_workspace(workspace_id)
+            self.lifecycle_service.require_active(workspace, now=timezone.now())
             usage = self._usage(workspace)
             values = (
                 usage.retained_bytes - released.retained_bytes,

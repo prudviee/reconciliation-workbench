@@ -156,8 +156,7 @@
           <span class="policy-number">03</span>
           <h3>Delete when finished</h3>
           <p>Immediate deletion revokes browser access before private data is removed.</p>
-          <button class="danger-button" type="button" disabled>Delete workspace</button>
-          <span class="control-note">Deletion control is being finalized</span>
+          <a class="danger-button" href="{% url 'foundation:workspace-delete-confirm' %}">Delete workspace</a>
         </article>
       </div>
     </section>

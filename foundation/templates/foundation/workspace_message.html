@@ -1,0 +1,25 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · Reconciliation Workbench</title>
+  <link rel="icon" href="{% static 'foundation/favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'foundation/workspace.css' %}">
+</head>
+<body class="standalone-page">
+  <main id="main-content" tabindex="-1" class="standalone-shell">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Reconciliation <strong>Workbench</strong></span>
+    </div>
+    <section class="decision-card" aria-labelledby="message-heading">
+      <p class="section-kicker">{{ eyebrow }}</p>
+      <h1 id="message-heading">{{ title }}</h1>
+      <p>{{ message }}</p>
+      <a class="button button-primary button-link" href="/">{{ action }}</a>
+    </section>
+  </main>
+</body>
+</html>

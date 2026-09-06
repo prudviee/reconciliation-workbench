@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 
 from reconciliation.domain import WorkspaceAccess
 
@@ -59,5 +59,6 @@ class WorkspaceMiddleware:
             request.workspace_access = resolved.access  # type: ignore[attr-defined]
             request.workspace_record = resolved.record  # type: ignore[attr-defined]
         except WorkspaceUnavailable:
-            return HttpResponseNotFound("Not found")
+            request.session.flush()  # type: ignore[attr-defined]
+            return HttpResponseRedirect("/workspace/unavailable")
         return None

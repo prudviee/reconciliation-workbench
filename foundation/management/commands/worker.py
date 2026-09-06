@@ -5,7 +5,13 @@ import time
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
+from django.core.management.base import CommandError
 from django.db import close_old_connections, connection
+from django.utils import timezone
+
+from reconciliation.domain import WorkspaceId
+from workspaces.guards import WorkspaceBoundaryGuard
+from workspaces.repositories import WorkspaceUnavailable
 
 
 class Command(BaseCommand):
@@ -14,11 +20,22 @@ class Command(BaseCommand):
     def add_arguments(self, parser) -> None:
         parser.add_argument("--once", action="store_true")
         parser.add_argument("--interval", type=float, default=5.0)
+        parser.add_argument("--workspace-id")
 
     def handle(self, *args, **options) -> None:
         interval = options["interval"]
         if interval <= 0:
             raise ValueError("--interval must be greater than zero")
+
+        workspace_id = options["workspace_id"]
+        if workspace_id:
+            try:
+                WorkspaceBoundaryGuard().require_active(
+                    WorkspaceId.parse(workspace_id),
+                    now=timezone.now(),
+                )
+            except (ValueError, WorkspaceUnavailable) as error:
+                raise CommandError("workspace unavailable") from error
 
         while True:
             close_old_connections()

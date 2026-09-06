@@ -1,0 +1,35 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delete workspace · Reconciliation Workbench</title>
+  <link rel="icon" href="{% static 'foundation/favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'foundation/workspace.css' %}">
+</head>
+<body class="standalone-page">
+  <main id="main-content" tabindex="-1" class="standalone-shell">
+    <a class="brand" href="/" aria-label="Return to workspace">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Reconciliation <strong>Workbench</strong></span>
+    </a>
+    <section class="decision-card" aria-labelledby="delete-heading">
+      <p class="section-kicker">Permanent access change</p>
+      <h1 id="delete-heading">Delete this workspace?</h1>
+      <p>Access from this browser will be revoked immediately. Books, uploaded files, results, and history will be queued for private cleanup.</p>
+      <div class="decision-warning" role="note">
+        <strong>This cannot be recovered.</strong>
+        The workspace would otherwise expire on {{ expires_display }}.
+      </div>
+      <div class="decision-actions">
+        <form method="post" action="{% url 'foundation:workspace-delete' %}">
+          {% csrf_token %}
+          <button class="button button-danger" type="submit">Yes, delete workspace</button>
+        </form>
+        <a class="button button-secondary button-link" href="/">Keep workspace</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
