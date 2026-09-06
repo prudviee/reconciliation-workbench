@@ -1,12 +1,17 @@
 from django.db import connection
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from books.repositories import BookUnavailable, WorkspaceBookRepository
+from ingestion.repositories import (
+    IngestionResourceUnavailable,
+    WorkspaceIngestionRepository,
+)
+from ingestion.services import configured_artifact_store
 from reconciliation.domain import BookId, QuotaExceeded, QuotaResource
 from workspaces.middleware import workspace_access, workspace_record, workspace_required
 from workspaces.lifecycle import WorkspaceLifecycleService
@@ -56,6 +61,28 @@ def book_rename(request: HttpRequest, book_id: object) -> JsonResponse:
     except BookUnavailable:
         return JsonResponse({"detail": "Not found"}, status=404)
     return JsonResponse({"id": str(book.id), "name": book.name})
+
+
+@workspace_required
+@require_GET
+def artifact_download(request: HttpRequest, artifact_id: object) -> HttpResponse:
+    access = workspace_access(request)
+    try:
+        artifact = WorkspaceIngestionRepository(access.workspace_id).get_artifact(
+            artifact_id
+        )
+        stream = configured_artifact_store().resolve(artifact.storage_key).open("rb")
+    except (IngestionResourceUnavailable, FileNotFoundError, OSError, ValueError):
+        raise Http404 from None
+    response = FileResponse(
+        stream,
+        as_attachment=True,
+        filename=artifact.original_filename,
+        content_type=artifact.content_type,
+    )
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @workspace_required

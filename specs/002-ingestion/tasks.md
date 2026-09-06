@@ -58,7 +58,7 @@
 
 ## Phase 4: secure showcase workflow
 
-- [ ] **ING-T09 — Enforce cancellation and ingestion isolation at every boundary** (`ING-012`, `ING-018`; `ING-A12`, `ING-A15`)
+- [x] **ING-T09 — Enforce cancellation and ingestion isolation at every boundary** (`ING-012`, `ING-018`; `ING-A12`, `ING-A15`)
   - Change: ineligible cancelled observations, scoped repositories/routes, authorized private byte downloads, revoked-workspace guards, safe content disposition and logs.
   - Verify: owner/foreign/random/expired/deleted cases for every ingestion resource and mutation; cancelled rows never enter the eligible-input adapter.
   - Evidence: contract-suite matrix and sanitized download headers/log capture.
@@ -90,10 +90,10 @@
 | ING-009 | ING-T07, ING-T11 | ING-A03 | Partial: T07 passed |
 | ING-010 | ING-T07, ING-T11 | ING-A03 | Partial: T07 passed |
 | ING-011 | ING-T04, ING-T10, ING-T11 | ING-A11 | Partial: T04 passed |
-| ING-012 | ING-T01, ING-T09, ING-T11 | ING-A12 | Partial: T01 passed |
+| ING-012 | ING-T01, ING-T09, ING-T11 | ING-A12 | Partial: T01, T09 passed |
 | ING-013 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A07 | Partial: T03–T04 passed |
 | ING-014 | ING-T01, ING-T11 | ING-A08 | Partial: T01 passed |
 | ING-015 | ING-T01, ING-T05, ING-T11 | ING-A09 | Partial: T01, T05 passed |
 | ING-016 | ING-T01, ING-T08, ING-T11 | ING-A13 | Partial: T01, T08 passed |
 | ING-017 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A14 | Partial: T03–T04 passed |
-| ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | Partial: T02–T03 passed |
+| ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | Partial: T02–T03, T09 passed |

@@ -554,3 +554,59 @@ def test_ingestion_schema_contains_workspace_and_candidate_indexes() -> None:
     assert observation_constraints["observation_candidate_idx"]["index"] is True
     assert membership_constraints["membership_ws_revision_idx"]["index"] is True
     assert membership_constraints["membership_revision_logical_unique"]["unique"] is True
+
+
+def test_candidate_input_boundary_excludes_cancelled_memberships() -> None:
+    workspace = create_workspace()
+    graph = create_source_graph(workspace, create_book(workspace))
+    repository = WorkspaceIngestionRepository(WorkspaceId(workspace.id))
+    cancelled_raw = repository.create_raw_row(
+        attempt_id=graph["attempt"].id,
+        row_number=3,
+        raw_values={"trade_id": {"kind": "VALUE", "original": "T-1002"}},
+        canonical_preview={"source_record_key": "T-1002"},
+        validation=[],
+    )
+    cancelled_logical = repository.create_logical_transaction(
+        book_source_id=graph["book_source"].id,
+        source_record_key="T-1002",
+        created_at=NOW,
+    )
+    cancelled = repository.create_observation(
+        logical_transaction_id=cancelled_logical.id,
+        raw_row_id=cancelled_raw.id,
+        business_reference="T-1002",
+        executed_at_utc=NOW,
+        instrument="BTC-USD",
+        side="BUY",
+        quantity=Decimal("1"),
+        unit_price=Decimal("100"),
+        gross_amount=Decimal("100"),
+        currency="USD",
+        state="CANCELLED",
+        eligible_for_matching=False,
+        provenance={},
+        fingerprint="1" * 64,
+        created_at=NOW,
+    )
+    repository.create_membership(
+        revision_id=graph["revision"].id,
+        logical_transaction_id=cancelled_logical.id,
+        observation_id=cancelled.id,
+    )
+
+    eligible = repository.list_eligible_memberships(graph["revision"].id)
+
+    assert [item.observation_id for item in eligible] == [graph["observation"].id]
+    assert TransactionObservation.objects.filter(id=cancelled.id).exists()
+
+
+def test_candidate_input_boundary_hides_foreign_and_random_revisions() -> None:
+    owner = create_workspace()
+    outsider = create_workspace()
+    graph = create_source_graph(owner, create_book(owner))
+    repository = WorkspaceIngestionRepository(WorkspaceId(outsider.id))
+
+    for revision_id in (graph["revision"].id, uuid4()):
+        with pytest.raises(IngestionResourceUnavailable):
+            repository.list_eligible_memberships(revision_id)

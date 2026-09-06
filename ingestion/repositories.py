@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from reconciliation.domain import WorkspaceId
+from reconciliation.domain import CanonicalState, WorkspaceId
 from sources.models import BookSource, SourceContractRevision
 
 from .models import (
@@ -56,6 +56,23 @@ class WorkspaceIngestionRepository:
 
     def get_membership(self, value: int) -> DatasetMembership:
         return self._get(DatasetMembership, value)
+
+    def list_eligible_memberships(
+        self,
+        revision_id: UUID,
+    ) -> tuple[DatasetMembership, ...]:
+        """Return the only ingestion evidence allowed into candidate generation."""
+        revision = self.get_revision(revision_id)
+        return tuple(
+            DatasetMembership.objects.owned_by(self.workspace_id)
+            .filter(
+                dataset_revision=revision,
+                observation__eligible_for_matching=True,
+                observation__state=CanonicalState.SETTLED,
+            )
+            .select_related("logical_transaction", "observation")
+            .order_by("logical_transaction__source_record_key")
+        )
 
     def create_dataset(self, *, book_source_id: UUID, coverage_key: str, created_at) -> Dataset:
         try:

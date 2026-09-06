@@ -9,6 +9,11 @@ urlpatterns = [
     path("health/ready", views.readiness, name="readiness"),
     path("books/<uuid:book_id>", views.book_detail, name="book-detail"),
     path("books/<uuid:book_id>/rename", views.book_rename, name="book-rename"),
+    path(
+        "artifacts/<uuid:artifact_id>/download",
+        views.artifact_download,
+        name="artifact-download",
+    ),
     path("books/demo", views.create_demo_book, name="book-demo-create"),
     path(
         "workspace/delete",
