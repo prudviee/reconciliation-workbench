@@ -1,4 +1,4 @@
-"""Atomic full-snapshot publication from retained preview evidence."""
+"""Atomic full-snapshot and explicit-delta publication."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from reconciliation.domain import (
     DatasetMode,
+    IngestionOperation,
     WorkspaceId,
     observation_fingerprint,
     resolved_state_hash,
@@ -84,9 +85,6 @@ class FullSnapshotActivationService:
             if dataset.current_revision_id != attempt.expected_base_id:
                 raise StalePreview
             contract = contract_from_payload(attempt.contract_revision.contract)
-            if contract.mode is not DatasetMode.FULL_SNAPSHOT:
-                raise InvalidPreviewEvidence("attempt is not a full snapshot")
-
             rows = list(
                 RawRow.objects.owned_by(workspace_id)
                 .filter(attempt=attempt)
@@ -101,30 +99,73 @@ class FullSnapshotActivationService:
 
             repository = WorkspaceIngestionRepository(workspace_id)
             prepared = []
-            state_members: list[tuple[str, str]] = []
+            resolved_members: dict[
+                str,
+                tuple[LogicalTransaction | None, TransactionObservation | None, str],
+            ] = {}
+            if contract.mode is DatasetMode.DELTA and attempt.expected_base_id is not None:
+                base_memberships = (
+                    attempt.expected_base.memberships.select_related(
+                        "logical_transaction",
+                        "observation",
+                    )
+                    .order_by("logical_transaction__source_record_key")
+                )
+                for membership in base_memberships:
+                    resolved_members[
+                        membership.logical_transaction.source_record_key
+                    ] = (
+                        membership.logical_transaction,
+                        membership.observation,
+                        membership.observation.fingerprint,
+                    )
             source_keys: set[str] = set()
             for raw_row in rows:
                 if raw_row.validation:
                     raise InvalidPreviewEvidence("preview contains row errors")
+                preview = raw_row.canonical_preview
+                if not isinstance(preview, dict) or preview.get("complete") is not True:
+                    raise InvalidPreviewEvidence("preview contains incomplete canonical evidence")
+                source_key = preview.get("source_record_key")
                 try:
-                    canonical = canonical_from_payload(raw_row.canonical_preview)
+                    operation = IngestionOperation(preview.get("operation"))
+                except (TypeError, ValueError) as error:
+                    raise InvalidPreviewEvidence("preview contains an invalid operation") from error
+                if not isinstance(source_key, str) or not source_key.strip():
+                    raise InvalidPreviewEvidence("preview contains an invalid source key")
+                if int(preview.get("row_number", 0)) != raw_row.row_number:
+                    raise InvalidPreviewEvidence("preview row number is inconsistent")
+                if source_key in source_keys:
+                    raise InvalidPreviewEvidence("preview contains duplicate source keys")
+                source_keys.add(source_key)
+
+                if contract.mode is DatasetMode.FULL_SNAPSHOT:
+                    if operation is not IngestionOperation.SNAPSHOT:
+                        raise InvalidPreviewEvidence("full snapshot contains a delta operation")
+                elif operation is IngestionOperation.SNAPSHOT:
+                    raise InvalidPreviewEvidence("delta contains a snapshot operation")
+
+                if operation is IngestionOperation.RETRACT:
+                    resolved_members.pop(source_key, None)
+                    prepared.append((raw_row, None, None))
+                    continue
+                try:
+                    canonical = canonical_from_payload(preview)
                 except (TypeError, ValueError) as error:
                     raise InvalidPreviewEvidence(
                         "preview contains incomplete canonical evidence"
                     ) from error
-                if canonical.row_number != raw_row.row_number:
-                    raise InvalidPreviewEvidence("preview row number is inconsistent")
-                if canonical.source_record_key in source_keys:
-                    raise InvalidPreviewEvidence("preview contains duplicate source keys")
-                source_keys.add(canonical.source_record_key)
                 fingerprint = observation_fingerprint(
                     contract_digest=attempt.contract_revision.digest,
                     row=canonical,
                 )
                 prepared.append((raw_row, canonical, fingerprint))
-                state_members.append((canonical.source_record_key, fingerprint))
+                resolved_members[source_key] = (None, None, fingerprint)
 
-            proposed_state_hash = resolved_state_hash(state_members)
+            proposed_state_hash = resolved_state_hash(
+                (source_key, member[2])
+                for source_key, member in resolved_members.items()
+            )
             if (
                 dataset.current_revision is not None
                 and dataset.current_revision.state_hash == proposed_state_hash
@@ -139,8 +180,12 @@ class FullSnapshotActivationService:
                 self._finish_without_revision(attempt, AttemptState.REPLAYED)
                 return None
 
-            members: list[tuple[LogicalTransaction, TransactionObservation]] = []
+            newly_observed: dict[
+                str, tuple[LogicalTransaction, TransactionObservation, str]
+            ] = {}
             for raw_row, canonical, fingerprint in prepared:
+                if canonical is None:
+                    continue
                 logical, _ = LogicalTransaction.objects.get_or_create(
                     workspace_id=workspace_id.value,
                     book_source=dataset.book_source,
@@ -164,7 +209,13 @@ class FullSnapshotActivationService:
                     fingerprint=fingerprint,
                     created_at=self.clock(),
                 )
-                members.append((logical, observation))
+                newly_observed[canonical.source_record_key] = (
+                    logical,
+                    observation,
+                    fingerprint,
+                )
+
+            resolved_members.update(newly_observed)
 
             revision = repository.create_revision(
                 dataset_id=dataset.id,
@@ -177,7 +228,8 @@ class FullSnapshotActivationService:
                 revision_id=revision.id,
                 members=(
                     (logical.id, observation.id)
-                    for logical, observation in members
+                    for logical, observation, _ in resolved_members.values()
+                    if logical is not None and observation is not None
                 ),
             )
             attempt.state = AttemptState.ACTIVATED

@@ -120,9 +120,6 @@ class PreviewService:
             raise IngestionResourceUnavailable
         contract = contract_from_payload(contract_revision.contract)
         self._verify_revision_contract(contract_revision, contract)
-        if contract.mode is not DatasetMode.FULL_SNAPSHOT:
-            raise InvalidSourceContract("delta preview is implemented in ING-T08")
-
         path = self.store.resolve(artifact.storage_key)
         interpreted = interpret_csv(
             path,
@@ -325,7 +322,71 @@ def _interpret_row(
         )
         return value
 
-    for field in ("source_record_key", "instrument", "currency"):
+    operation = IngestionOperation.SNAPSHOT
+    if contract.mode is DatasetMode.DELTA:
+        operation_cell = cells.get(contract.operation_field, RawCell.missing())
+        try:
+            operation = parse_enum_value(
+                operation_cell,
+                row_number=row_number,
+                field="operation",
+                mapping=contract.operation_mapping,
+            )
+        except FieldInterpretationError as error:
+            issue = error.issue
+            issues.append(
+                RowIssue(
+                    row_number=issue.row_number,
+                    field=issue.field,
+                    code=RowErrorCode.INVALID_OPERATION,
+                    original_value=issue.original_value,
+                    expected=issue.expected,
+                )
+            )
+        else:
+            provenance.append(
+                FieldProvenance(
+                    canonical_field="operation",
+                    source_column=contract.operation_field,
+                    raw_cell=operation_cell,
+                    transformation="declared operation mapping",
+                )
+            )
+
+    parsed["source_record_key"] = parse(
+        "source_record_key",
+        lambda cell: parse_required_text(
+            cell,
+            row_number=row_number,
+            field="source_record_key",
+        ),
+    )
+
+    if operation is IngestionOperation.RETRACT and not issues:
+        return InterpretedRow(
+            row_number,
+            raw_values,
+            None,
+            {
+                "complete": True,
+                "row_number": row_number,
+                "source_record_key": parsed["source_record_key"],
+                "operation": operation.value,
+                "provenance": [
+                    {
+                        "canonical_field": item.canonical_field,
+                        "source_column": item.source_column,
+                        "kind": item.raw_cell.kind.value,
+                        "original": item.raw_cell.original,
+                        "transformation": item.transformation,
+                    }
+                    for item in provenance
+                ],
+            },
+            (),
+        )
+
+    for field in ("instrument", "currency"):
         parsed[field] = parse(
             field,
             lambda cell, field=field: parse_required_text(
@@ -403,7 +464,7 @@ def _interpret_row(
             gross_amount=parsed["gross_amount"],
             currency=parsed["currency"],
             state=parsed["state"],
-            operation=IngestionOperation.SNAPSHOT,
+            operation=operation,
             provenance=tuple(provenance),
         )
     canonical_preview = (
@@ -602,6 +663,23 @@ def _semantic_row(row: InterpretedRow) -> SemanticInputRow:
         return semantic_row_from_canonical(row.canonical)
 
     preview = row.canonical_preview or {}
+    if (
+        preview.get("complete") is True
+        and preview.get("operation") == IngestionOperation.RETRACT.value
+        and preview.get("source_record_key")
+    ):
+        return SemanticInputRow(
+            IngestionOperation.RETRACT.value,
+            (
+                (
+                    "source_record_key",
+                    SemanticValue(
+                        SemanticValueTag.TEXT,
+                        str(preview["source_record_key"]),
+                    ),
+                ),
+            ),
+        )
     required = {
         "source_record_key",
         "executed_at_utc",
