@@ -41,7 +41,7 @@
 
 ## Phase 3: immutable activation
 
-- [ ] **ING-T06 — Activate full snapshots atomically** (`ING-005`–`ING-008`; `ING-A04`, `ING-A05`, `ING-A10`)
+- [x] **ING-T06 — Activate full snapshots atomically** (`ING-005`–`ING-008`; `ING-A04`, `ING-A05`, `ING-A10`)
   - Change: row-locked activation, logical identities, immutable observations, dataset revisions/memberships, state hash, final head publication.
   - Verify: first activation, omission removal, malformed refusal, injected mid-activation rollback, historical evidence retention, and concurrent same-base conflict.
   - Evidence: transaction/failure results and before/after membership sets.
@@ -83,10 +83,10 @@
 | ING-002 | ING-T01, ING-T02, ING-T04, ING-T11 | ING-A01, ING-A11 | Partial: T01–T02, T04 passed |
 | ING-003 | ING-T04, ING-T10, ING-T11 | ING-A01 | Partial: T04 passed |
 | ING-004 | ING-T01, ING-T04, ING-T10, ING-T11 | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | Partial: T01, T04 passed |
-| ING-005 | ING-T06, ING-T11 | ING-A05 | No |
-| ING-006 | ING-T06, ING-T08, ING-T11 | ING-A04 | No |
-| ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | Partial: T02 passed |
-| ING-008 | ING-T05–ING-T08, ING-T11 | ING-A03, ING-A06, ING-A09, ING-A17 | Partial: T05 passed |
+| ING-005 | ING-T06, ING-T11 | ING-A05 | Partial: T06 passed |
+| ING-006 | ING-T06, ING-T08, ING-T11 | ING-A04 | Partial: T06 passed |
+| ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | Partial: T02, T06 passed |
+| ING-008 | ING-T05–ING-T08, ING-T11 | ING-A03, ING-A06, ING-A09, ING-A17 | Partial: T05–T06 passed |
 | ING-009 | ING-T07, ING-T11 | ING-A03 | No |
 | ING-010 | ING-T07, ING-T11 | ING-A03 | No |
 | ING-011 | ING-T04, ING-T10, ING-T11 | ING-A11 | Partial: T04 passed |

@@ -202,7 +202,7 @@ class WorkspaceIngestionRepository:
         currency: str,
         state: str,
         eligible_for_matching: bool,
-        provenance: dict[str, Any],
+        provenance: dict[str, Any] | list[dict[str, Any]],
         fingerprint: str,
         created_at: datetime,
     ) -> TransactionObservation:
@@ -279,6 +279,49 @@ class WorkspaceIngestionRepository:
             logical_transaction=logical,
             observation=observation,
         )
+
+    def create_memberships(
+        self,
+        *,
+        revision_id: UUID,
+        members: Iterable[tuple[UUID, UUID]],
+    ) -> list[DatasetMembership]:
+        revision = self.get_revision(revision_id)
+        member_values = tuple(members)
+        logical_ids = {logical_id for logical_id, _ in member_values}
+        observation_ids = {observation_id for _, observation_id in member_values}
+        logicals = {
+            value.id: value
+            for value in LogicalTransaction.objects.owned_by(self.workspace_id).filter(
+                id__in=logical_ids
+            )
+        }
+        observations = {
+            value.id: value
+            for value in TransactionObservation.objects.owned_by(
+                self.workspace_id
+            ).filter(id__in=observation_ids)
+        }
+        if set(logicals) != logical_ids or set(observations) != observation_ids:
+            raise IngestionResourceUnavailable
+        values = []
+        for logical_id, observation_id in member_values:
+            logical = logicals[logical_id]
+            observation = observations[observation_id]
+            if (
+                observation.logical_transaction_id != logical.id
+                or revision.dataset.book_source_id != logical.book_source_id
+            ):
+                raise IngestionResourceUnavailable
+            values.append(
+                DatasetMembership(
+                    workspace_id=self.workspace_id.value,
+                    dataset_revision=revision,
+                    logical_transaction=logical,
+                    observation=observation,
+                )
+            )
+        return DatasetMembership.objects.bulk_create(values, batch_size=500)
 
     def _get(self, model, public_id):
         try:

@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 from pathlib import Path
 from typing import Any, TypeVar
 from uuid import UUID
@@ -19,6 +19,7 @@ from reconciliation.domain import (
     CanonicalSide,
     CanonicalState,
     DatasetMode,
+    DomainValidationError,
     FieldInterpretationError,
     FieldProvenance,
     IngestionOperation,
@@ -46,7 +47,8 @@ from sources.adapters import InvalidSourceContract, contract_from_payload
 from sources.models import SourceContractRevision
 from sources.repositories import WorkspaceSourceRepository
 from workspaces.lifecycle import WorkspaceLifecycleService
-from workspaces.repositories import WorkspaceRepository
+from workspaces.models import Workspace
+from workspaces.repositories import WorkspaceRepository, WorkspaceUnavailable
 
 from .artifacts import (
     IntakeLimits,
@@ -136,6 +138,11 @@ class PreviewService:
         )
         completed_at = self.clock()
         with transaction.atomic():
+            locked_workspace = self._locked_workspace(workspace_id)
+            self.lifecycle_service.require_active(
+                locked_workspace,
+                now=self.clock(),
+            )
             attempt = repository.create_attempt(
                 artifact_id=artifact.id,
                 dataset_id=dataset.id,
@@ -166,6 +173,13 @@ class PreviewService:
                 ),
             )
         return attempt
+
+    @staticmethod
+    def _locked_workspace(workspace_id: WorkspaceId) -> Workspace:
+        try:
+            return Workspace.objects.select_for_update().get(id=workspace_id.value)
+        except Workspace.DoesNotExist as error:
+            raise WorkspaceUnavailable from error
 
     @staticmethod
     def _verify_revision_contract(
@@ -507,6 +521,50 @@ def canonical_to_payload(row: CanonicalRow) -> dict[str, Any]:
             for item in row.provenance
         ],
     }
+
+
+def canonical_from_payload(payload: dict[str, Any]) -> CanonicalRow:
+    if not isinstance(payload, dict) or payload.get("complete") is not True:
+        raise ValueError("canonical preview is incomplete")
+    try:
+        provenance = tuple(
+            FieldProvenance(
+                canonical_field=item["canonical_field"],
+                source_column=item.get("source_column"),
+                raw_cell=RawCell(
+                    RawCellKind(item["kind"]),
+                    item.get("original"),
+                ),
+                transformation=item["transformation"],
+            )
+            for item in payload["provenance"]
+        )
+        return CanonicalRow(
+            row_number=int(payload["row_number"]),
+            source_record_key=payload["source_record_key"],
+            business_reference=payload.get("business_reference"),
+            executed_at_utc=datetime.fromisoformat(
+                payload["executed_at_utc"].replace("Z", "+00:00")
+            ),
+            instrument=payload["instrument"],
+            side=CanonicalSide(payload["side"]),
+            quantity=Decimal(payload["quantity"]),
+            unit_price=Decimal(payload["unit_price"]),
+            gross_amount=Decimal(payload["gross_amount"]),
+            currency=payload["currency"],
+            state=CanonicalState(payload["state"]),
+            operation=IngestionOperation(payload["operation"]),
+            provenance=provenance,
+        )
+    except (
+        AttributeError,
+        DecimalException,
+        DomainValidationError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as error:
+        raise ValueError("canonical preview payload is invalid") from error
 
 
 def partial_canonical_to_payload(
