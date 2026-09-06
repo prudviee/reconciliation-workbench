@@ -86,6 +86,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "workspaces",
     "books",
+    "sources",
+    "ingestion",
     "foundation",
 ]
 

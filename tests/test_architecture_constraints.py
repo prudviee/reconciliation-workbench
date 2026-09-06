@@ -12,8 +12,10 @@ FORBIDDEN_DOMAIN_IMPORTS = {
     "config",
     "django",
     "foundation",
+    "ingestion",
     "observability",
     "psycopg",
+    "sources",
     "workspaces",
 }
 
@@ -49,8 +51,10 @@ def test_distribution_discovers_every_application_package() -> None:
         "books*",
         "config*",
         "foundation*",
+        "ingestion*",
         "observability*",
         "reconciliation*",
+        "sources*",
         "workspaces*",
     }
 

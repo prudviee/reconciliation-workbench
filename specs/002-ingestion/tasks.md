@@ -17,7 +17,7 @@
   - Verify: framework-free imports; decimal precision/non-finite boundaries; aware/naive/ambiguous datetime cases; enum and required-value failures; cancelled eligibility.
   - Evidence: focused unit/property results and representative boundary table.
 
-- [ ] **ING-T02 — Add workspace-owned ingestion persistence** (`ING-001`, `ING-002`, `ING-007`, `ING-018`; `ING-A10`, `ING-A15`)
+- [x] **ING-T02 — Add workspace-owned ingestion persistence** (`ING-001`, `ING-002`, `ING-007`, `ING-018`; `ING-A10`, `ING-A15`)
   - Change: source, book-side, mapping/contract revision, dataset, artifact, attempt, raw-row, logical identity, observation, revision, and membership models with constraints/indexes.
   - Verify: migrations, immutability entry points, same-workspace relationships, owner access, and foreign/random identifier parity.
   - Evidence: schema/constraint inspection and reusable isolation-contract results.
@@ -79,13 +79,13 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| ING-001 | ING-T02, ING-T03, ING-T11 | ING-A10 | No |
-| ING-002 | ING-T01, ING-T02, ING-T04, ING-T11 | ING-A01, ING-A11 | Partial: T01 passed |
+| ING-001 | ING-T02, ING-T03, ING-T11 | ING-A10 | Partial: T02 passed |
+| ING-002 | ING-T01, ING-T02, ING-T04, ING-T11 | ING-A01, ING-A11 | Partial: T01–T02 passed |
 | ING-003 | ING-T04, ING-T10, ING-T11 | ING-A01 | No |
 | ING-004 | ING-T01, ING-T04, ING-T10, ING-T11 | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | Partial: T01 passed |
 | ING-005 | ING-T06, ING-T11 | ING-A05 | No |
 | ING-006 | ING-T06, ING-T08, ING-T11 | ING-A04 | No |
-| ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | No |
+| ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | Partial: T02 passed |
 | ING-008 | ING-T05–ING-T08, ING-T11 | ING-A03, ING-A06, ING-A09, ING-A17 | No |
 | ING-009 | ING-T07, ING-T11 | ING-A03 | No |
 | ING-010 | ING-T07, ING-T11 | ING-A03 | No |
@@ -96,4 +96,4 @@
 | ING-015 | ING-T01, ING-T05, ING-T11 | ING-A09 | Partial: T01 passed |
 | ING-016 | ING-T01, ING-T08, ING-T11 | ING-A13 | Partial: T01 passed |
 | ING-017 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A14 | No |
-| ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | No |
+| ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | Partial: T02 passed |
