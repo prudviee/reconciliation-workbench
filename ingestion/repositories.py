@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -103,6 +104,7 @@ class WorkspaceIngestionRepository:
         error_count: int,
         created_at: datetime,
         completed_at: datetime | None,
+        validation: list[dict[str, Any]] | None = None,
     ) -> IngestionAttempt:
         artifact = self.get_artifact(artifact_id)
         dataset = self.get_dataset(dataset_id)
@@ -126,6 +128,7 @@ class WorkspaceIngestionRepository:
             delimiter=delimiter,
             row_count=row_count,
             error_count=error_count,
+            validation=validation or [],
             created_at=created_at,
             completed_at=completed_at,
         )
@@ -135,7 +138,7 @@ class WorkspaceIngestionRepository:
         *,
         attempt_id: UUID,
         row_number: int,
-        raw_values: dict[str, Any],
+        raw_values: dict[str, Any] | list[dict[str, Any]],
         canonical_preview: dict[str, Any] | None,
         validation: list[dict[str, Any]],
     ) -> RawRow:
@@ -148,6 +151,26 @@ class WorkspaceIngestionRepository:
             canonical_preview=canonical_preview,
             validation=validation,
         )
+
+    def create_raw_rows(
+        self,
+        *,
+        attempt_id: UUID,
+        rows: Iterable[dict[str, Any]],
+    ) -> list[RawRow]:
+        attempt = self.get_attempt(attempt_id)
+        values = [
+            RawRow(
+                workspace_id=self.workspace_id.value,
+                attempt=attempt,
+                row_number=row["row_number"],
+                raw_values=row["raw_values"],
+                canonical_preview=row["canonical_preview"],
+                validation=row["validation"],
+            )
+            for row in rows
+        ]
+        return RawRow.objects.bulk_create(values, batch_size=500)
 
     def create_logical_transaction(
         self,

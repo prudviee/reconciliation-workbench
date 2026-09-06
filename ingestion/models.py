@@ -72,6 +72,7 @@ class IngestionAttempt(models.Model):
     delimiter = models.CharField(max_length=1)
     row_count = models.PositiveIntegerField(default=0)
     error_count = models.PositiveIntegerField(default=0)
+    validation = models.JSONField(default=list)
     created_at = models.DateTimeField()
     completed_at = models.DateTimeField(null=True, blank=True)
     objects = WorkspaceOwnedQuerySet.as_manager()

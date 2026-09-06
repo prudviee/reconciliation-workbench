@@ -69,6 +69,12 @@ class CsvScan:
 
 
 @dataclass(frozen=True, slots=True)
+class CsvContent:
+    scan: CsvScan
+    rows: tuple[tuple[str, ...], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class StagedArtifact:
     path: Path
     physical_hash: str
@@ -195,3 +201,31 @@ def _scan_locked(path: Path, *, delimiter: str, limits: IntakeLimits) -> CsvScan
 def _check_column_limit(row: tuple[str, ...] | list[str], maximum: int) -> None:
     if len(row) > maximum:
         raise ArtifactIntakeError(ArtifactFailureCode.COLUMN_LIMIT, maximum)
+
+
+def read_bounded_csv(
+    path: Path,
+    *,
+    delimiter: str,
+    limits: IntakeLimits,
+) -> CsvContent:
+    """Read previously staged bytes with the same structural limits."""
+    if delimiter not in SUPPORTED_DELIMITERS:
+        raise ArtifactIntakeError(ArtifactFailureCode.UNSUPPORTED_DELIMITER)
+    with _CSV_FIELD_LIMIT_LOCK:
+        previous_limit = csv.field_size_limit()
+        csv.field_size_limit(limits.max_field_characters)
+        try:
+            scan = _scan_locked(path, delimiter=delimiter, limits=limits)
+            with path.open(
+                "r",
+                encoding="utf-8-sig",
+                errors="strict",
+                newline="",
+            ) as stream:
+                reader = csv.reader(stream, delimiter=delimiter, strict=True)
+                next(reader)
+                rows = tuple(tuple(row) for row in reader)
+        finally:
+            csv.field_size_limit(previous_limit)
+    return CsvContent(scan, rows)
