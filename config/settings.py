@@ -170,6 +170,18 @@ WORKSPACE_RETAINED_BYTES_LIMIT = env_nonnegative_int(
 WORKSPACE_BOOK_LIMIT = env_nonnegative_int("WORKSPACE_BOOK_LIMIT", 10)
 WORKSPACE_ACTIVE_JOB_LIMIT = env_nonnegative_int("WORKSPACE_ACTIVE_JOB_LIMIT", 2)
 
+INGESTION_PRIVATE_ROOT = Path(
+    os.getenv("INGESTION_PRIVATE_ROOT", BASE_DIR / ".private-artifacts")
+).resolve()
+INGESTION_MAX_BYTES = env_nonnegative_int(
+    "INGESTION_MAX_BYTES", 25 * 1024 * 1024
+)
+INGESTION_MAX_ROWS = env_nonnegative_int("INGESTION_MAX_ROWS", 10_000)
+INGESTION_MAX_COLUMNS = env_nonnegative_int("INGESTION_MAX_COLUMNS", 100)
+INGESTION_MAX_FIELD_CHARACTERS = env_nonnegative_int(
+    "INGESTION_MAX_FIELD_CHARACTERS", 4_096
+)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

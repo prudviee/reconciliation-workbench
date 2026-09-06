@@ -24,7 +24,7 @@
 
 ## Phase 2: safe preview
 
-- [ ] **ING-T03 — Stream private artifacts under hard limits** (`ING-001`, `ING-013`, `ING-017`, `ING-018`; `ING-A07`, `ING-A10`, `ING-A14`, `ING-A15`)
+- [x] **ING-T03 — Stream private artifacts under hard limits** (`ING-001`, `ING-013`, `ING-017`, `ING-018`; `ING-A07`, `ING-A10`, `ING-A14`, `ING-A15`)
   - Change: generated private storage keys, UTF-8/BOM decoding, explicit delimiters, streamed physical hashing, byte/row/column/field limits, retained-byte quota transaction and compensation.
   - Verify: every limit boundary, invalid encoding, unsafe filename, quota refusal, file/record rollback, and revoked/foreign access.
   - Evidence: bounded-input tests, storage inspection, and quota invariants.
@@ -79,7 +79,7 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| ING-001 | ING-T02, ING-T03, ING-T11 | ING-A10 | Partial: T02 passed |
+| ING-001 | ING-T02, ING-T03, ING-T11 | ING-A10 | Partial: T02–T03 passed |
 | ING-002 | ING-T01, ING-T02, ING-T04, ING-T11 | ING-A01, ING-A11 | Partial: T01–T02 passed |
 | ING-003 | ING-T04, ING-T10, ING-T11 | ING-A01 | No |
 | ING-004 | ING-T01, ING-T04, ING-T10, ING-T11 | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | Partial: T01 passed |
@@ -91,9 +91,9 @@
 | ING-010 | ING-T07, ING-T11 | ING-A03 | No |
 | ING-011 | ING-T04, ING-T10, ING-T11 | ING-A11 | No |
 | ING-012 | ING-T01, ING-T09, ING-T11 | ING-A12 | Partial: T01 passed |
-| ING-013 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A07 | No |
+| ING-013 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A07 | Partial: T03 passed |
 | ING-014 | ING-T01, ING-T11 | ING-A08 | Partial: T01 passed |
 | ING-015 | ING-T01, ING-T05, ING-T11 | ING-A09 | Partial: T01 passed |
 | ING-016 | ING-T01, ING-T08, ING-T11 | ING-A13 | Partial: T01 passed |
-| ING-017 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A14 | No |
-| ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | Partial: T02 passed |
+| ING-017 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A14 | Partial: T03 passed |
+| ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | Partial: T02–T03 passed |

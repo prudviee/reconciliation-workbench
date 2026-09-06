@@ -6,5 +6,6 @@ __pycache__/
 htmlcov/
 .env
 .tmp/
+.private-artifacts/
 staticfiles/
 *.log
