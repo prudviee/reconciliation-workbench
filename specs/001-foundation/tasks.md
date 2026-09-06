@@ -54,7 +54,7 @@
 
 ## Phase 4: privacy and release evidence
 
-- [ ] **FND-T08 — Add correlation and privacy-safe structured logs** (`FND-009`; `FND-A09`)
+- [x] **FND-T08 — Add correlation and privacy-safe structured logs** (`FND-009`; `FND-A09`)
   - Change: correlation middleware, structured event schema, redaction/filtering.
   - Verify: capture successful and failed requests containing sentinel secrets/financial strings and assert absence with correlation present.
   - Evidence: redaction test summary without echoing the sentinels.
@@ -81,7 +81,7 @@
 | FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | Partial: T03 and T06 passed |
 | FND-007 | FND-T01, FND-T09, FND-T10 | FND-A05 | Partial: T01 passed |
 | FND-008 | FND-T04, FND-T10 | FND-A08 | Partial: T04 passed |
-| FND-009 | FND-T08, FND-T10 | FND-A09 | No |
+| FND-009 | FND-T08, FND-T10 | FND-A09 | Partial: T08 passed |
 | FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | Partial: T01 passed |
 | FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | Partial: T02 and T07 passed |
 | FND-012 | FND-T06, FND-T10 | FND-A07 | Partial: T06 passed |

@@ -20,7 +20,7 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | FND-A06 | Pass | `FND-T02.md` and `FND-T07.md`: exact seven-day UTC policy, unchanged persisted deadline across activity, boundary revocation, and durable cleanup signal passed. |
 | FND-A07 | Pass | `FND-T06.md`: two demo creations remained separate and preserved an existing user book. |
 | FND-A08 | Pass | `FND-T04.md`: missing CSRF proof was rejected; session cookie and fail-closed production settings were inspected. |
-| FND-A09 | Pending | Structured-log capture/redaction assertion |
+| FND-A09 | Pass | `FND-T08.md`: successful and failed request events carried bounded correlation IDs while request bodies, query values, cookies, and session secrets were excluded. |
 | FND-A10 | Pass for T01 scope | `FND-T01.md`: clean image build; PostgreSQL, web, and worker healthy; readiness and homepage returned 200 |
 | FND-A11 | Pass for current build | `FND-T02.md` and `FND-T05.md`: typed policy, row-locked persistence, atomic book creation/deletion, rollback, and concurrent capacity checks passed. Later bounded resource types must use the same service. |
 | FND-A12 | Pass | `FND-T06.md`: two independent sessions created demo books with isolated lists and counts. |
@@ -37,7 +37,7 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | FND-006 | Workspace-owned book/sample creation | FND-A12 | Pass |
 | FND-007 | Pure domain package | FND-A05 and architecture check | Pass for current package |
 | FND-008 | CSRF/session production settings | FND-A08 | Pass |
-| FND-009 | Correlation and log redaction | FND-A09 | Pending |
+| FND-009 | Correlation and log redaction | FND-A09 | Pass for request-boundary telemetry; later domain-event producers must use the same fixed-schema formatter |
 | FND-010 | Compose stack and health commands | FND-A10 | Pass; repeat at final release gate |
 | FND-011 | Fixed expiry policy | FND-A06 | Pass |
 | FND-012 | Independent demo-book creation | FND-A07 | Pass |
@@ -48,10 +48,10 @@ No implementation exists yet. `Pending` entries are deliberate and must not be r
 | Check | Result | Evidence to record |
 |---|---|---|
 | Unit | Pass for current scope | Domain import, opaque IDs, lifecycle, expiry, quota boundaries, and generated quota combinations passed |
-| Integration | Pass for current feature scope | Stack, persistence, session/HTTP ownership, demo books, deletion, expiry, cleanup signal, and worker boundary passed |
+| Integration | Pass for current feature scope | Stack, persistence, session/HTTP ownership, demo books, deletion, expiry, cleanup signal, worker boundary, and request telemetry passed |
 | Property | Pass for current scope | Expiry/activity invariance, generated quota combinations, and six-way concurrent reservations for every quota counter passed |
 | Browser | Pass for current feature scope | Desktop/mobile disclosure, refresh, keyboard skip, demo creation, and deletion confirmation passed without JavaScript; deletion POST passed through the server integration client |
-| Security/isolation | Partial | Persistence and HTTP foreign/random parity, CSRF rejection, secure cookie attributes, and production fail-closed settings passed; log coverage remains |
+| Security/isolation | Pass for current feature scope | Persistence and HTTP foreign/random parity, CSRF rejection, secure cookie attributes, production fail-closed settings, and request-log redaction passed |
 | Performance | Pending | Workspace query count and clean startup duration |
 
 ## Manual review

@@ -91,6 +91,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "observability.middleware.CorrelationLoggingMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -166,3 +167,26 @@ WORKSPACE_RETAINED_BYTES_LIMIT = env_nonnegative_int(
 )
 WORKSPACE_BOOK_LIMIT = env_nonnegative_int("WORKSPACE_BOOK_LIMIT", 10)
 WORKSPACE_ACTIVE_JOB_LIMIT = env_nonnegative_int("WORKSPACE_ACTIVE_JOB_LIMIT", 2)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "privacy_safe_json": {
+            "()": "observability.logging.PrivacySafeJsonFormatter",
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "privacy_safe_json",
+        }
+    },
+    "loggers": {
+        "reconciliation.requests": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        }
+    },
+}
