@@ -53,6 +53,10 @@ class InvalidPreviewEvidence(ActivationError):
     pass
 
 
+class InvalidRestoreReason(ActivationError):
+    pass
+
+
 @dataclass(slots=True)
 class FullSnapshotActivationService:
     clock: Callable[[], datetime] = timezone.now
@@ -65,7 +69,9 @@ class FullSnapshotActivationService:
         workspace_id: WorkspaceId,
         *,
         attempt_id: UUID,
-    ) -> DatasetRevision:
+        restore_reason: str | None = None,
+    ) -> DatasetRevision | None:
+        normalized_reason = self._restore_reason(restore_reason)
         workspace = WorkspaceRepository().get(workspace_id)
         self.lifecycle_service.require_active(workspace, now=self.clock())
         with transaction.atomic():
@@ -94,7 +100,7 @@ class FullSnapshotActivationService:
                 raise InvalidPreviewEvidence("preview row counts are inconsistent")
 
             repository = WorkspaceIngestionRepository(workspace_id)
-            members: list[tuple[LogicalTransaction, TransactionObservation]] = []
+            prepared = []
             state_members: list[tuple[str, str]] = []
             source_keys: set[str] = set()
             for raw_row in rows:
@@ -111,15 +117,35 @@ class FullSnapshotActivationService:
                 if canonical.source_record_key in source_keys:
                     raise InvalidPreviewEvidence("preview contains duplicate source keys")
                 source_keys.add(canonical.source_record_key)
+                fingerprint = observation_fingerprint(
+                    contract_digest=attempt.contract_revision.digest,
+                    row=canonical,
+                )
+                prepared.append((raw_row, canonical, fingerprint))
+                state_members.append((canonical.source_record_key, fingerprint))
+
+            proposed_state_hash = resolved_state_hash(state_members)
+            if (
+                dataset.current_revision is not None
+                and dataset.current_revision.state_hash == proposed_state_hash
+            ):
+                self._finish_without_revision(attempt, AttemptState.NO_CHANGE)
+                return None
+            historical_replay = DatasetRevision.objects.owned_by(workspace_id).filter(
+                dataset=dataset,
+                state_hash=proposed_state_hash,
+            ).exists()
+            if historical_replay and normalized_reason is None:
+                self._finish_without_revision(attempt, AttemptState.REPLAYED)
+                return None
+
+            members: list[tuple[LogicalTransaction, TransactionObservation]] = []
+            for raw_row, canonical, fingerprint in prepared:
                 logical, _ = LogicalTransaction.objects.get_or_create(
                     workspace_id=workspace_id.value,
                     book_source=dataset.book_source,
                     source_record_key=canonical.source_record_key,
                     defaults={"created_at": self.clock()},
-                )
-                fingerprint = observation_fingerprint(
-                    contract_digest=attempt.contract_revision.digest,
-                    row=canonical,
                 )
                 observation = repository.create_observation(
                     logical_transaction_id=logical.id,
@@ -139,13 +165,12 @@ class FullSnapshotActivationService:
                     created_at=self.clock(),
                 )
                 members.append((logical, observation))
-                state_members.append((canonical.source_record_key, fingerprint))
 
             revision = repository.create_revision(
                 dataset_id=dataset.id,
                 attempt_id=attempt.id,
                 parent_revision_id=attempt.expected_base_id,
-                state_hash=resolved_state_hash(state_members),
+                state_hash=proposed_state_hash,
                 created_at=self.clock(),
             )
             repository.create_memberships(
@@ -157,10 +182,33 @@ class FullSnapshotActivationService:
             )
             attempt.state = AttemptState.ACTIVATED
             attempt.completed_at = self.clock()
-            attempt.save(update_fields=["state", "completed_at"])
+            attempt.activation_reason = normalized_reason
+            attempt.save(
+                update_fields=["state", "completed_at", "activation_reason"]
+            )
             dataset.current_revision = revision
             dataset.save(update_fields=["current_revision"])
             return revision
+
+    def _finish_without_revision(
+        self,
+        attempt: IngestionAttempt,
+        state: AttemptState,
+    ) -> None:
+        attempt.state = state
+        attempt.completed_at = self.clock()
+        attempt.save(update_fields=["state", "completed_at"])
+
+    @staticmethod
+    def _restore_reason(value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise InvalidRestoreReason("restore reason must not be blank")
+        if len(normalized) > 1_000:
+            raise InvalidRestoreReason("restore reason must be at most 1000 characters")
+        return normalized
 
     @staticmethod
     def _locked_workspace(workspace_id: WorkspaceId) -> Workspace:

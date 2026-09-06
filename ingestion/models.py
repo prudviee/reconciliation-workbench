@@ -73,6 +73,7 @@ class IngestionAttempt(models.Model):
     row_count = models.PositiveIntegerField(default=0)
     error_count = models.PositiveIntegerField(default=0)
     validation = models.JSONField(default=list)
+    activation_reason = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField()
     completed_at = models.DateTimeField(null=True, blank=True)
     objects = WorkspaceOwnedQuerySet.as_manager()

@@ -46,7 +46,7 @@
   - Verify: first activation, omission removal, malformed refusal, injected mid-activation rollback, historical evidence retention, and concurrent same-base conflict.
   - Evidence: transaction/failure results and before/after membership sets.
 
-- [ ] **ING-T07 — Preserve corrections and prevent historical replay rollback** (`ING-007`, `ING-009`, `ING-010`; `ING-A03`, `ING-A10`)
+- [x] **ING-T07 — Preserve corrections and prevent historical replay rollback** (`ING-007`, `ING-009`, `ING-010`; `ING-A03`, `ING-A10`)
   - Change: correction classification, no-change detection, historical replay refusal, explicit restore-with-reason, optional trustworthy provider revision ordering.
   - Verify: original → correction → original replay; formatting-equivalent retry; restore as a new observation/revision; unchanged old bytes/rows/observations.
   - Evidence: temporal sequence with fixed IDs/hashes and immutable-history assertions.
@@ -85,10 +85,10 @@
 | ING-004 | ING-T01, ING-T04, ING-T10, ING-T11 | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | Partial: T01, T04 passed |
 | ING-005 | ING-T06, ING-T11 | ING-A05 | Partial: T06 passed |
 | ING-006 | ING-T06, ING-T08, ING-T11 | ING-A04 | Partial: T06 passed |
-| ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | Partial: T02, T06 passed |
-| ING-008 | ING-T05–ING-T08, ING-T11 | ING-A03, ING-A06, ING-A09, ING-A17 | Partial: T05–T06 passed |
-| ING-009 | ING-T07, ING-T11 | ING-A03 | No |
-| ING-010 | ING-T07, ING-T11 | ING-A03 | No |
+| ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | Partial: T02, T06–T07 passed |
+| ING-008 | ING-T05–ING-T08, ING-T11 | ING-A03, ING-A06, ING-A09, ING-A17 | Partial: T05–T07 passed |
+| ING-009 | ING-T07, ING-T11 | ING-A03 | Partial: T07 passed |
+| ING-010 | ING-T07, ING-T11 | ING-A03 | Partial: T07 passed |
 | ING-011 | ING-T04, ING-T10, ING-T11 | ING-A11 | Partial: T04 passed |
 | ING-012 | ING-T01, ING-T09, ING-T11 | ING-A12 | Partial: T01 passed |
 | ING-013 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A07 | Partial: T03–T04 passed |

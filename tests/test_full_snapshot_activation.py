@@ -16,6 +16,7 @@ from ingestion.activation import (
     AttemptNotReady,
     FullSnapshotActivationService,
     InvalidPreviewEvidence,
+    InvalidRestoreReason,
     StalePreview,
 )
 from ingestion.artifacts import IntakeLimits, PrivateArtifactStore
@@ -278,6 +279,140 @@ def test_activated_attempt_cannot_publish_a_second_revision(tmp_path: Path) -> N
         )
 
     assert DatasetRevision.objects.count() == 1
+
+
+def test_format_equivalent_current_state_becomes_no_change(tmp_path: Path) -> None:
+    context = create_context(tmp_path)
+    first = context.preview(HEADER + ledger_row("T-1"), filename="first.csv")
+    first_revision = activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=first.id,
+    )
+    reformatted = (
+        HEADER
+        + "T-1,2025-07-01T14:45:00+05:30,BTC-USD,BUY,1.000,100.00,100.0,SETTLED\n"
+    )
+    retry = context.preview(reformatted, filename="format-only.csv")
+
+    result = activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=retry.id,
+    )
+
+    context.dataset.refresh_from_db()
+    retry.refresh_from_db()
+    assert result is None
+    assert retry.state == AttemptState.NO_CHANGE
+    assert context.dataset.current_revision_id == first_revision.id
+    assert DatasetRevision.objects.count() == 1
+    assert TransactionObservation.objects.count() == 1
+
+
+def test_historical_replay_does_not_roll_back_current_correction(tmp_path: Path) -> None:
+    context = create_context(tmp_path)
+    original = context.preview(HEADER + ledger_row("T-1"), filename="original.csv")
+    original_revision = activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=original.id,
+    )
+    correction = context.preview(
+        HEADER + ledger_row("T-1", gross="110"),
+        filename="correction.csv",
+    )
+    correction_revision = activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=correction.id,
+    )
+    replay = context.preview(HEADER + ledger_row("T-1"), filename="original-again.csv")
+
+    result = activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=replay.id,
+    )
+
+    context.dataset.refresh_from_db()
+    replay.refresh_from_db()
+    current_amount = DatasetMembership.objects.get(
+        dataset_revision=correction_revision
+    ).observation.gross_amount
+    assert result is None
+    assert replay.state == AttemptState.REPLAYED
+    assert context.dataset.current_revision_id == correction_revision.id
+    assert current_amount == Decimal("110")
+    assert DatasetRevision.objects.count() == 2
+    assert DatasetMembership.objects.filter(
+        dataset_revision=original_revision
+    ).exists()
+
+
+def test_explicit_reason_restores_historical_values_as_a_new_revision(
+    tmp_path: Path,
+) -> None:
+    context = create_context(tmp_path)
+    original = context.preview(HEADER + ledger_row("T-1"), filename="original.csv")
+    original_revision = activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=original.id,
+    )
+    correction = context.preview(
+        HEADER + ledger_row("T-1", gross="110"),
+        filename="correction.csv",
+    )
+    correction_revision = activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=correction.id,
+    )
+    restore = context.preview(HEADER + ledger_row("T-1"), filename="restore.csv")
+
+    restored_revision = activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=restore.id,
+        restore_reason="  Counterparty confirmed the original amount.  ",
+    )
+
+    context.dataset.refresh_from_db()
+    restore.refresh_from_db()
+    restored_member = DatasetMembership.objects.get(
+        dataset_revision=restored_revision
+    )
+    assert context.dataset.current_revision_id == restored_revision.id
+    assert restored_revision.parent_revision_id == correction_revision.id
+    assert restored_revision.state_hash == original_revision.state_hash
+    assert restored_member.observation.gross_amount == Decimal("100")
+    assert restore.activation_reason == "Counterparty confirmed the original amount."
+    assert DatasetRevision.objects.count() == 3
+    assert TransactionObservation.objects.count() == 3
+
+
+def test_blank_restore_reason_cannot_bypass_historical_replay_guard(
+    tmp_path: Path,
+) -> None:
+    context = create_context(tmp_path)
+    original = context.preview(HEADER + ledger_row("T-1"), filename="original.csv")
+    activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=original.id,
+    )
+    correction = context.preview(
+        HEADER + ledger_row("T-1", gross="110"),
+        filename="correction.csv",
+    )
+    activation_service().activate(
+        WorkspaceId(context.workspace.id),
+        attempt_id=correction.id,
+    )
+    restore = context.preview(HEADER + ledger_row("T-1"), filename="restore.csv")
+
+    with pytest.raises(InvalidRestoreReason, match="blank"):
+        activation_service().activate(
+            WorkspaceId(context.workspace.id),
+            attempt_id=restore.id,
+            restore_reason="   ",
+        )
+
+    restore.refresh_from_db()
+    assert restore.state == AttemptState.READY
+    assert DatasetRevision.objects.count() == 2
 
 
 def test_rejected_preview_cannot_activate_any_evidence(tmp_path: Path) -> None:

@@ -14,14 +14,14 @@ Task evidence is recorded as implementation advances. `Pending` and `Partial` en
 |---|---|---|
 | ING-A01 | Partial | `ING-T04.md`: ledger and counterparty assignment formats persist equivalent canonical previews with raw values and provenance; activation/UI remain. |
 | ING-A02 | Partial | `ING-T01.md`, `ING-T04.md`: ambiguous/nonexistent time primitives and invalid-date preview rejection passed; browser-assisted selection remains. |
-| ING-A03 | Pending | Original → correction → replay temporal sequence |
+| ING-A03 | Passed | `ING-T07.md`: original → correction → original replay retains the correction; an explicit reason restores the original as a third immutable revision. |
 | ING-A04 | Partial | `ING-T06.md`: a later full snapshot materializes only present identities and preserves omitted historical evidence; delta omission remains. |
 | ING-A05 | Passed | `ING-T04.md`, `ING-T06.md`: rejected/tampered previews cannot activate, injected preview/activation failures roll back every write, and the earlier head remains unchanged. |
 | ING-A06 | Passed | `ING-T05.md`: physical bytes differ while valid decimal/time formatting, column order, and row order normalize to the same persisted semantic-input digest. |
 | ING-A07 | Partial | `ING-T03.md`, `ING-T04.md`: strict UTF-8/BOM scanning and persisted mapped delimiter previews passed; browser display remains. |
 | ING-A08 | Partial | `ING-T01.md`, `ING-T04.md`: exact decimals reject non-finite/over-precision values and persist original values without canonical observations; activation remains. |
 | ING-A09 | Passed | `ING-T01.md`, `ING-T04.md`, `ING-T05.md`: tagged raw values remain distinct, duplicate multiplicity changes semantic identity, and every duplicate row is identified. |
-| ING-A10 | Partial | `ING-T02.md`–`ING-T06.md`: private bytes, raw rows, observations, revisions, and prior memberships remain unchanged after a correction/omission sequence; replay remains. |
+| ING-A10 | Partial | `ING-T02.md`–`ING-T07.md`: private bytes, raw rows, observations, revisions, and memberships remain append-only through correction, replay, no-change, and restore; final integrated inspection remains. |
 | ING-A11 | Partial | `ING-T04.md`: two predefined adapters and one allowlisted configurable contract produce canonical parity; browser mapping workflow remains. |
 | ING-A12 | Partial | `ING-T01.md`, `ING-T04.md`, `ING-T06.md`: cancelled rows persist, activate, and remain ineligible with provenance; engine-input exclusion remains. |
 | ING-A13 | Partial | `ING-T01.md`: delta contracts must distinguish upsert, cancel, and retract and cannot treat omission as an operation; membership behavior remains. |
@@ -40,10 +40,10 @@ Task evidence is recorded as implementation advances. `Pending` and `Partial` en
 | ING-004 | Typed validation pipeline | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | Partial: field and header aggregation, partial preview, duplicates, and atomic persistence passed; UI/activation gates remain |
 | ING-005 | Atomic activation | ING-A05 | Partial: row-locked full-snapshot publication, final head write, stale conflict, and rollback passed; release closure remains |
 | ING-006 | Snapshot/delta membership services | ING-A04 | Partial: exact full-snapshot replacement passed; delta remains |
-| ING-007 | Immutable observations/revisions | ING-A03, ING-A10 | Partial: append-only persistence and correction/omission history passed; replay/restore remains |
-| ING-008 | Four distinct hash contracts | ING-A03, ING-A06, ING-A09, ING-A17 | Partial: digest functions, preview semantic hash, observation fingerprints, and activated state hashes passed; replay/delta use remains |
-| ING-009 | Historical replay guard | ING-A03 | Pending |
-| ING-010 | Explicit restore/provider ordering | ING-A03 | Pending |
+| ING-007 | Immutable observations/revisions | ING-A03, ING-A10 | Partial: correction, omission, replay, no-change, and explicit restore history passed; release inspection remains |
+| ING-008 | Four distinct hash contracts | ING-A03, ING-A06, ING-A09, ING-A17 | Partial: hashes drive no-change/replay and activated state passed; delta use remains |
+| ING-009 | Historical replay guard | ING-A03 | Partial: prior state detection records REPLAYED without head movement; release closure remains |
+| ING-010 | Explicit restore/provider ordering | ING-A03 | Partial: nonblank reason creates an audited restore revision; optional provider ordering is excluded until a trusted provider contract declares it |
 | ING-011 | Adapter registry and mapping workflow | ING-A11 | Partial: allowlisted registry/contracts and canonical parity passed; mapping UI remains |
 | ING-012 | Cancellation eligibility | ING-A12 | Partial: canonical and persisted-preview eligibility passed; engine boundary remains |
 | ING-013 | Strict UTF-8 and explicit delimiters | ING-A07 | Partial: bounded scanner and mapped persistence passed all three delimiters/BOM; UI remains |
@@ -58,7 +58,7 @@ Task evidence is recorded as implementation advances. `Pending` and `Partial` en
 | Check | Result | Evidence to record |
 |---|---|---|
 | Unit/property | Partial | Parsing, tagged values, adapters, validation/provenance, four versioned digest contracts, order/format normalization, multiplicity, and cancellation eligibility passed; membership transition functions remain. |
-| Integration | Partial | Persistence, private artifacts, quota compensation, atomic previews, hashes, row-locked snapshot activation, rollback, and stale-base concurrency passed; replay, delta, and cleanup remain. |
+| Integration | Partial | Persistence, artifacts, previews, hashes, atomic activation, concurrency, no-change, replay, and explicit restore passed; delta and cleanup remain. |
 | Browser/accessibility | Pending | Upload-map-preview-activate/history journey on desktop and mobile |
 | Security/isolation | Partial | Repository parity, cross-workspace refusal, generated contained keys, metadata sanitization, and pre-stage revoked-workspace refusal passed; HTTP downloads and logs remain. |
 | Performance | Pending | 10,000-row parse and activation time/memory plus page query counts |
