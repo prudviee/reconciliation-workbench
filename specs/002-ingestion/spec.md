@@ -1,6 +1,6 @@
 # 002 Source Mapping and Ingestion — Specification
 
-- **Status:** Ready
+- **Status:** In progress
 - **Prefix:** `ING`
 - **Depends on:** 001
 - **Reviewed:** 5 September 2026
@@ -98,3 +98,4 @@ PDF/OCR ingestion, live provider APIs, executable user transformations, inferred
 |---|---|---|
 | 5 September 2026 | Initial draft | Define source mapping and temporal ingestion |
 | 5 September 2026 | Fixed precision/CSV contracts, added hash and failure invariants and traceability; marked Ready | Critical SDD review |
+| 6 September 2026 | Began implementation after `ING-T01` verification | Pure source contracts, tagged raw values, exact decimal/time interpretation, and cancellation eligibility passed their task gate |

@@ -1,6 +1,6 @@
 # 002 Source Mapping and Ingestion — Tasks
 
-- **Status:** Ready
+- **Status:** In progress
 - **Specification:** [spec.md](./spec.md)
 - **Plan:** [plan.md](./plan.md)
 
@@ -12,7 +12,7 @@
 
 ## Phase 1: pure interpretation contracts
 
-- [ ] **ING-T01 — Define immutable source and canonical value contracts** (`ING-002`, `ING-004`, `ING-012`, `ING-014`, `ING-016`; `ING-A02`, `ING-A08`, `ING-A12`, `ING-A13`, `ING-A16`)
+- [x] **ING-T01 — Define immutable source and canonical value contracts** (`ING-002`, `ING-004`, `ING-012`, `ING-014`–`ING-016`; `ING-A02`, `ING-A08`, `ING-A09`, `ING-A12`, `ING-A13`, `ING-A16`)
   - Change: typed contracts, modes/operations/reference semantics, tagged raw cells, canonical row/provenance, structured row errors, exact decimal and datetime parsers.
   - Verify: framework-free imports; decimal precision/non-finite boundaries; aware/naive/ambiguous datetime cases; enum and required-value failures; cancelled eligibility.
   - Evidence: focused unit/property results and representative boundary table.
@@ -80,9 +80,9 @@
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
 | ING-001 | ING-T02, ING-T03, ING-T11 | ING-A10 | No |
-| ING-002 | ING-T01, ING-T02, ING-T04, ING-T11 | ING-A01, ING-A11 | No |
+| ING-002 | ING-T01, ING-T02, ING-T04, ING-T11 | ING-A01, ING-A11 | Partial: T01 passed |
 | ING-003 | ING-T04, ING-T10, ING-T11 | ING-A01 | No |
-| ING-004 | ING-T01, ING-T04, ING-T10, ING-T11 | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | No |
+| ING-004 | ING-T01, ING-T04, ING-T10, ING-T11 | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | Partial: T01 passed |
 | ING-005 | ING-T06, ING-T11 | ING-A05 | No |
 | ING-006 | ING-T06, ING-T08, ING-T11 | ING-A04 | No |
 | ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | No |
@@ -90,10 +90,10 @@
 | ING-009 | ING-T07, ING-T11 | ING-A03 | No |
 | ING-010 | ING-T07, ING-T11 | ING-A03 | No |
 | ING-011 | ING-T04, ING-T10, ING-T11 | ING-A11 | No |
-| ING-012 | ING-T01, ING-T09, ING-T11 | ING-A12 | No |
+| ING-012 | ING-T01, ING-T09, ING-T11 | ING-A12 | Partial: T01 passed |
 | ING-013 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A07 | No |
-| ING-014 | ING-T01, ING-T11 | ING-A08 | No |
-| ING-015 | ING-T01, ING-T05, ING-T11 | ING-A09 | No |
-| ING-016 | ING-T01, ING-T08, ING-T11 | ING-A13 | No |
+| ING-014 | ING-T01, ING-T11 | ING-A08 | Partial: T01 passed |
+| ING-015 | ING-T01, ING-T05, ING-T11 | ING-A09 | Partial: T01 passed |
+| ING-016 | ING-T01, ING-T08, ING-T11 | ING-A13 | Partial: T01 passed |
 | ING-017 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A14 | No |
 | ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | No |

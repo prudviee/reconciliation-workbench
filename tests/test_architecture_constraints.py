@@ -23,7 +23,7 @@ def imported_root_names(source: str) -> set[str]:
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Import):
             roots.update(alias.name.partition(".")[0] for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             roots.add(node.module.partition(".")[0])
     return roots
 
