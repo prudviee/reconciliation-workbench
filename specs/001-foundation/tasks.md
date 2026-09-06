@@ -1,6 +1,6 @@
 # 001 Foundation and Anonymous Workspace — Tasks
 
-- **Status:** In progress
+- **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Plan:** [plan.md](./plan.md)
 
@@ -64,7 +64,7 @@
   - Verify: rebuild from clean volumes, apply migrations once, observe web/database readiness and fresh worker heartbeat.
   - Evidence: environment/version record, summarized command results, measured startup time.
 
-- [ ] **FND-T10 — Complete foundation acceptance and documentation** (`FND-001`-`FND-013`; `FND-A01`-`FND-A12`)
+- [x] **FND-T10 — Complete foundation acceptance and documentation** (`FND-001`-`FND-013`; `FND-A01`-`FND-A12`)
   - Change: close traceability, document current commands and limitations, update status/history only after evidence passes.
   - Verify: every acceptance row and requirement row in `verification.md` has evidence; no target is reported as achieved without measurement.
   - Evidence: completed verification record at the tested commit.
@@ -73,16 +73,16 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| FND-001 | FND-T03, FND-T04, FND-T10 | FND-A01 | Partial: T03-T04 passed |
-| FND-002 | FND-T03, FND-T04, FND-T10 | FND-A02 | Partial: T03-T04 passed |
-| FND-003 | FND-T06, FND-T10 | FND-A01 | Partial: T06 passed |
-| FND-004 | FND-T07, FND-T10 | FND-A04 | Partial: T07 passed |
-| FND-005 | FND-T04, FND-T10 | FND-A03 | Partial: T04 passed |
-| FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | Partial: T03 and T06 passed |
-| FND-007 | FND-T01, FND-T09, FND-T10 | FND-A05 | Partial: T01 and T09 passed |
-| FND-008 | FND-T04, FND-T10 | FND-A08 | Partial: T04 passed |
-| FND-009 | FND-T08, FND-T10 | FND-A09 | Partial: T08 passed |
-| FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | Partial: T01 and T09 passed |
-| FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | Partial: T02 and T07 passed |
-| FND-012 | FND-T06, FND-T10 | FND-A07 | Partial: T06 passed |
-| FND-013 | FND-T02, FND-T05, FND-T10 | FND-A11 | Partial: T02 and T05 passed |
+| FND-001 | FND-T03, FND-T04, FND-T10 | FND-A01 | Yes: `FND-T03.md`, `FND-T04.md`, `FND-T06.md` |
+| FND-002 | FND-T03, FND-T04, FND-T10 | FND-A02 | Yes: `FND-T03.md`, `FND-T04.md` |
+| FND-003 | FND-T06, FND-T10 | FND-A01 | Yes: `FND-T06.md` |
+| FND-004 | FND-T07, FND-T10 | FND-A04 | Yes: `FND-T07.md` |
+| FND-005 | FND-T04, FND-T10 | FND-A03 | Yes: `FND-T04.md` |
+| FND-006 | FND-T03, FND-T06, FND-T10 | FND-A12 | Yes: `FND-T03.md`, `FND-T06.md` |
+| FND-007 | FND-T01, FND-T09, FND-T10 | FND-A05 | Yes: `FND-T01.md`, `FND-T09.md` |
+| FND-008 | FND-T04, FND-T10 | FND-A08 | Yes: `FND-T04.md` |
+| FND-009 | FND-T08, FND-T10 | FND-A09 | Yes: `FND-T08.md` |
+| FND-010 | FND-T01, FND-T09, FND-T10 | FND-A10 | Yes: `FND-T01.md`, `FND-T09.md`, `FND-T09-runtime.json` |
+| FND-011 | FND-T02, FND-T07, FND-T10 | FND-A06 | Yes: `FND-T02.md`, `FND-T07.md` |
+| FND-012 | FND-T06, FND-T10 | FND-A07 | Yes: `FND-T06.md` |
+| FND-013 | FND-T02, FND-T05, FND-T10 | FND-A11 | Yes: `FND-T02.md`, `FND-T05.md` |

@@ -39,7 +39,7 @@
 
 | Item | Observed value |
 |---|---|
-| Clean startup duration | 18.375 seconds |
+| Clean startup duration | 18.344 seconds in the final foundation release gate |
 | Host | Windows 11 Home Single Language 10.0.26200, Intel Core i7-1260P, 15.6 GiB memory |
 | Docker | Engine 29.7.2; Compose 5.5.0 |
 | Application container | Python 3.12.14; Django 5.2.17 |

@@ -1,8 +1,14 @@
 # Reconciliation Workbench
 
-An explainable transaction-reconciliation system that preserves source evidence, performs constrained one-to-one matching, exposes field-level discrepancies, and carries reviewer decisions safely across corrected files and later runs.
+Reconciliation Workbench is being built as an explainable transaction-reconciliation system that preserves source evidence, performs constrained one-to-one matching, exposes field-level discrepancies, and carries reviewer decisions safely across corrected files and later runs.
 
 This project uses spec-driven development end to end.
+
+## Current verified scope
+
+Specification 001 is complete: visitors receive isolated seven-day anonymous workspaces, can create independent reconciliation book shells, see capacity and privacy disclosures, and can revoke access through deletion. Session security, concurrency-safe quotas, privacy-safe request telemetry, PostgreSQL persistence, and the web/worker/database development stack have recorded verification evidence.
+
+CSV ingestion and real demo transactions begin in specification 002. Matching, review decisions, the complete workbench, and production operations follow in specifications 003–006.
 
 ## Start here
 
@@ -27,13 +33,13 @@ No feature implementation starts while its specification contains unresolved dec
 
 The implementation targets Python 3.12, Django 5.2 LTS, and PostgreSQL. Exact resolved dependencies are recorded under `requirements/`.
 
-Start the local web, worker, and database processes:
+From an ordinary local checkout, start the web, worker, and database processes:
 
 ```powershell
 docker compose up --build
 ```
 
-When the services are healthy, open `http://localhost:8010` and inspect readiness at `http://localhost:8010/health/ready`.
+When the services are healthy, open `http://localhost:8010` and inspect readiness at `http://localhost:8010/health/ready`. For a checkout stored under OneDrive, use the clean-start gate below because Docker BuildKit cannot consume Cloud Files reparse-point metadata directly.
 
 To prove the complete stack from an empty project database, run the clean-start gate. This intentionally removes only the Compose volumes declared by this project, rebuilds the images, waits for PostgreSQL, web, and worker health, verifies that no migration remains unapplied, and writes a machine-readable evidence record:
 

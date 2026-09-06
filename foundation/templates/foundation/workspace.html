@@ -47,7 +47,7 @@
             <form method="post" action="{% url 'foundation:book-demo-create' %}">
               {% csrf_token %}
               <button class="button button-primary" type="submit">
-                <span aria-hidden="true">＋</span> Use demo dataset
+                <span aria-hidden="true">＋</span> Create demo book
               </button>
             </form>
             <button class="button button-secondary" type="button" disabled aria-describedby="upload-note">
@@ -127,10 +127,10 @@
         <div class="empty-state">
           <div class="empty-visual" aria-hidden="true"><span></span><span></span><span></span></div>
           <h3>No reconciliations yet</h3>
-          <p>Start with the curated demo to see the complete workflow, or create a reconciliation from your own CSV files.</p>
+          <p>Create a demo book shell now. CSV sources and the complete reconciliation workflow arrive in the preparation workspace.</p>
           <form method="post" action="{% url 'foundation:book-demo-create' %}">
             {% csrf_token %}
-            <button class="text-button" type="submit">Create the demo reconciliation <span aria-hidden="true">→</span></button>
+            <button class="text-button" type="submit">Create a demo book <span aria-hidden="true">→</span></button>
           </form>
         </div>
       {% endif %}

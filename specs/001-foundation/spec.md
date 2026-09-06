@@ -1,6 +1,6 @@
 # 001 Foundation and Anonymous Workspace — Specification
 
-- **Status:** In progress
+- **Status:** Verified
 - **Prefix:** `FND`
 - **Depends on:** Constitution
 - **Reviewed:** 5 September 2026
@@ -16,7 +16,7 @@ A visitor can open the application and receive an isolated, expiring workspace w
 - **FND-003** The interface MUST show the workspace's exact expiry time, lack of recovery, export path, and delete action.
 - **FND-004** Deleting or expiring a workspace MUST revoke access before asynchronous data/file cleanup.
 - **FND-005** The same browser session MUST retain access across refreshes until expiry or deletion.
-- **FND-006** A different browser session MUST receive an independent workspace and sample dataset.
+- **FND-006** A different browser session MUST receive an independent workspace; demo reconciliation book shells created in either session MUST remain independent.
 - **FND-007** The domain package MUST import no Django model, request, storage, job, or wall-clock dependency.
 - **FND-008** State-changing browser requests MUST use CSRF protection; cookies MUST use deployment-appropriate Secure, HttpOnly, and SameSite settings.
 - **FND-009** Logs MUST use correlation IDs and MUST exclude session secrets and raw financial payloads.
@@ -33,7 +33,7 @@ A visitor can open the application and receive an isolated, expiring workspace w
 - **FND-A04** Given deletion or expiry, when any route or worker boundary available in the current build uses the old workspace, then access and new work are denied; every later route and worker type must join the same revoked-workspace contract suite.
 - **FND-A05** Given a domain test, when importing the domain package, then Django settings and database initialization are unnecessary.
 - **FND-A06** Given continued activity throughout the week, when the original seven-day expiry arrives, then access still expires at the previously displayed time.
-- **FND-A07** Given an existing uploaded book, when sample data is loaded, then a separate demo book is created and the uploaded book remains unchanged.
+- **FND-A07** Given an existing user book shell, when a demo book shell is created, then the demo receives a separate identity and the existing book remains unchanged.
 - **FND-A08** Given a production-like HTTPS configuration, when a state-changing form and session response are inspected, then missing CSRF proof is rejected and the session cookie is Secure, HttpOnly, and SameSite.
 - **FND-A09** Given representative successful and failed requests containing transaction values, when structured logs are captured, then each has a correlation ID and none contains the session secret or raw financial payload.
 - **FND-A10** Given a clean supported machine, when the documented local-start procedure is followed, then the web readiness check, worker heartbeat, and PostgreSQL connectivity all succeed.
@@ -86,3 +86,5 @@ Accounts, password recovery, cross-device access, verified reviewer identity, an
 | 5 September 2026 | Initial draft | Establish anonymous foundation behavior |
 | 5 September 2026 | Fixed retention, added isolation/failure invariants and traceability; marked Ready | Critical SDD review |
 | 5 September 2026 | Began implementation after `FND-T01` verification | Versioned project, domain boundary, and local web/worker/PostgreSQL stack passed their task gate |
+| 6 September 2026 | Clarified that foundation demos are book shells; real source rows remain in specification 002 | Keep the public interface and acceptance evidence aligned with implemented behavior |
+| 6 September 2026 | Marked Verified after `FND-T01`–`FND-T10` | All 12 acceptance scenarios and 13 requirements have recorded evidence on the tested foundation branch |

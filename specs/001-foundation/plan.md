@@ -1,15 +1,15 @@
 # 001 Foundation and Anonymous Workspace — Implementation Plan
 
-- **Status:** In progress
+- **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Target branch:** `codex/001-foundation`
-- **Last updated:** 5 September 2026
+- **Last updated:** 6 September 2026
 
 ## Summary
 
 Create the Django/PostgreSQL application shell, a framework-independent domain package, secure anonymous workspace resolution, a minimal reconciliation-book boundary, quota enforcement, revocation/expiry behavior, private structured logging, and a runnable web/worker/database development stack.
 
-The smallest vertical slice is: open the site in two browsers, receive two independent expiring workspaces, create separate books, prove cross-session denial, revoke one workspace, and show that the other remains usable. Import and reconciliation behavior remain in later specs.
+The smallest vertical slice is: open the site in two browsers, receive two independent expiring workspaces, create separate reconciliation book shells, prove cross-session denial, revoke one workspace, and show that the other remains usable. Import and reconciliation behavior remain in later specs.
 
 ## Constitution check
 
@@ -115,7 +115,7 @@ Environment validation fails startup when production mode lacks an allowed host,
 - Generate or validate a bounded correlation ID at the request boundary and return it in the response.
 - Log event name, correlation ID, route name, status, duration, workspace public ID or irreversible log pseudonym, and typed failure category.
 - Filter session/cookie headers, form bodies, uploaded values, secrets, and raw financial payloads.
-- Record workspace creation, quota refusal, revocation, and cleanup signal as lifecycle events without pretending the anonymous actor is verified.
+- Keep the fixed safe schema available to later lifecycle, ingestion, reconciliation, and publication event producers. Each owning feature specification adds and verifies its reviewed non-financial event metadata without pretending the anonymous actor is verified.
 
 ## Verification strategy
 

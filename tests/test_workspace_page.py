@@ -48,6 +48,9 @@ def test_workspace_page_is_accessible_without_javascript() -> None:
     assert '<a class="skip-link" href="#main-content">' in content
     assert '<main id="main-content" tabindex="-1">' in content
     assert '<form method="post" action="/books/demo">' in content
+    assert "Create demo book" in content
+    assert "Use demo dataset" not in content
+    assert "CSV sources and the complete reconciliation workflow arrive" in content
     assert 'name="csrfmiddlewaretoken"' in content
     assert "<script" not in content
     assert 'aria-labelledby="workspace-heading"' in content

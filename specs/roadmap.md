@@ -4,7 +4,7 @@ This roadmap orders feature specifications by dependency. It does not reduce the
 
 | Order | Specification | Prefix | Depends on | Current status | Outcome |
 |---:|---|---|---|---|---|
-| 001 | Foundation and anonymous workspace | FND | Constitution | Ready | Runnable project, workspace isolation, shared domain vocabulary |
+| 001 | Foundation and anonymous workspace | FND | Constitution | Verified | Runnable project, workspace isolation, shared domain vocabulary |
 | 002 | Source mapping and ingestion | ING | 001 | Ready | Immutable evidence, validation preview, dataset revisions |
 | 003 | Reconciliation engine | REC | 001, 002 | Ready | Exact, weighted-global, ambiguity, comparison, pure engine |
 | 004 | Decisions and stable cases | REV | 001–003 | Ready | Durable review authority, case history, concurrency safety |

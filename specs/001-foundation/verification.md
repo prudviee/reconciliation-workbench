@@ -1,12 +1,12 @@
 # 001 Foundation and Anonymous Workspace — Verification
 
-- **Status:** Pending
+- **Status:** Verified
 - **Specification:** [spec.md](./spec.md)
 - **Plan:** [plan.md](./plan.md)
-- **Verified commit:** Pending
+- **Verified commit:** The `FND-T10` task commit containing this record
 - **Environment:** Windows 11 10.0.26200; Intel Core i7-1260P; 15.6 GiB memory; Docker Engine 29.7.2; Compose 5.5.0; Python 3.12.14 and Django 5.2.17 containers; PostgreSQL 17.6; Chrome 152.0.7977.76; Edge 152.0.4191.62
 
-Implementation evidence is recorded per task. Remaining `Pending` entries must not be represented as passed.
+Implementation evidence is recorded per task and linked below.
 
 ## Acceptance results
 
@@ -18,7 +18,7 @@ Implementation evidence is recorded per task. Remaining `Pending` entries must n
 | FND-A04 | Pass for current build | `FND-T07.md`: delete/expiry revoke before cleanup signalling; stale reads, mutations, creation, quota service, and worker guard deny access. Later resource types must register. |
 | FND-A05 | Pass | `FND-T01.md`: isolated subprocess imported the domain package without Django settings/database and loaded no Django/Psycopg modules |
 | FND-A06 | Pass | `FND-T02.md` and `FND-T07.md`: exact seven-day UTC policy, unchanged persisted deadline across activity, boundary revocation, and durable cleanup signal passed. |
-| FND-A07 | Pass | `FND-T06.md`: two demo creations remained separate and preserved an existing user book. |
+| FND-A07 | Pass | `FND-T06.md`: two demo book shells received separate identities and preserved an existing user book shell. |
 | FND-A08 | Pass | `FND-T04.md`: missing CSRF proof was rejected; session cookie and fail-closed production settings were inspected. |
 | FND-A09 | Pass | `FND-T08.md`: successful and failed request events carried bounded correlation IDs while request bodies, query values, cookies, and session secrets were excluded. |
 | FND-A10 | Pass | `FND-T01.md`, `FND-T09.md`, and `FND-T09-runtime.json`: clean images and empty application volume; PostgreSQL, web, and worker healthy; readiness returned 200; migrations fully applied. |
@@ -29,7 +29,7 @@ Implementation evidence is recorded per task. Remaining `Pending` entries must n
 
 | Requirement | Planned implementation | Planned tests/evidence | Result |
 |---|---|---|---|
-| FND-001 | Workspace session service | FND-A01 | Partial: secure session creation/resolution passed; disclosure page remains |
+| FND-001 | Workspace session service | FND-A01 | Pass: secure session creation/resolution and disclosure page verified |
 | FND-002 | Workspace context and scoped repositories | FND-A02 | Pass for every resource and route in the current build; later specs must register new types |
 | FND-003 | Workspace disclosure view | FND-A01 plus content review | Pass |
 | FND-004 | Revocation service and boundary guards | FND-A04 | Pass for every resource and worker path in the current build; later types must register |
@@ -56,14 +56,14 @@ Implementation evidence is recorded per task. Remaining `Pending` entries must n
 
 ## Manual review
 
-Pass for the current workspace surface: expiry/no-recovery wording, quota errors, keyboard skip behavior, visible focus, announced status/errors, non-color state labels, and a 390-pixel narrow-screen layout were reviewed. Functional deletion remains for FND-T07.
+Pass for the current workspace surface: expiry/no-recovery wording, quota errors, truthful demo-book labeling, keyboard skip behavior, visible focus, announced status/errors, non-color state labels, and a 390-pixel narrow-screen layout were reviewed. Deletion confirmation was browser-reviewed, and deletion behavior passed the server integration suite.
 
 ## Measurements
 
 | Metric | Workload/environment | Target | Observed |
 |---|---|---:|---:|
 | Workspace-resolution database lookups | One same-session home-page refresh after middleware | At most 1 additional indexed lookup | 1 workspace-table lookup |
-| Clean local startup | Named reference environment from empty application volumes | Record honestly; no advance claim | 18.375 seconds |
+| Clean local startup | Named reference environment from empty application volumes | Record honestly; no advance claim | 18.344 seconds |
 | Concurrent book quota | Six simultaneous one-book reservations with capacity 2 | Never exceed configured count | 2 admitted, 4 refused, final count 2 |
 
 ## Known limitations
@@ -71,8 +71,9 @@ Pass for the current workspace surface: expiry/no-recovery wording, quota errors
 - Verified actor identity, account recovery, cross-device access, and multi-user collaboration are intentionally absent.
 - Clearing the session cookie loses access; retained data becomes reachable only through cleanup after fixed expiry.
 - The foundation worker proves process/readiness wiring only; leased work execution and publication arrive in spec 006.
+- Demo creation currently creates an independent reconciliation book shell. CSV parsing, source evidence, and populated demo transactions arrive in spec 002.
 - Import, reconciliation, decision, and result resource types join the workspace isolation contract in their own specs.
 
 ## Verification decision
 
-Pending. Change the feature spec to `Verified` only after every acceptance scenario passes at one recorded commit and the evidence above is complete.
+Verified. All 12 acceptance scenarios and 13 requirements have linked evidence; the full 89-test suite, clean Compose startup, migrations, browser review, security/isolation checks, and recorded measurements passed for the foundation scope.
