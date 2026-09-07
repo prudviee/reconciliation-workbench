@@ -1,6 +1,6 @@
 # 004 Decisions and Stable Cases — Implementation Plan
 
-- **Status:** Approved
+- **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Target branch:** `codex/004-review-and-cases`
 - **Last updated:** 7 September 2026

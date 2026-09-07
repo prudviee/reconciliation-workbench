@@ -1,6 +1,6 @@
 # 004 Decisions and Stable Cases — Tasks
 
-- **Status:** In Progress
+- **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Plan:** [plan.md](./plan.md)
 
@@ -70,7 +70,7 @@
 
 ## Phase 5: release evidence
 
-- [ ] **REV-T11 — Close durable review and stable-case acceptance** (`REV-001`–`REV-016`; `REV-A01`–`REV-A13`)
+- [x] **REV-T11 — Close durable review and stable-case acceptance** (`REV-001`–`REV-016`; `REV-A01`–`REV-A13`)
   - Change: end-to-end correction/rerun corpus, final traceability, README scope update, verification record, and any defects found by the complete review.
   - Verify: all thirteen acceptance scenarios, concurrent PostgreSQL claims, migration consistency, domain boundary, full regression suite, diff hygiene, and clean Compose startup at one commit.
   - Evidence: acceptance matrix, concurrency/capacity measurements, clean-runtime record, limitations, and final verified commit.
@@ -79,22 +79,22 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| REV-001 | REV-T01, REV-T03–REV-T05, REV-T11 | REV-A05, REV-A10 | No |
-| REV-002 | REV-T01, REV-T03, REV-T04, REV-T11 | REV-A01–REV-A03 | No |
-| REV-003 | REV-T03, REV-T04, REV-T11 | REV-A04 | No |
-| REV-004 | REV-T03, REV-T05, REV-T10, REV-T11 | REV-A05, REV-A10 | No |
-| REV-005 | REV-T01, REV-T06, REV-T07, REV-T11 | REV-A01, REV-A02, REV-A13 | No |
-| REV-006 | REV-T06, REV-T07, REV-T11 | REV-A01 | No |
-| REV-007 | REV-T04, REV-T06, REV-T07, REV-T11 | REV-A03 | No |
-| REV-008 | REV-T04, REV-T06, REV-T07, REV-T11 | REV-A02 | No |
-| REV-009 | REV-T01, REV-T03, REV-T05, REV-T10, REV-T11 | REV-A11 | No |
-| REV-010 | REV-T02, REV-T06, REV-T08, REV-T09, REV-T10, REV-T11 | REV-A07, REV-A08 | No |
-| REV-011 | REV-T02, REV-T06, REV-T08, REV-T10, REV-T11 | REV-A06 | No |
-| REV-012 | REV-T01–REV-T05, REV-T11 | REV-A04, REV-A11 | No |
-| REV-013 | REV-T01, REV-T08, REV-T09, REV-T11 | REV-A07, REV-A08 | No |
-| REV-014 | REV-T01, REV-T09, REV-T11 | REV-A07, REV-A08 | No |
-| REV-015 | REV-T01, REV-T05–REV-T07, REV-T11 | REV-A03, REV-A09 | No |
-| REV-016 | REV-T02–REV-T06, REV-T08–REV-T11 | REV-A12 | No |
+| REV-001 | REV-T01, REV-T03–REV-T05, REV-T11 | REV-A05, REV-A10 | Yes: REV-T11 |
+| REV-002 | REV-T01, REV-T03, REV-T04, REV-T11 | REV-A01–REV-A03 | Yes: REV-T11 |
+| REV-003 | REV-T03, REV-T04, REV-T11 | REV-A04 | Yes: REV-T11 |
+| REV-004 | REV-T03, REV-T05, REV-T10, REV-T11 | REV-A05, REV-A10 | Yes: REV-T11 |
+| REV-005 | REV-T01, REV-T06, REV-T07, REV-T11 | REV-A01, REV-A02, REV-A13 | Yes: REV-T11 |
+| REV-006 | REV-T06, REV-T07, REV-T11 | REV-A01 | Yes: REV-T11 |
+| REV-007 | REV-T04, REV-T06, REV-T07, REV-T11 | REV-A03 | Yes: REV-T11 |
+| REV-008 | REV-T04, REV-T06, REV-T07, REV-T11 | REV-A02 | Yes: REV-T11 |
+| REV-009 | REV-T01, REV-T03, REV-T05, REV-T10, REV-T11 | REV-A11 | Yes: REV-T11 |
+| REV-010 | REV-T02, REV-T06, REV-T08, REV-T09, REV-T10, REV-T11 | REV-A07, REV-A08 | Yes: REV-T11 |
+| REV-011 | REV-T02, REV-T06, REV-T08, REV-T10, REV-T11 | REV-A06 | Yes: REV-T11 |
+| REV-012 | REV-T01–REV-T05, REV-T11 | REV-A04, REV-A11 | Yes: REV-T11 |
+| REV-013 | REV-T01, REV-T08, REV-T09, REV-T11 | REV-A07, REV-A08 | Yes: REV-T11 |
+| REV-014 | REV-T01, REV-T09, REV-T11 | REV-A07, REV-A08 | Yes: REV-T11 |
+| REV-015 | REV-T01, REV-T05–REV-T07, REV-T11 | REV-A03, REV-A09 | Yes: REV-T11 |
+| REV-016 | REV-T02–REV-T06, REV-T08–REV-T11 | REV-A12 | Yes: REV-T11 |
 
 ## Deferred work
 

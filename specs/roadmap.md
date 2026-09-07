@@ -7,7 +7,7 @@ This roadmap orders feature specifications by dependency. It does not reduce the
 | 001 | Foundation and anonymous workspace | FND | Constitution | Verified | Runnable project, workspace isolation, shared domain vocabulary |
 | 002 | Source mapping and ingestion | ING | 001 | Verified | Immutable evidence, validation preview, dataset revisions |
 | 003 | Reconciliation engine | REC | 001, 002 | Verified | Exact, weighted-global, ambiguity, comparison, pure engine |
-| 004 | Decisions and stable cases | REV | 001–003 | Ready | Durable review authority, case history, concurrency safety |
+| 004 | Decisions and stable cases | REV | 001–003 | Verified | Durable review authority, case history, concurrency safety |
 | 005 | Workbench and run history | UX | 001–004 | Ready | Polished complete user workflow and accessible evidence |
 | 006 | Jobs, operations, and deployment | OPS | 001–005 | Ready | Reliable background execution, observability, retention, deployment |
 

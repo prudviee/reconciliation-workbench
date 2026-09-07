@@ -1,9 +1,9 @@
 # 004 Decisions and Stable Cases — Specification
 
-- **Status:** Ready
+- **Status:** Verified
 - **Prefix:** `REV`
 - **Depends on:** 001–003
-- **Reviewed:** 5 September 2026
+- **Reviewed:** 7 September 2026
 
 ## Outcome
 
@@ -88,3 +88,4 @@ Multi-user attribution, approval chains, role-based permissions, comments, and e
 |---|---|---|
 | 5 September 2026 | Initial draft | Define durable decisions and cases |
 | 5 September 2026 | Fixed case keys/lineage and rejection lifetime; added concurrency/failure invariants and traceability; marked Ready | Critical SDD review |
+| 7 September 2026 | Verified all requirements and acceptance scenarios; closed implementation and release evidence | REV-T11 release gate |

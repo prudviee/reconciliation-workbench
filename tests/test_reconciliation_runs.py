@@ -54,6 +54,7 @@ from reconciliation.models import (
 )
 from reconciliation.policies import comparison_policy_to_payload, matching_policy_to_payload
 from reconciliation.services import ReconciliationRunService, RunUnavailable
+from resolutions.queries import DecisionQueryService
 from resolutions.models import ActiveDecisionClaim, Decision
 from resolutions.services import DecisionCommandService
 from sources.models import (
@@ -1223,3 +1224,107 @@ def test_case_query_applies_unavailable_boundary_to_every_detail_projection() ->
     for probe in foreign_probes + absent_probes:
         with pytest.raises(ReviewQueryUnavailable):
             probe()
+@pytest.mark.django_db
+def test_review_acceptance_corpus_preserves_run_one_through_decision_correction_and_rerun() -> None:
+    graph = create_graph("review-acceptance-corpus")
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    first_run = ReconciliationRun.objects.get(id=first.run_id)
+    first_pair = first_run.pairs.get()
+    first_occurrence = CaseOccurrence.objects.get(run=first_run, result_kind="PAIR")
+    immutable_snapshot = {
+        "counts": dict(first_run.result_counts),
+        "pair": (
+            first_pair.id,
+            first_pair.origin,
+            first_pair.left_observation_id,
+            first_pair.right_observation_id,
+            first_pair.decision_revision_id,
+        ),
+        "comparisons": tuple(
+            first_pair.comparisons.order_by("field").values_list(
+                "field",
+                "status",
+                "left_value",
+                "right_value",
+                "signed_difference",
+                "allowed_difference",
+            )
+        ),
+        "occurrence": dict(first_occurrence.state_snapshot),
+    }
+
+    decision = DecisionCommandService(clock=lambda: NOW).commit_initial(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        command=DecisionCommand(
+            action=DecisionAction.LINK,
+            authority=DecisionAuthority.link(str(graph.left.id), str(graph.right.id)),
+            reason="Confirmed the economic relationship",
+            actor="reviewer",
+            expected_resolution_generation=0,
+            reviewed_observation_ids=(
+                str(graph.left_observation.id),
+                str(graph.right_observation.id),
+            ),
+        ),
+    )
+    pending = DecisionQueryService(clock=lambda: NOW).list_decisions(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        scope_id=graph.scope.id,
+    )
+    assert [(item.decision_id, item.review_is_pending) for item in pending.items] == [
+        (decision.decision_id, True)
+    ]
+
+    corrected = replace_side_snapshot(
+        graph,
+        SourceRole.RIGHT,
+        gross_amount=Decimal("101.00"),
+    )
+    assert corrected is not None
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+
+    second_run = ReconciliationRun.objects.get(id=second.run_id)
+    second_pair = second_run.pairs.get()
+    health = DecisionHealthSnapshot.objects.get(run=second_run, decision_revision=decision)
+    case_history = CaseQueryService(clock=lambda: NOW).get_case_history(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        scope_id=graph.scope.id,
+        case_id=first_occurrence.case_id,
+    )
+    assert second_pair.origin == PairOrigin.MANUAL
+    assert second_pair.right_observation_id == corrected.id
+    assert health.health == "EVIDENCE_CHANGED"
+    assert health.attention == ["COMPARISON_CHANGED"]
+    assert sorted(item.timeline_label for item in case_history.occurrences) == [
+        "CURRENT",
+        "HISTORICAL",
+    ]
+
+    first_run.refresh_from_db()
+    first_pair.refresh_from_db()
+    first_occurrence.refresh_from_db()
+    assert dict(first_run.result_counts) == immutable_snapshot["counts"]
+    assert (
+        first_pair.id,
+        first_pair.origin,
+        first_pair.left_observation_id,
+        first_pair.right_observation_id,
+        first_pair.decision_revision_id,
+    ) == immutable_snapshot["pair"]
+    assert tuple(
+        first_pair.comparisons.order_by("field").values_list(
+            "field",
+            "status",
+            "left_value",
+            "right_value",
+            "signed_difference",
+            "allowed_difference",
+        )
+    ) == immutable_snapshot["comparisons"]
+    assert first_occurrence.state_snapshot == immutable_snapshot["occurrence"]

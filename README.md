@@ -6,9 +6,13 @@ This project uses spec-driven development end to end.
 
 ## Current verified scope
 
-Specifications 001–003 are complete. Visitors receive isolated seven-day anonymous workspaces and can create independent reconciliation books. Each book has a two-sided source-preparation workflow with private CSV upload, the two Atlas assignment adapters, an allowlisted configurable mapping, raw/canonical/provenance preview, structured validation, immutable full-snapshot and delta activation, correction/replay protection, history, and authorized original-file downloads.
+Specifications 001–004 are complete. Visitors receive isolated seven-day anonymous workspaces and can create independent reconciliation books. Each book has a two-sided source-preparation workflow with private CSV upload, the two Atlas assignment adapters, an allowlisted configurable mapping, raw/canonical/provenance preview, structured validation, immutable full-snapshot and delta activation, correction/replay protection, history, and authorized original-file downloads.
 
-The supported CSV boundary is UTF-8 or UTF-8 with BOM, comma/semicolon/tab delimiters, 25 MiB, 10,000 rows, 100 columns, and 4,096 characters per field. The verified pure reconciliation engine applies reviewer reservations and trusted references, generates bounded candidates, records fixed-point rule evidence, solves optional-unmatched global assignments, abstains on incomplete or unstable results, compares paired fields exactly, and emits read-only accepted-unmatched diagnostics. Persistence for runs and decisions, the browser workbench, and production operations follow in specifications 004–006.
+The supported CSV boundary is UTF-8 or UTF-8 with BOM, comma/semicolon/tab delimiters, 25 MiB, 10,000 rows, 100 columns, and 4,096 characters per field. The verified pure reconciliation engine applies reviewer reservations and trusted references, generates bounded candidates, records fixed-point rule evidence, solves optional-unmatched global assignments, abstains on incomplete or unstable results, compares paired fields exactly, and emits read-only accepted-unmatched diagnostics.
+
+The application layer now persists frozen run manifests and complete immutable results, publishes current or stale runs atomically, and preserves append-only manual links, accepted-unmatched decisions, rejected candidates, reaffirmations, revocations, and replacements. Corrections update decision health without weakening authority. Stable pair, unpaired, and ambiguity cases retain immutable occurrences and explicit merge/split lineage. Workspace-scoped query services expose paginated decisions and cases, labelled history, current review, replacement previews, and lineage for the browser workbench.
+
+The browser currently covers workspace creation and source preparation. Specification 005 adds the reconciliation workbench and manual-review pages over the verified application services. The local runner remains synchronous; specification 006 adds durable background work and production deployment.
 
 ## Start here
 
