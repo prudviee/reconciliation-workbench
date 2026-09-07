@@ -12,7 +12,7 @@
 
 ## Phase 1: authority and identity contracts
 
-- [ ] **REV-T01 — Define immutable review and stable-case contracts** (`REV-001`, `REV-002`, `REV-005`, `REV-009`, `REV-012`, `REV-013`; `REV-A10`, `REV-A11`, `REV-A13`)
+- [x] **REV-T01 — Define immutable review and stable-case contracts** (`REV-001`, `REV-002`, `REV-005`, `REV-009`, `REV-012`, `REV-013`; `REV-A10`, `REV-A11`, `REV-A13`)
   - Change: action/authority enums, validated commands, expected-version/conflict results, exact health values, canonical pair/unpaired/ambiguity key builders, occurrence descriptors, and lineage plans in the framework-independent domain.
   - Verify: every valid/invalid action-target shape, nonblank reason, canonical order and key vectors, ambiguity member/policy sensitivity, health vocabulary, and blocked Django/ORM imports.
   - Evidence: action matrix, stable digest vectors, and focused domain test results.
