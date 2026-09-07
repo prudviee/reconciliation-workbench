@@ -1,9 +1,9 @@
 # 003 Reconciliation Engine — Specification
 
-- **Status:** Ready
+- **Status:** Verified
 - **Prefix:** `REC`
 - **Depends on:** 001, 002
-- **Reviewed:** 5 September 2026
+- **Reviewed:** 7 September 2026
 
 ## Outcome
 

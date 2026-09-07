@@ -65,7 +65,7 @@
 
 ## Phase 5: release evidence
 
-- [ ] **REC-T10 — Measure and close reconciliation acceptance** (`REC-001`–`REC-022`; `REC-A01`–`REC-A18`)
+- [x] **REC-T10 — Measure and close reconciliation acceptance** (`REC-001`–`REC-022`; `REC-A01`–`REC-A18`)
   - Change: labelled synthetic corpus, exact/reference baseline comparison, advanced matcher evaluation, 10,000-by-10,000 bounded workload, README scope update, and final traceability.
   - Verify: automatic precision/recall and candidate recall use documented denominators; every scenario/requirement has linked evidence; full suite and clean Compose gate pass at one commit.
   - Evidence: labelled synthetic metrics, component/runtime/memory measurements, limitations, completed verification record, and final tested commit.
@@ -74,24 +74,24 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| REC-001 | REC-T01, REC-T08, REC-T10 | REC-A12 | Partial: T01, T08 |
-| REC-002 | REC-T02, REC-T10 | REC-A13 | Partial: T02 |
-| REC-003 | REC-T02, REC-T10 | REC-A01, REC-A13 | Partial: T02 |
-| REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | Partial: T02, T07 |
-| REC-005 | REC-T03, REC-T10 | REC-A07, REC-A14 | Partial: T03 |
-| REC-006, REC-007 | REC-T04, REC-T10 | REC-A09, REC-A15 | Partial: T04 |
-| REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | Partial: T05 |
-| REC-009, REC-010 | REC-T04–REC-T06, REC-T10 | REC-A02, REC-A03, REC-A05, REC-A07, REC-A09, REC-A15 | Partial: T04–T06 |
-| REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | Partial: T01, T08 |
-| REC-012 | REC-T07, REC-T10 | REC-A01, REC-A05, REC-A06, REC-A16 | Partial: T07 |
-| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01, T03, T05, T08 |
-| REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Partial: T01, T04, T07 |
-| REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01, T04–T05 |
-| REC-018 | REC-T06, REC-T10 | REC-A11 | Partial: T06 |
-| REC-019 | REC-T09, REC-T10 | REC-A10 | Partial: T09 |
-| REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | Partial: T01–T02, T04 |
-| REC-021 | REC-T02, REC-T10 | REC-A18 | Partial: T02 |
-| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01, T03, T05, T09 |
+| REC-001 | REC-T01, REC-T08, REC-T10 | REC-A12 | Yes |
+| REC-002 | REC-T02, REC-T10 | REC-A13 | Yes |
+| REC-003 | REC-T02, REC-T10 | REC-A01, REC-A13 | Yes |
+| REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | Yes |
+| REC-005 | REC-T03, REC-T10 | REC-A07, REC-A14 | Yes |
+| REC-006, REC-007 | REC-T04, REC-T10 | REC-A09, REC-A15 | Yes |
+| REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | Yes |
+| REC-009, REC-010 | REC-T04–REC-T06, REC-T10 | REC-A02, REC-A03, REC-A05, REC-A07, REC-A09, REC-A15 | Yes |
+| REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | Yes |
+| REC-012 | REC-T07, REC-T10 | REC-A01, REC-A05, REC-A06, REC-A16 | Yes |
+| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Yes |
+| REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Yes |
+| REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Yes |
+| REC-018 | REC-T06, REC-T10 | REC-A11 | Yes |
+| REC-019 | REC-T09, REC-T10 | REC-A10 | Yes |
+| REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | Yes |
+| REC-021 | REC-T02, REC-T10 | REC-A18 | Yes |
+| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Yes |
 
 ## Deferred work
 
