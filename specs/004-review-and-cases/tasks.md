@@ -34,7 +34,7 @@
   - Verify: successful action ledger, missing reason/incompatible target rejection, stale generation rollback, simultaneous competing links with at most one success, rejection persisted as an active no-claim relationship for REV-T06 engine mapping, and no foreign mutation.
   - Evidence: PostgreSQL concurrency result and atomic before/after snapshots.
 
-- [ ] **REV-T05 — Implement previewed reaffirmation, revocation, and replacement** (`REV-001`, `REV-004`, `REV-009`, `REV-012`, `REV-015`, `REV-016`; `REV-A05`, `REV-A09`–`REV-A12`)
+- [x] **REV-T05 — Implement previewed reaffirmation, revocation, and replacement** (`REV-001`, `REV-004`, `REV-009`, `REV-012`, `REV-015`, `REV-016`; `REV-A05`, `REV-A09`–`REV-A12`)
   - Change: complete conflict preview, exact expected-revision supersession, REAFFIRM reviewed baseline, REVOKE claim release, REPLACE claim swap, immutable history, and one generation increment per successful command.
   - Verify: all affected conflicts shown, omitted/added/stale supersession rejection, multi-decision replacement, claim rollback on failure, revoked/replaced history, reaffirm compatibility, and workspace/book isolation.
   - Evidence: preview/commit decision table and history snapshots.
