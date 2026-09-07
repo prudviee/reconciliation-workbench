@@ -24,9 +24,9 @@
 
 ## Phase 2: durable decisions
 
-- [ ] **REV-T03 — Persist append-only decisions, revisions, supersessions, and claims** (`REV-001`–`REV-004`, `REV-009`, `REV-016`; `REV-A05`, `REV-A10`, `REV-A11`, `REV-A12`)
+- [x] **REV-T03 — Persist append-only decisions, revisions, supersessions, and claims** (`REV-001`–`REV-004`, `REV-009`, `REV-016`; `REV-A05`, `REV-A10`, `REV-A11`, `REV-A12`)
   - Change: `resolutions` models, constraints, immutable revision/supersession behavior, active endpoint claim uniqueness, and workspace-scoped repositories.
-  - Verify: endpoint shape/side/ownership matrix, claim uniqueness, rejection without claims, revision immutability, multi-conflict supersession, history ordering, and foreign/absent indistinguishability.
+  - Verify: database-local endpoint shape constraints, claim uniqueness, rejection without claims, revision immutability, multi-conflict supersession, history ordering, and foreign/absent indistinguishability. Locked cross-row side/ownership enforcement begins in REV-T04.
   - Evidence: database constraint inventory and persistence test results.
 
 - [ ] **REV-T04 — Commit initial authority with atomic concurrency checks** (`REV-001`–`REV-003`, `REV-007`, `REV-008`, `REV-012`, `REV-016`; `REV-A02`–`REV-A04`, `REV-A10`, `REV-A12`)

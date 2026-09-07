@@ -54,6 +54,7 @@ def test_distribution_discovers_every_application_package() -> None:
         "ingestion*",
         "observability*",
         "reconciliation*",
+        "resolutions*",
         "sources*",
         "workspaces*",
     }

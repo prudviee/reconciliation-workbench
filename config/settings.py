@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     "books",
     "sources",
     "ingestion",
+    "resolutions",
     "foundation",
 ]
 
