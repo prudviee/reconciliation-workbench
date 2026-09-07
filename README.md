@@ -6,9 +6,9 @@ This project uses spec-driven development end to end.
 
 ## Current verified scope
 
-Specification 001 is complete: visitors receive isolated seven-day anonymous workspaces, can create independent reconciliation book shells, see capacity and privacy disclosures, and can revoke access through deletion. Session security, concurrency-safe quotas, privacy-safe request telemetry, PostgreSQL persistence, and the web/worker/database development stack have recorded verification evidence.
+Specifications 001 and 002 are complete. Visitors receive isolated seven-day anonymous workspaces and can create independent reconciliation books. Each book has a two-sided source-preparation workflow with private CSV upload, the two Atlas assignment adapters, an allowlisted configurable mapping, raw/canonical/provenance preview, structured validation, immutable full-snapshot and delta activation, correction/replay protection, history, and authorized original-file downloads.
 
-CSV ingestion and real demo transactions begin in specification 002. Matching, review decisions, the complete workbench, and production operations follow in specifications 003–006.
+The supported CSV boundary is UTF-8 or UTF-8 with BOM, comma/semicolon/tab delimiters, 25 MiB, 10,000 rows, 100 columns, and 4,096 characters per field. Matching, review decisions, the reconciliation workbench, and production operations follow in specifications 003–006.
 
 ## Start here
 
@@ -40,6 +40,8 @@ docker compose up --build
 ```
 
 When the services are healthy, open `http://localhost:8010` and inspect readiness at `http://localhost:8010/health/ready`. For a checkout stored under OneDrive, use the clean-start gate below because Docker BuildKit cannot consume Cloud Files reparse-point metadata directly.
+
+Create a demo book, choose **Prepare sources**, and upload the assignment ledger and counterparty CSVs. Each side can instead use **Define mapping** for a third format. Review the retained evidence before selecting **Confirm and activate**.
 
 To prove the complete stack from an empty project database, run the clean-start gate. This intentionally removes only the Compose volumes declared by this project, rebuilds the images, waits for PostgreSQL, web, and worker health, verifies that no migration remains unapplied, and writes a machine-readable evidence record:
 

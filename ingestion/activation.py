@@ -180,21 +180,50 @@ class FullSnapshotActivationService:
                 self._finish_without_revision(attempt, AttemptState.REPLAYED)
                 return None
 
-            newly_observed: dict[
-                str, tuple[LogicalTransaction, TransactionObservation, str]
-            ] = {}
-            for raw_row, canonical, fingerprint in prepared:
-                if canonical is None:
-                    continue
-                logical, _ = LogicalTransaction.objects.get_or_create(
-                    workspace_id=workspace_id.value,
+            observation_rows = [
+                item for item in prepared if item[1] is not None
+            ]
+            observation_keys = {
+                canonical.source_record_key
+                for _, canonical, _ in observation_rows
+            }
+            logicals = {
+                value.source_record_key: value
+                for value in LogicalTransaction.objects.owned_by(workspace_id).filter(
                     book_source=dataset.book_source,
-                    source_record_key=canonical.source_record_key,
-                    defaults={"created_at": self.clock()},
+                    source_record_key__in=observation_keys,
                 )
-                observation = repository.create_observation(
-                    logical_transaction_id=logical.id,
-                    raw_row_id=raw_row.id,
+            }
+            missing_keys = observation_keys - set(logicals)
+            if missing_keys:
+                LogicalTransaction.objects.bulk_create(
+                    [
+                        LogicalTransaction(
+                            workspace_id=workspace_id.value,
+                            book_source=dataset.book_source,
+                            source_record_key=source_key,
+                            created_at=self.clock(),
+                        )
+                        for source_key in sorted(missing_keys)
+                    ],
+                    batch_size=500,
+                    ignore_conflicts=True,
+                )
+                logicals = {
+                    value.source_record_key: value
+                    for value in LogicalTransaction.objects.owned_by(workspace_id).filter(
+                        book_source=dataset.book_source,
+                        source_record_key__in=observation_keys,
+                    )
+                }
+            if set(logicals) != observation_keys:
+                raise InvalidPreviewEvidence("logical identities could not be materialized")
+
+            new_observations = [
+                TransactionObservation(
+                    workspace_id=workspace_id.value,
+                    logical_transaction=logicals[canonical.source_record_key],
+                    raw_row=raw_row,
                     business_reference=canonical.business_reference,
                     executed_at_utc=canonical.executed_at_utc,
                     instrument=canonical.instrument,
@@ -209,11 +238,20 @@ class FullSnapshotActivationService:
                     fingerprint=fingerprint,
                     created_at=self.clock(),
                 )
-                newly_observed[canonical.source_record_key] = (
-                    logical,
+                for raw_row, canonical, fingerprint in observation_rows
+            ]
+            TransactionObservation.objects.bulk_create(
+                new_observations,
+                batch_size=500,
+            )
+            newly_observed = {
+                observation.logical_transaction.source_record_key: (
+                    observation.logical_transaction,
                     observation,
-                    fingerprint,
+                    observation.fingerprint,
                 )
+                for observation in new_observations
+            }
 
             resolved_members.update(newly_observed)
 

@@ -1,9 +1,9 @@
 # 002 Source Mapping and Ingestion — Implementation Plan
 
-- **Status:** In progress
+- **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Target branch:** `codex/002-ingestion`
-- **Last updated:** 6 September 2026
+- **Last updated:** 7 September 2026
 
 ## Summary
 

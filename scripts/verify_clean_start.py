@@ -143,6 +143,40 @@ def verify(timeout_seconds: int) -> dict[str, object]:
             "test -s /tmp/reconciliation-worker-heartbeat",
             cwd=compose_root,
         )
+        volume_probe = "shared-private-artifact-volume"
+        run(
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "web",
+            "sh",
+            "-c",
+            f"printf '%s' '{volume_probe}' > /var/lib/reconciliation/artifacts/.volume-probe",
+            cwd=compose_root,
+        )
+        observed_probe = run(
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "worker",
+            "cat",
+            "/var/lib/reconciliation/artifacts/.volume-probe",
+            cwd=compose_root,
+        )
+        if observed_probe != volume_probe:
+            raise VerificationFailure("web and worker do not share the private artifact volume")
+        run(
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "web",
+            "rm",
+            "/var/lib/reconciliation/artifacts/.volume-probe",
+            cwd=compose_root,
+        )
         run(
             "docker",
             "compose",
@@ -163,6 +197,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
             "readiness": ready,
             "database_probe": database_probe,
             "worker_heartbeat": "ready",
+            "private_artifact_volume": "shared_by_web_and_worker",
             "migrations": "fully_applied_by_web_only",
             "versions": {
                 "docker": run(
