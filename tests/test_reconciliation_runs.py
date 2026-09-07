@@ -1328,3 +1328,45 @@ def test_review_acceptance_corpus_preserves_run_one_through_decision_correction_
         )
     ) == immutable_snapshot["comparisons"]
     assert first_occurrence.state_snapshot == immutable_snapshot["occurrence"]
+
+
+@pytest.mark.django_db
+def test_workbench_snapshot_separates_selected_run_from_current_cases() -> None:
+    from reconciliation.workbench import WorkbenchService, WorkbenchUnavailable
+
+    graph = create_graph("workbench-snapshot")
+    Dataset.objects.filter(
+        id__in=(graph.scope.left_dataset_id, graph.scope.right_dataset_id)
+    ).update(coverage_key="default")
+    ReconciliationScope.objects.filter(id=graph.scope.id).update(coverage_key="default")
+    graph.scope.refresh_from_db()
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    replace_side_snapshot(graph, SourceRole.RIGHT, gross_amount=Decimal("101"))
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+
+    service = WorkbenchService(clock=lambda: NOW)
+    snapshot = service.snapshot(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        selected_run_id=first.run_id,
+    )
+    assert snapshot.readiness.ready is True
+    assert snapshot.current_run_id == second.run_id
+    assert snapshot.selected_run is not None
+    assert snapshot.selected_run.run_id == first.run_id
+    assert snapshot.selected_run.is_current is False
+    assert {item.run_id for item in snapshot.runs} == {first.run_id, second.run_id}
+    assert snapshot.current_cases.items
+    assert {item.run_id for item in snapshot.current_cases.items} == {second.run_id}
+
+    outsider = create_graph("workbench-snapshot-outsider")
+    for selected in (outsider.scope.id, uuid4(), "invalid"):
+        with pytest.raises(WorkbenchUnavailable):
+            service.snapshot(
+                WorkspaceId(graph.workspace.id),
+                book_id=BookId(graph.book.id),
+                selected_run_id=selected,
+            )

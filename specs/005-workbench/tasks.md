@@ -6,7 +6,7 @@
 
 ## Submission-critical tasks
 
-- [ ] **UX-T01 — Prepare scoped workbench application projections** (`UX-001`, `UX-002`, `UX-006`, `UX-007`, `UX-008`, `UX-018`; `UX-A05`, `UX-A06`, `UX-A10`, `UX-A14`)
+- [x] **UX-T01 — Prepare scoped workbench application projections** (`UX-001`, `UX-002`, `UX-006`, `UX-007`, `UX-008`, `UX-018`; `UX-A05`, `UX-A06`, `UX-A10`, `UX-A14`)
   - Change: default-scope/policy readiness, workspace-owned run summaries, selected historical run projections, current case projections, and typed unavailable failures.
   - Verify: incomplete-source states, idempotent setup, latest-success preservation, historical/current separation, and foreign/absent matrix.
   - Evidence: readiness table, query bounds, and isolation results.

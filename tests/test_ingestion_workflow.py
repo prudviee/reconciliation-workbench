@@ -209,3 +209,57 @@ def test_preparation_styles_include_accessible_responsive_states() -> None:
     assert "@media (max-width: 620px)" in css
     assert ":focus-visible" in css
     assert "prefers-reduced-motion" in css
+
+
+def test_workbench_context_waits_for_both_sources_and_is_idempotent(tmp_path) -> None:
+    from books.models import PolicyRevision, ReconciliationScope
+    from reconciliation.domain import BookId, WorkspaceId
+    from reconciliation.workbench import WorkbenchNotReady, WorkbenchService
+
+    counterparty = (
+        "reference,executed_at,symbol,direction,qty,unit_price,total,status\n"
+        "T-1001,2025-07-01 09:15:00,BTC-USD,B,0.5,62000,31000,SETTLED\n"
+    )
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        client = Client()
+        book = create_book(client)
+        workspace = workspace_for(client)
+        service = WorkbenchService(clock=lambda: workspace.created_at)
+        initial = service.readiness(
+            WorkspaceId(workspace.id), book_id=BookId(book.id)
+        )
+        assert initial.ready is False
+        assert initial.missing_sides == ("LEFT", "RIGHT")
+        with pytest.raises(WorkbenchNotReady):
+            service.ensure_run_context(
+                WorkspaceId(workspace.id), book_id=BookId(book.id)
+            )
+
+        left = upload(client, f"/books/{book.id}/sources/left/upload", LEDGER)
+        client.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        assert service.readiness(
+            WorkspaceId(workspace.id), book_id=BookId(book.id)
+        ).missing_sides == ("RIGHT",)
+
+        right = upload(
+            client,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        client.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+        ready = service.readiness(
+            WorkspaceId(workspace.id), book_id=BookId(book.id)
+        )
+        assert ready.ready is True
+        assert ready.missing_sides == ()
+
+        first = service.ensure_run_context(
+            WorkspaceId(workspace.id), book_id=BookId(book.id)
+        )
+        second = service.ensure_run_context(
+            WorkspaceId(workspace.id), book_id=BookId(book.id)
+        )
+        assert first.id == second.id
+        assert ReconciliationScope.objects.filter(book=book).count() == 1
+        assert PolicyRevision.objects.filter(book=book).count() == 1
