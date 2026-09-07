@@ -124,6 +124,13 @@ class ReconciliationScope(models.Model):
     )
     generation = models.PositiveBigIntegerField(default=0)
     is_dirty = models.BooleanField(default=True)
+    current_run = models.ForeignKey(
+        "reconciliation.ReconciliationRun",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="current_for_scopes",
+    )
     created_at = models.DateTimeField()
 
     objects = WorkspaceOwnedBookQuerySet.as_manager()

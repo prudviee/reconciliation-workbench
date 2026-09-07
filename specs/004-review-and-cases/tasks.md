@@ -41,7 +41,7 @@
 
 ## Phase 3: immutable reconciliation runs
 
-- [ ] **REV-T06 — Freeze authorized manifests and persist complete run facts atomically** (`REV-005`–`REV-008`, `REV-010`, `REV-011`, `REV-015`, `REV-016`; `REV-A01`–`REV-A03`, `REV-A06`, `REV-A09`, `REV-A12`)
+- [x] **REV-T06 — Freeze authorized manifests and persist complete run facts atomically** (`REV-005`–`REV-008`, `REV-010`, `REV-011`, `REV-015`, `REV-016`; `REV-A01`–`REV-A03`, `REV-A06`, `REV-A09`, `REV-A12`)
   - Change: reconciliation scope/run input/result models, manifest canonicalization, ORM-to-engine adapters, synchronous three-phase runner, complete result persistence, stale dependency handling, and current-run pointer update.
   - Verify: exact dataset/decision/policy/version manifest, engine-input authority mapping, terminal partition constraints, publication rollback injection, stale generation result retained without pointer advance, immutable completed facts, and foreign-run denial.
   - Evidence: manifest digest fixture, publication inventory, rollback proof, and run-fact snapshot.
