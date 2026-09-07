@@ -12,6 +12,7 @@ from reconciliation.domain import (
     CaseOccurrenceDescriptor,
     CaseResultKind,
     CaseTransitionPlan,
+    CaseTransitionNode,
     DecisionAction,
     DecisionAttention,
     DecisionAuthority,
@@ -29,6 +30,7 @@ from reconciliation.domain import (
     ReviewConflictCode,
     ambiguity_case_key,
     pair_case_key,
+    plan_case_transitions,
     project_decision_health,
     unpaired_case_key,
 )
@@ -502,6 +504,33 @@ def test_lineage_plan_is_canonical_many_to_many_and_rejects_self_edges() -> None
         CaseLineageEdge(pair, pair)
     with pytest.raises(DomainValidationError, match="unique"):
         CaseTransitionPlan((plan.edges[0], plan.edges[0]))
+
+
+def test_transition_planner_links_every_overlapping_merge_and_split_member() -> None:
+    left = unpaired_case_key(book_id="B1", side=RecordSide.LEFT, record_id="L1")
+    right = unpaired_case_key(book_id="B1", side=RecordSide.RIGHT, record_id="R1")
+    unrelated = unpaired_case_key(book_id="B1", side=RecordSide.RIGHT, record_id="R9")
+    pair = pair_case_key(book_id="B1", left_id="L1", right_id="R1")
+
+    merge = plan_case_transitions(
+        (
+            CaseTransitionNode(left, ("L1",)),
+            CaseTransitionNode(right, ("R1",)),
+            CaseTransitionNode(unrelated, ("R9",)),
+        ),
+        (CaseTransitionNode(pair, ("L1", "R1")),),
+    )
+    split = plan_case_transitions(
+        (CaseTransitionNode(pair, ("L1", "R1")),),
+        (
+            CaseTransitionNode(left, ("L1",)),
+            CaseTransitionNode(right, ("R1",)),
+        ),
+    )
+
+    assert {edge.predecessor for edge in merge.edges} == {left, right}
+    assert {edge.successor for edge in split.edges} == {left, right}
+    assert all(edge.predecessor != unrelated for edge in merge.edges)
 
 
 def test_case_key_rejects_non_sha256_digest() -> None:

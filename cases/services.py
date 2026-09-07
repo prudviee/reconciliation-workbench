@@ -4,13 +4,19 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from reconciliation.domain import CaseKind, CaseResultKind, RecordSide, WorkspaceId, ambiguity_case_key, pair_case_key, unpaired_case_key
+from reconciliation.domain import CaseKey, CaseKind, CaseResultKind, CaseTransitionNode, RecordSide, WorkspaceId, ambiguity_case_key, pair_case_key, plan_case_transitions, unpaired_case_key
 from reconciliation.models import AssignmentComponent, DecisionHealthSnapshot, ReconciliationRun, RunPair, RunUnpaired
 
-from .models import CaseOccurrence, CaseScopeProjection, InvestigationCase
+from .models import CaseLineage, CaseOccurrence, CaseScopeProjection, InvestigationCase
 
 
 def materialize_run_cases(workspace_id: WorkspaceId, run: ReconciliationRun, *, is_current: bool, created_at: datetime) -> tuple[CaseOccurrence, ...]:
+    previous_cases = tuple(
+        item.case
+        for item in CaseScopeProjection.objects.owned_by(workspace_id)
+        .filter(scope_id=run.scope_id)
+        .select_related("case")
+    ) if is_current else ()
     health_by_revision = {
         item.decision_revision_id: item
         for item in DecisionHealthSnapshot.objects.owned_by(workspace_id).filter(run=run)
@@ -59,6 +65,27 @@ def materialize_run_cases(workspace_id: WorkspaceId, run: ReconciliationRun, *, 
             state_snapshot={"complete": component.complete, "limit_reason": component.limit_reason, "candidate_count": component.candidate_count}, created_at=created_at,
         ))
     if is_current:
+        current_cases = tuple(item.case for item in occurrences)
+        transition_plan = plan_case_transitions(
+            tuple(_transition_node(item) for item in previous_cases),
+            tuple(_transition_node(item) for item in current_cases),
+        )
+        cases_by_key = {
+            item.stable_key: item for item in (*previous_cases, *current_cases)
+        }
+        CaseLineage.objects.bulk_create(
+            [
+                CaseLineage(
+                    workspace_id=workspace_id.value,
+                    scope_id=run.scope_id,
+                    predecessor=cases_by_key[str(edge.predecessor)],
+                    successor=cases_by_key[str(edge.successor)],
+                    caused_by_run=run,
+                    created_at=created_at,
+                )
+                for edge in transition_plan.edges
+            ]
+        )
         current_ids = [item.case_id for item in occurrences]
         CaseScopeProjection.objects.owned_by(workspace_id).filter(scope_id=run.scope_id).exclude(case_id__in=current_ids).delete()
         for occurrence in occurrences:
@@ -94,3 +121,16 @@ def _health(occurrence, by_revision, by_observation):
     if occurrence.unpaired_id is not None:
         return by_observation.get(str(occurrence.unpaired.observation_id))
     return None
+
+
+def _transition_node(case: InvestigationCase) -> CaseTransitionNode:
+    if case.kind == CaseKind.PAIR:
+        members = (str(case.left_logical_id), str(case.right_logical_id))
+    elif case.kind == CaseKind.UNPAIRED:
+        members = (str(case.record_logical_id),)
+    else:
+        members = tuple(case.ambiguity_left_logical_ids) + tuple(case.ambiguity_right_logical_ids)
+    return CaseTransitionNode(
+        CaseKey(CaseKind(case.kind), case.digest),
+        members,
+    )

@@ -66,11 +66,15 @@ class InvestigationCase(ImmutableCaseModel):
             models.CheckConstraint(condition=models.Q(kind__in=[item.value for item in CaseKind]), name="case_kind_valid"),
             models.CheckConstraint(
                 condition=(
-                    models.Q(kind=CaseKind.PAIR, left_logical__isnull=False, right_logical__isnull=False, record_logical__isnull=True, record_side__isnull=True, ambiguity_scope__isnull=True, policy_digest__isnull=True)
-                    | models.Q(kind=CaseKind.UNPAIRED, left_logical__isnull=True, right_logical__isnull=True, record_logical__isnull=False, record_side__in=[item.value for item in RecordSide], ambiguity_scope__isnull=True, policy_digest__isnull=True)
-                    | models.Q(kind=CaseKind.AMBIGUITY, left_logical__isnull=True, right_logical__isnull=True, record_logical__isnull=True, record_side__isnull=True, ambiguity_scope__isnull=False, policy_digest__isnull=False)
+                    models.Q(kind=CaseKind.PAIR, left_logical__isnull=False, right_logical__isnull=False, record_logical__isnull=True, record_side__isnull=True, ambiguity_left_logical_ids__isnull=True, ambiguity_right_logical_ids__isnull=True, ambiguity_scope__isnull=True, policy_digest__isnull=True)
+                    | models.Q(kind=CaseKind.UNPAIRED, left_logical__isnull=True, right_logical__isnull=True, record_logical__isnull=False, record_side__in=[item.value for item in RecordSide], ambiguity_left_logical_ids__isnull=True, ambiguity_right_logical_ids__isnull=True, ambiguity_scope__isnull=True, policy_digest__isnull=True)
+                    | models.Q(kind=CaseKind.AMBIGUITY, left_logical__isnull=True, right_logical__isnull=True, record_logical__isnull=True, record_side__isnull=True, ambiguity_left_logical_ids__isnull=False, ambiguity_right_logical_ids__isnull=False, ambiguity_scope__isnull=False, policy_digest__isnull=False)
                 ),
                 name="case_identity_shape_valid",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(left_logical=models.F("right_logical")),
+                name="case_pair_endpoints_distinct",
             ),
         ]
         indexes = [models.Index(fields=["workspace", "book", "kind", "created_at"], name="case_workspace_book_idx")]
@@ -125,3 +129,25 @@ class CaseScopeProjection(models.Model):
         db_table = "case_scope_projection"
         constraints = [models.UniqueConstraint(fields=["case", "scope"], name="case_scope_projection_unique")]
         indexes = [models.Index(fields=["workspace", "scope", "review_health"], name="case_projection_scope_idx")]
+
+
+class CaseLineage(ImmutableCaseModel):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    workspace = models.ForeignKey("workspaces.Workspace", on_delete=models.CASCADE, related_name="case_lineage")
+    scope = models.ForeignKey("books.ReconciliationScope", on_delete=models.CASCADE, related_name="case_lineage")
+    predecessor = models.ForeignKey(InvestigationCase, on_delete=models.CASCADE, related_name="successor_edges")
+    successor = models.ForeignKey(InvestigationCase, on_delete=models.CASCADE, related_name="predecessor_edges")
+    transition_kind = models.CharField(max_length=20, default="PREDECESSOR_OF")
+    caused_by_run = models.ForeignKey("reconciliation.ReconciliationRun", on_delete=models.CASCADE, related_name="case_lineage")
+    created_at = models.DateTimeField()
+
+    objects = ImmutableCaseQuerySet.as_manager()
+
+    class Meta:
+        db_table = "case_lineage"
+        constraints = [
+            models.UniqueConstraint(fields=["predecessor", "successor", "caused_by_run"], name="case_lineage_run_edge_unique"),
+            models.CheckConstraint(condition=~models.Q(predecessor=models.F("successor")), name="case_lineage_not_self"),
+            models.CheckConstraint(condition=models.Q(transition_kind="PREDECESSOR_OF"), name="case_lineage_kind_valid"),
+        ]
+        indexes = [models.Index(fields=["workspace", "scope", "caused_by_run"], name="case_lineage_scope_idx")]

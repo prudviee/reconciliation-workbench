@@ -11,7 +11,7 @@ from django.db.models import F
 
 from books.models import BookKind, PolicyRevision, ReconciliationBook, ReconciliationScope
 from books.scopes import WorkspacePolicyRepository, WorkspaceScopeRepository, mark_dataset_activation
-from cases.models import CaseEvidenceError, CaseOccurrence, CaseScopeProjection, InvestigationCase
+from cases.models import CaseEvidenceError, CaseLineage, CaseOccurrence, CaseScopeProjection, InvestigationCase
 from ingestion.models import (
     AttemptState,
     Dataset,
@@ -935,6 +935,36 @@ def test_ambiguity_case_uses_complete_logical_members_and_reuses_unchanged_membe
 
     assert third_occurrence.case_id != first_occurrence.case_id
     assert InvestigationCase.objects.filter(book=graph.book, kind="AMBIGUITY").count() == 2
+
+
+@pytest.mark.django_db
+def test_pair_split_and_merge_preserve_every_predecessor_and_successor() -> None:
+    graph = create_graph("lineage")
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    pair_case = CaseOccurrence.objects.get(run_id=first.run_id, result_kind="PAIR").case
+
+    replace_side_snapshot(graph, SourceRole.RIGHT, reference="DIFFERENT")
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+    unpaired_cases = {
+        item.case for item in CaseOccurrence.objects.filter(run_id=second.run_id, result_kind="UNPAIRED")
+    }
+    split_edges = CaseLineage.objects.filter(caused_by_run_id=second.run_id)
+    assert {item.successor for item in split_edges} == unpaired_cases
+    assert {item.predecessor for item in split_edges} == {pair_case}
+
+    replace_side_snapshot(graph, SourceRole.RIGHT, reference="SHARED-1")
+    third = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), third.run_id)
+    merged_pair = CaseOccurrence.objects.get(run_id=third.run_id, result_kind="PAIR").case
+    merge_edges = CaseLineage.objects.filter(caused_by_run_id=third.run_id)
+    assert merged_pair == pair_case
+    assert {item.predecessor for item in merge_edges} == unpaired_cases
+    assert {item.successor for item in merge_edges} == {pair_case}
+    with pytest.raises(CaseEvidenceError):
+        merge_edges.update(transition_kind="changed")
 
 
 def _manifest_hash(manifest: dict) -> str:

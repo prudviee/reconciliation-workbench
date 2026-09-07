@@ -58,7 +58,7 @@
   - Verify: same logical identities reuse cases across observation corrections/runs, ambiguity membership/policy changes create new keys, independent scopes do not overwrite each other, later review leaves historical facts/counts unchanged, and scoped access rejects foreign IDs.
   - Evidence: stable-key/occurrence table and before/after historical snapshots.
 
-- [ ] **REV-T09 — Preserve complete merge and split lineage** (`REV-010`, `REV-013`, `REV-014`, `REV-016`; `REV-A07`, `REV-A08`, `REV-A12`)
+- [x] **REV-T09 — Preserve complete merge and split lineage** (`REV-010`, `REV-013`, `REV-014`, `REV-016`; `REV-A07`, `REV-A08`, `REV-A12`)
   - Change: deterministic transition planner and immutable many-to-many predecessor/successor edges for unpaired-to-pair, pair-to-unpaired, and changed ambiguity membership.
   - Verify: pair case links both unpaired predecessors, pair split links every successor, overlapping ambiguity components link correctly, unrelated cases do not link, rerun idempotency, historical navigation, and cross-book/workspace denial.
   - Evidence: merge/split lineage fixtures and graph invariant checks.

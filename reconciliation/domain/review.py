@@ -594,3 +594,37 @@ class CaseTransitionPlan:
         if len(edges) != len(set(edges)):
             raise DomainValidationError("case lineage edges must be unique")
         object.__setattr__(self, "edges", edges)
+
+
+@dataclass(frozen=True, slots=True)
+class CaseTransitionNode:
+    case_key: CaseKey
+    member_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.case_key, CaseKey):
+            raise DomainValidationError("transition node requires a CaseKey")
+        members = _canonical_texts(self.member_ids, "transition member identity")
+        if not members:
+            raise DomainValidationError("transition node requires at least one member")
+        object.__setattr__(self, "member_ids", members)
+
+
+def plan_case_transitions(
+    previous: Iterable[CaseTransitionNode],
+    current: Iterable[CaseTransitionNode],
+) -> CaseTransitionPlan:
+    """Link changed cases exactly when their stable logical members overlap."""
+
+    before = tuple(sorted(previous, key=lambda item: (item.case_key.kind.value, item.case_key.digest)))
+    after = tuple(sorted(current, key=lambda item: (item.case_key.kind.value, item.case_key.digest)))
+    if any(not isinstance(item, CaseTransitionNode) for item in (*before, *after)):
+        raise DomainValidationError("case transitions require CaseTransitionNode values")
+    edges = tuple(
+        CaseLineageEdge(old.case_key, new.case_key)
+        for old in before
+        for new in after
+        if old.case_key != new.case_key
+        and set(old.member_ids).intersection(new.member_ids)
+    )
+    return CaseTransitionPlan(edges)
