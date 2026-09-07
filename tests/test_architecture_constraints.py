@@ -49,6 +49,7 @@ def test_distribution_discovers_every_application_package() -> None:
 
     assert includes == {
         "books*",
+        "cases*",
         "config*",
         "foundation*",
         "ingestion*",

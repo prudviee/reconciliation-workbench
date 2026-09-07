@@ -333,6 +333,14 @@ class ReconciliationRunService:
                 is_current=fresh,
                 created_at=completed_at,
             )
+            from cases.services import materialize_run_cases
+
+            materialize_run_cases(
+                workspace_id,
+                run,
+                is_current=fresh,
+                created_at=completed_at,
+            )
             self.publication_probe(run)
             freshness = RunFreshness.CURRENT if fresh else RunFreshness.STALE
             digest = engine_result_digest(result)

@@ -30,6 +30,7 @@ testpaths = ["tests"]
 [tool.setuptools.packages.find]
 include = [
     "books*",
+    "cases*",
     "config*",
     "foundation*",
     "ingestion*",

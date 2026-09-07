@@ -10,7 +10,8 @@ import pytest
 from django.db.models import F
 
 from books.models import BookKind, PolicyRevision, ReconciliationBook, ReconciliationScope
-from books.scopes import WorkspaceScopeRepository, mark_dataset_activation
+from books.scopes import WorkspacePolicyRepository, WorkspaceScopeRepository, mark_dataset_activation
+from cases.models import CaseEvidenceError, CaseOccurrence, CaseScopeProjection, InvestigationCase
 from ingestion.models import (
     AttemptState,
     Dataset,
@@ -437,6 +438,8 @@ def test_publication_failure_rolls_back_every_fact_and_marks_failed() -> None:
     assert run.diagnostics.count() == 0
     assert FieldComparison.objects.filter(pair__run=run).count() == 0
     assert graph.scope.current_run_id is None
+    assert not CaseOccurrence.objects.filter(run=run).exists()
+    assert not CaseScopeProjection.objects.filter(scope=graph.scope).exists()
 
 
 @pytest.mark.django_db
@@ -802,6 +805,136 @@ def test_stale_run_keeps_health_snapshot_without_replacing_current_projection() 
         scope=graph.scope,
         decision_id=revision.decision_id,
     ).exists()
+
+
+@pytest.mark.django_db
+def test_pair_case_reuses_logical_identity_across_corrected_observations() -> None:
+    graph = create_graph("stable-pair", left_reference=None, right_reference=None)
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    first_occurrence = CaseOccurrence.objects.get(run_id=first.run_id, result_kind="PAIR")
+    first_snapshot = dict(first_occurrence.state_snapshot)
+
+    corrected = replace_side_snapshot(graph, SourceRole.RIGHT, gross_amount=Decimal("100.10"))
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+    second_occurrence = CaseOccurrence.objects.get(run_id=second.run_id, result_kind="PAIR")
+
+    assert corrected is not None
+    assert second_occurrence.case_id == first_occurrence.case_id
+    assert InvestigationCase.objects.filter(book=graph.book, kind="PAIR").count() == 1
+    assert first_occurrence.case.occurrences.count() == 2
+    assert first_occurrence.state_snapshot == first_snapshot
+    projection = CaseScopeProjection.objects.get(case=first_occurrence.case, scope=graph.scope)
+    assert projection.current_occurrence_id == second_occurrence.id
+    assert projection.run_id == second.run_id
+    with pytest.raises(CaseEvidenceError):
+        CaseOccurrence.objects.filter(id=first_occurrence.id).update(state_snapshot={})
+
+
+@pytest.mark.django_db
+def test_unpaired_case_reuses_identity_and_carries_current_review_health() -> None:
+    graph = create_graph("stable-unpaired", right_instrument="ETH-USD")
+    decision = DecisionCommandService(clock=lambda: NOW).commit_initial(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        command=DecisionCommand(
+            action=DecisionAction.ACCEPT_UNMATCHED,
+            authority=DecisionAuthority.accept_unmatched(str(graph.left.id), RecordSide.LEFT),
+            reason="No counterpart",
+            actor="reviewer",
+            expected_resolution_generation=0,
+            reviewed_observation_ids=(str(graph.left_observation.id),),
+        ),
+    )
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    first_occurrence = CaseOccurrence.objects.get(
+        run_id=first.run_id,
+        unpaired__logical_transaction=graph.left,
+    )
+
+    corrected = replace_side_snapshot(graph, SourceRole.LEFT, gross_amount=Decimal("101"))
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+    second_occurrence = CaseOccurrence.objects.get(
+        run_id=second.run_id,
+        unpaired__logical_transaction=graph.left,
+    )
+    projection = CaseScopeProjection.objects.get(case=first_occurrence.case, scope=graph.scope)
+
+    assert corrected is not None
+    assert first_occurrence.case_id == second_occurrence.case_id
+    assert projection.current_occurrence_id == second_occurrence.id
+    assert projection.review_health == "EVIDENCE_CHANGED"
+    assert CurrentDecisionHealth.objects.get(decision_id=decision.decision_id).health == "EVIDENCE_CHANGED"
+
+
+@pytest.mark.django_db
+def test_same_stable_case_keeps_independent_current_projection_per_scope() -> None:
+    graph = create_graph("multi-scope")
+    second_scope = WorkspaceScopeRepository(WorkspaceId(graph.workspace.id)).create(
+        book_id=BookId(graph.book.id),
+        coverage_key="2026-10",
+        left_dataset_id=graph.scope.left_dataset_id,
+        right_dataset_id=graph.scope.right_dataset_id,
+        created_at=NOW,
+    )
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), second_scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+
+    pair_case = InvestigationCase.objects.get(book=graph.book, kind="PAIR")
+    projections = CaseScopeProjection.objects.filter(case=pair_case).order_by("scope_id")
+    assert projections.count() == 2
+    assert {item.scope_id for item in projections} == {graph.scope.id, second_scope.id}
+    assert {item.run_id for item in projections} == {first.run_id, second.run_id}
+
+
+@pytest.mark.django_db
+def test_ambiguity_case_uses_complete_logical_members_and_reuses_unchanged_membership() -> None:
+    graph = create_graph("stable-ambiguity", left_reference=None, right_reference=None)
+    replace_side_snapshot(graph, SourceRole.RIGHT, gross_amount=Decimal("200"))
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    first_result = runner.compute_run(WorkspaceId(graph.workspace.id), first.run_id)
+    assert {item.reason.value for item in first_result.unpaired} == {"AMBIGUOUS"}
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    first_occurrence = CaseOccurrence.objects.get(run_id=first.run_id, result_kind="AMBIGUITY")
+
+    replace_side_snapshot(graph, SourceRole.RIGHT, gross_amount=Decimal("201"))
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+    second_occurrence = CaseOccurrence.objects.get(run_id=second.run_id, result_kind="AMBIGUITY")
+    ambiguity = InvestigationCase.objects.get(id=first_occurrence.case_id)
+
+    assert second_occurrence.case_id == first_occurrence.case_id
+    assert ambiguity.ambiguity_left_logical_ids == [str(graph.left.id)]
+    assert ambiguity.ambiguity_right_logical_ids == [str(graph.right.id)]
+    assert ambiguity.occurrences.count() == 2
+
+    graph.book.refresh_from_db()
+    revised_matching = matching_policy_to_payload(
+        MatchingPolicy.initial_demo(policy_version="demo-matching-v2")
+    )
+    revised_comparison = comparison_policy_to_payload(ComparisonPolicy.initial_demo())
+    WorkspacePolicyRepository(WorkspaceId(graph.workspace.id)).create_revision(
+        book_id=BookId(graph.book.id),
+        expected_generation=graph.book.generation,
+        matching_policy=revised_matching,
+        comparison_policy=revised_comparison,
+        created_at=NOW + timedelta(minutes=2),
+    )
+    third = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), third.run_id)
+    third_occurrence = CaseOccurrence.objects.get(run_id=third.run_id, result_kind="AMBIGUITY")
+
+    assert third_occurrence.case_id != first_occurrence.case_id
+    assert InvestigationCase.objects.filter(book=graph.book, kind="AMBIGUITY").count() == 2
 
 
 def _manifest_hash(manifest: dict) -> str:

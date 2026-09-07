@@ -53,7 +53,7 @@
 
 ## Phase 4: stable cases and lineage
 
-- [ ] **REV-T08 — Create stable cases, immutable occurrences, and per-scope projections** (`REV-010`, `REV-011`, `REV-013`, `REV-016`; `REV-A06`–`REV-A08`, `REV-A12`)
+- [x] **REV-T08 — Create stable cases, immutable occurrences, and per-scope projections** (`REV-010`, `REV-011`, `REV-013`, `REV-016`; `REV-A06`–`REV-A08`, `REV-A12`)
   - Change: `cases` models/repositories, pair/unpaired/ambiguity materialization from run facts, append-only occurrences, and independently current per-scope projection rows.
   - Verify: same logical identities reuse cases across observation corrections/runs, ambiguity membership/policy changes create new keys, independent scopes do not overwrite each other, later review leaves historical facts/counts unchanged, and scoped access rejects foreign IDs.
   - Evidence: stable-key/occurrence table and before/after historical snapshots.
