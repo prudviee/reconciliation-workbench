@@ -436,7 +436,7 @@ class MatchingPolicy:
         *,
         policy_version: str = "demo-matching-v1",
         engine_version: str = "reconciliation-engine-v1",
-        solver_version: str = "scipy-linear-sum-assignment-v1",
+        solver_version: str = "scipy-1.18.1-linear-sum-assignment-v1",
         reference_contract: ReferenceContract = ReferenceContract.SHARED_MUST_AGREE,
     ) -> MatchingPolicy:
         return cls(

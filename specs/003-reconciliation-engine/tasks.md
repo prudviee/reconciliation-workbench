@@ -36,7 +36,7 @@
 
 ## Phase 3: global selection and abstention
 
-- [ ] **REC-T05 — Solve bounded optional-unmatched one-to-one assignment** (`REC-008`, `REC-010`, `REC-013`, `REC-017`, `REC-022`; `REC-A02`, `REC-A04`, `REC-A07`, `REC-A08`)
+- [x] **REC-T05 — Solve bounded optional-unmatched one-to-one assignment** (`REC-008`, `REC-010`, `REC-013`, `REC-017`, `REC-022`; `REC-A02`, `REC-A04`, `REC-A07`, `REC-A08`)
   - Change: candidate connected components, replaceable solver protocol, SciPy rectangular adapter, dummy unmatched choices, forbidden sentinels, objectives, and component limits of 100 real nodes/2,500 edges.
   - Verify: greedy counterexample, unequal sides, all below-floor, forbidden edges, disconnected components, limit boundaries, and exhaustive oracle parity on generated small graphs.
   - Evidence: solver golden fixtures, oracle results, and component evidence.
@@ -80,18 +80,18 @@
 | REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | Partial: T02 |
 | REC-005 | REC-T03, REC-T10 | REC-A07, REC-A14 | Partial: T03 |
 | REC-006, REC-007 | REC-T04, REC-T10 | REC-A09, REC-A15 | Partial: T04 |
-| REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | No |
-| REC-009, REC-010 | REC-T04–REC-T06, REC-T10 | REC-A02, REC-A03, REC-A05, REC-A07, REC-A09, REC-A15 | Partial: T04 |
+| REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | Partial: T05 |
+| REC-009, REC-010 | REC-T04–REC-T06, REC-T10 | REC-A02, REC-A03, REC-A05, REC-A07, REC-A09, REC-A15 | Partial: T04–T05 |
 | REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | Partial: T01 |
 | REC-012 | REC-T07, REC-T10 | REC-A01, REC-A05, REC-A06, REC-A16 | No |
-| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01, T03 |
+| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01, T03, T05 |
 | REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Partial: T01, T04 |
-| REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01, T04 |
+| REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01, T04–T05 |
 | REC-018 | REC-T06, REC-T10 | REC-A11 | No |
 | REC-019 | REC-T09, REC-T10 | REC-A10 | No |
 | REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | Partial: T01–T02, T04 |
 | REC-021 | REC-T02, REC-T10 | REC-A18 | Partial: T02 |
-| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01, T03 |
+| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01, T03, T05 |
 
 ## Deferred work
 

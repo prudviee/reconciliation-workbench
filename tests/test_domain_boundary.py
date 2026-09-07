@@ -18,6 +18,7 @@ loaded = set(sys.modules) - before
 forbidden = sorted(name for name in loaded if name == 'django' or name.startswith('django.') or name == 'psycopg' or name.startswith('psycopg.'))
 assert not forbidden, forbidden
 assert 'reconciliation.domain.reconciliation' in loaded
+assert 'numpy' not in loaded and 'scipy' not in loaded
 print('domain import: independent')
 """
 

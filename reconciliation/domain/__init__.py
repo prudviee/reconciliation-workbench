@@ -110,10 +110,21 @@ from reconciliation.domain.scoring import (
     score_candidate,
     score_candidates,
 )
+from reconciliation.domain.assignment import (
+    AssignmentLimitReason,
+    AssignmentSolveResult,
+    AssignmentSolver,
+    SelectedAssignmentEdge,
+    SolvedAssignmentComponent,
+    solve_assignment,
+)
 
 __all__ = [
     "AcceptedUnmatched",
     "AssignmentComponentEvidence",
+    "AssignmentLimitReason",
+    "AssignmentSolveResult",
+    "AssignmentSolver",
     "BlockingPassPolicy",
     "BookId",
     "CandidateEvidence",
@@ -179,9 +190,11 @@ __all__ = [
     "RowIssue",
     "SourceContract",
     "SCORE_SCALE_BP",
+    "SelectedAssignmentEdge",
     "SemanticInputRow",
     "SemanticValue",
     "SemanticValueTag",
+    "SolvedAssignmentComponent",
     "WorkspaceAccess",
     "WorkspaceAccessFailure",
     "WorkspaceId",
@@ -207,5 +220,6 @@ __all__ = [
     "source_contract_digest",
     "score_candidate",
     "score_candidates",
+    "solve_assignment",
     "validate_numeric_value",
 ]
