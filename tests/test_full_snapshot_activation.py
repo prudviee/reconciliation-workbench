@@ -11,7 +11,8 @@ from uuid import uuid4
 import pytest
 from django.db import close_old_connections, connection
 
-from books.models import BookKind, ReconciliationBook
+from books.models import BookKind, ReconciliationBook, ReconciliationScope
+from books.scopes import WorkspaceScopeRepository
 from ingestion.activation import (
     AttemptNotReady,
     FullSnapshotActivationService,
@@ -252,6 +253,75 @@ def test_first_full_snapshot_publishes_complete_materialized_membership(
     assert TransactionObservation.objects.count() == 2
 
 
+def test_activation_advances_book_generation_and_dirties_only_affected_scopes(
+    tmp_path: Path,
+) -> None:
+    context = create_context(tmp_path)
+    workspace_id = WorkspaceId(context.workspace.id)
+    left_dataset = context.dataset
+    book = left_dataset.book_source.book
+    source_repository = WorkspaceSourceRepository(workspace_id)
+    ingestion_repository = WorkspaceIngestionRepository(workspace_id)
+    right_source = source_repository.create_source(
+        name="Counterparty",
+        adapter_key="counterparty-v1",
+        created_at=NOW,
+    )
+    right_book_source = source_repository.assign_book_source(
+        book_id=BookId(book.id),
+        source_id=right_source.id,
+        role=SourceRole.RIGHT,
+        identity_namespace="counterparty-reference-v1",
+        created_at=NOW,
+    )
+    right_dataset = ingestion_repository.create_dataset(
+        book_source_id=right_book_source.id,
+        coverage_key="2025-07",
+        created_at=NOW,
+    )
+    other_left = ingestion_repository.create_dataset(
+        book_source_id=left_dataset.book_source_id,
+        coverage_key="2025-08",
+        created_at=NOW,
+    )
+    other_right = ingestion_repository.create_dataset(
+        book_source_id=right_book_source.id,
+        coverage_key="2025-08",
+        created_at=NOW,
+    )
+    scopes = WorkspaceScopeRepository(workspace_id)
+    affected = scopes.create(
+        book_id=BookId(book.id),
+        coverage_key="2025-07",
+        left_dataset_id=left_dataset.id,
+        right_dataset_id=right_dataset.id,
+        created_at=NOW,
+    )
+    unaffected = scopes.create(
+        book_id=BookId(book.id),
+        coverage_key="2025-08",
+        left_dataset_id=other_left.id,
+        right_dataset_id=other_right.id,
+        created_at=NOW,
+    )
+    ReconciliationScope.objects.filter(
+        id__in=(affected.id, unaffected.id)
+    ).update(is_dirty=False)
+    attempt = context.preview(HEADER + ledger_row("T-1"), filename="first.csv")
+
+    activation_service().activate(workspace_id, attempt_id=attempt.id)
+
+    book.refresh_from_db()
+    affected.refresh_from_db()
+    unaffected.refresh_from_db()
+    assert book.generation == 1
+    assert book.resolution_generation == 0
+    assert affected.is_dirty
+    assert affected.generation == 1
+    assert not unaffected.is_dirty
+    assert unaffected.generation == 0
+
+
 def test_next_snapshot_replaces_membership_but_preserves_prior_evidence(
     tmp_path: Path,
 ) -> None:
@@ -351,12 +421,15 @@ def test_format_equivalent_current_state_becomes_no_change(tmp_path: Path) -> No
     )
 
     context.dataset.refresh_from_db()
+    book = ReconciliationBook.objects.get(id=context.dataset.book_source.book_id)
     retry.refresh_from_db()
     assert result is None
     assert retry.state == AttemptState.NO_CHANGE
     assert context.dataset.current_revision_id == first_revision.id
     assert DatasetRevision.objects.count() == 1
     assert TransactionObservation.objects.count() == 1
+    assert book.generation == 1
+    assert book.resolution_generation == 0
 
 
 def test_historical_replay_does_not_roll_back_current_correction(tmp_path: Path) -> None:
@@ -382,6 +455,7 @@ def test_historical_replay_does_not_roll_back_current_correction(tmp_path: Path)
     )
 
     context.dataset.refresh_from_db()
+    book = ReconciliationBook.objects.get(id=context.dataset.book_source.book_id)
     replay.refresh_from_db()
     current_amount = DatasetMembership.objects.get(
         dataset_revision=correction_revision
@@ -394,6 +468,8 @@ def test_historical_replay_does_not_roll_back_current_correction(tmp_path: Path)
     assert DatasetMembership.objects.filter(
         dataset_revision=original_revision
     ).exists()
+    assert book.generation == 2
+    assert book.resolution_generation == 0
 
 
 def test_explicit_reason_restores_historical_values_as_a_new_revision(

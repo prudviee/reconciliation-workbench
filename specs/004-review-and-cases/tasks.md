@@ -17,9 +17,9 @@
   - Verify: every valid/invalid action-target shape, nonblank reason, canonical order and key vectors, ambiguity member/policy sensitivity, health vocabulary, and blocked Django/ORM imports.
   - Evidence: action matrix, stable digest vectors, and focused domain test results.
 
-- [ ] **REV-T02 — Add book generations, scopes, and immutable policy revisions** (`REV-010`–`REV-012`, `REV-016`; `REV-A06`, `REV-A12`)
+- [x] **REV-T02 — Add book generations, scopes, and immutable policy revisions** (`REV-010`–`REV-012`, `REV-016`; `REV-A06`, `REV-A12`)
   - Change: book data/resolution generation columns, workspace-owned reconciliation scopes, immutable policy revisions, locked generation services, and ingestion activation dirtying for affected scopes.
-  - Verify: migration constraints, unique scope/policy identities, exact generation changes for activation/policy/decision categories, unaffected scopes, immutable policy rows, and foreign-book rejection.
+  - Verify: migration constraints, unique scope/policy identities, exact activation/policy data-generation changes with resolution generation untouched, unaffected scopes, immutable policy rows, and foreign-book rejection. Decision-driven resolution increments begin in REV-T04.
   - Evidence: migration/schema inspection and generation transition table.
 
 ## Phase 2: durable decisions

@@ -85,6 +85,26 @@ def source_contract_digest(contract: dict[str, Any]) -> str:
     return _digest("source-contract", contract)
 
 
+def policy_revision_digest(
+    *,
+    matching_policy: dict[str, Any],
+    comparison_policy: dict[str, Any],
+) -> str:
+    if not isinstance(matching_policy, dict) or not isinstance(
+        comparison_policy, dict
+    ):
+        raise DomainValidationError("policy payloads must be objects")
+    if not matching_policy or not comparison_policy:
+        raise DomainValidationError("policy payloads must not be empty")
+    return _digest(
+        "policy-revision",
+        {
+            "matching_policy": matching_policy,
+            "comparison_policy": comparison_policy,
+        },
+    )
+
+
 def semantic_input_hash(
     *,
     contract_digest: str,

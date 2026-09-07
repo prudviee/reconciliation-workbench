@@ -21,6 +21,8 @@ from sources.adapters import contract_from_payload
 from workspaces.lifecycle import WorkspaceLifecycleService
 from workspaces.models import Workspace
 from workspaces.repositories import WorkspaceRepository, WorkspaceUnavailable
+from books.models import ReconciliationBook
+from books.scopes import mark_dataset_activation
 
 from .models import (
     AttemptState,
@@ -81,6 +83,10 @@ class FullSnapshotActivationService:
             attempt = self._locked_attempt(workspace_id, attempt_id)
             if attempt.state != AttemptState.READY:
                 raise AttemptNotReady
+            self._locked_book(
+                workspace_id,
+                attempt.dataset.book_source.book_id,
+            )
             dataset = self._locked_dataset(workspace_id, attempt.dataset_id)
             if dataset.current_revision_id != attempt.expected_base_id:
                 raise StalePreview
@@ -278,6 +284,11 @@ class FullSnapshotActivationService:
             )
             dataset.current_revision = revision
             dataset.save(update_fields=["current_revision"])
+            mark_dataset_activation(
+                workspace_id=workspace_id,
+                book_id=dataset.book_source.book_id,
+                dataset_id=dataset.id,
+            )
             return revision
 
     def _finish_without_revision(
@@ -338,4 +349,18 @@ class FullSnapshotActivationService:
                 .get(id=dataset_id)
             )
         except Dataset.DoesNotExist as error:
+            raise IngestionResourceUnavailable from error
+
+    @staticmethod
+    def _locked_book(
+        workspace_id: WorkspaceId,
+        book_id: UUID,
+    ) -> ReconciliationBook:
+        try:
+            return (
+                ReconciliationBook.objects.owned_by(workspace_id)
+                .select_for_update()
+                .get(id=book_id)
+            )
+        except ReconciliationBook.DoesNotExist as error:
             raise IngestionResourceUnavailable from error
