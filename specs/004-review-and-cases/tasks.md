@@ -29,9 +29,9 @@
   - Verify: database-local endpoint shape constraints, claim uniqueness, rejection without claims, revision immutability, multi-conflict supersession, history ordering, and foreign/absent indistinguishability. Locked cross-row side/ownership enforcement begins in REV-T04.
   - Evidence: database constraint inventory and persistence test results.
 
-- [ ] **REV-T04 — Commit initial authority with atomic concurrency checks** (`REV-001`–`REV-003`, `REV-007`, `REV-008`, `REV-012`, `REV-016`; `REV-A02`–`REV-A04`, `REV-A10`, `REV-A12`)
+- [x] **REV-T04 — Commit initial authority with atomic concurrency checks** (`REV-001`–`REV-003`, `REV-007`, `REV-008`, `REV-012`, `REV-016`; `REV-A02`–`REV-A04`, `REV-A10`, `REV-A12`)
   - Change: LINK, ACCEPT_UNMATCHED, and REJECT_CANDIDATE commit services with book lock, expected generation, endpoint resolution, claims, scope dirtying, and typed conflicts.
-  - Verify: successful action ledger, missing reason/incompatible target rollback, stale generation, simultaneous competing links with at most one success, rejected relationship engine exclusion, and no foreign mutation.
+  - Verify: successful action ledger, missing reason/incompatible target rejection, stale generation rollback, simultaneous competing links with at most one success, rejection persisted as an active no-claim relationship for REV-T06 engine mapping, and no foreign mutation.
   - Evidence: PostgreSQL concurrency result and atomic before/after snapshots.
 
 - [ ] **REV-T05 — Implement previewed reaffirmation, revocation, and replacement** (`REV-001`, `REV-004`, `REV-009`, `REV-012`, `REV-015`, `REV-016`; `REV-A05`, `REV-A09`–`REV-A12`)
