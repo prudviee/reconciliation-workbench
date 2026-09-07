@@ -91,6 +91,12 @@ from reconciliation.domain.reconciliation import (
     UnpairedOutcome,
     UnpairedReason,
 )
+from reconciliation.domain.references import (
+    ProhibitedRelationship,
+    ReferenceConflict,
+    ReferencePreprocessingResult,
+    preprocess_references,
+)
 
 __all__ = [
     "AcceptedUnmatched",
@@ -136,6 +142,7 @@ __all__ = [
     "PairOrigin",
     "PairOutcome",
     "ProposalEvidence",
+    "ProhibitedRelationship",
     "QuotaAmounts",
     "QuotaExceeded",
     "QuotaPolicy",
@@ -144,6 +151,8 @@ __all__ = [
     "RawCellKind",
     "RecordSide",
     "ReferenceContract",
+    "ReferenceConflict",
+    "ReferencePreprocessingResult",
     "ReferenceSemantics",
     "RejectedRelationship",
     "ReservedIdentity",
@@ -171,6 +180,7 @@ __all__ = [
     "parse_enum_value",
     "parse_required_text",
     "physical_artifact_hash",
+    "preprocess_references",
     "resolved_state_hash",
     "semantic_input_hash",
     "semantic_row_from_canonical",

@@ -17,7 +17,7 @@
   - Verify: framework-free imports, invalid decimal/time/identity/policy boundaries, initial 3,500/2,500/1,500/2,500 weights and 7,000/9,000/800 thresholds, and terminal-coverage validator.
   - Evidence: focused unit results and public-contract inventory.
 
-- [ ] **REC-T02 — Apply exclusions, reviewer reservations, and trusted references** (`REC-002`–`REC-004`, `REC-020`, `REC-021`; `REC-A01`, `REC-A13`, `REC-A17`, `REC-A18`)
+- [x] **REC-T02 — Apply exclusions, reviewer reservations, and trusted references** (`REC-002`–`REC-004`, `REC-020`, `REC-021`; `REC-A01`, `REC-A13`, `REC-A17`, `REC-A18`)
   - Change: deterministic preprocessing for cancellation, manual links, accepted-unmatched/reserved identities, active rejection prohibitions, reference semantics, unique reference pairs, and duplicate-reference ambiguity.
   - Verify: precedence matrix including rejected trusted reference, invalid manual endpoint, discrepancies retained on authoritative/manual pairs, local-ID mismatch, alias conflict, and full duplicate member sets.
   - Evidence: golden preprocessing table and focused tests.
@@ -75,9 +75,9 @@
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
 | REC-001 | REC-T01, REC-T08, REC-T10 | REC-A12 | Partial: T01 |
-| REC-002 | REC-T02, REC-T10 | REC-A13 | No |
-| REC-003 | REC-T02, REC-T10 | REC-A01, REC-A13 | No |
-| REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | No |
+| REC-002 | REC-T02, REC-T10 | REC-A13 | Partial: T02 |
+| REC-003 | REC-T02, REC-T10 | REC-A01, REC-A13 | Partial: T02 |
+| REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | Partial: T02 |
 | REC-005 | REC-T03, REC-T10 | REC-A07, REC-A14 | No |
 | REC-006, REC-007 | REC-T04, REC-T10 | REC-A09, REC-A15 | No |
 | REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | No |
@@ -89,8 +89,8 @@
 | REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01 |
 | REC-018 | REC-T06, REC-T10 | REC-A11 | No |
 | REC-019 | REC-T09, REC-T10 | REC-A10 | No |
-| REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | Partial: T01 |
-| REC-021 | REC-T02, REC-T10 | REC-A18 | No |
+| REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | Partial: T01–T02 |
+| REC-021 | REC-T02, REC-T10 | REC-A18 | Partial: T02 |
 | REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01 |
 
 ## Deferred work
