@@ -58,7 +58,7 @@
   - Verify: end-to-end golden scenarios, hundreds of input permutations, duplicate/missing terminal-outcome mutation tests, and subprocess execution with framework/I/O access blocked.
   - Evidence: canonical result fixtures and isolated-process output digest.
 
-- [ ] **REC-T09 — Add read-only accepted-unmatched decision-health diagnostics** (`REC-019`, `REC-022`; `REC-A10`)
+- [x] **REC-T09 — Add read-only accepted-unmatched decision-health diagnostics** (`REC-019`, `REC-022`; `REC-A10`)
   - Change: separate bounded diagnostic search over accepted-unmatched records, plausible candidates, current allocation facts, and explicit limited state without assignment mutation.
   - Verify: newly plausible free/allocated counterpart, unchanged selected pairs and unpaired outcomes, incomplete diagnostic warning, and deterministic ordering.
   - Evidence: before/after result identity and diagnostic fixture.
@@ -88,10 +88,10 @@
 | REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Partial: T01, T04, T07 |
 | REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01, T04–T05 |
 | REC-018 | REC-T06, REC-T10 | REC-A11 | Partial: T06 |
-| REC-019 | REC-T09, REC-T10 | REC-A10 | No |
+| REC-019 | REC-T09, REC-T10 | REC-A10 | Partial: T09 |
 | REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | Partial: T01–T02, T04 |
 | REC-021 | REC-T02, REC-T10 | REC-A18 | Partial: T02 |
-| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01, T03, T05 |
+| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01, T03, T05, T09 |
 
 ## Deferred work
 

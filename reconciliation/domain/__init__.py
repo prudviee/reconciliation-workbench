@@ -125,6 +125,7 @@ from reconciliation.domain.gating import (
     gate_assignment,
 )
 from reconciliation.domain.comparison import compare_pair_fields
+from reconciliation.domain.diagnostics import diagnose_accepted_unmatched
 from reconciliation.domain.engine import (
     candidate_graph_digest,
     canonical_result_json,
@@ -222,6 +223,7 @@ __all__ = [
     "candidate_graph_digest",
     "canonical_result_json",
     "compare_pair_fields",
+    "diagnose_accepted_unmatched",
     "canonical_decimal",
     "mapping_revision_digest",
     "generate_candidates",

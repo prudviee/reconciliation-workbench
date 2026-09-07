@@ -787,6 +787,12 @@ class DecisionHealthDiagnostic:
         _optional_text(self.candidate_current_pair_id, "diagnostic candidate_current_pair_id")
         _required_text(self.explanation, "diagnostic explanation")
         _boolean(self.complete, "diagnostic complete")
+        if self.kind is DiagnosticKind.ACCEPTED_UNMATCHED_CANDIDATE and self.candidate_id is None:
+            raise DomainValidationError("accepted-unmatched candidate diagnostic requires candidate_id")
+        if self.kind is DiagnosticKind.INCOMPLETE_SEARCH and self.complete:
+            raise DomainValidationError("incomplete-search diagnostic cannot be complete")
+        if self.candidate_current_pair_id is not None and self.candidate_id is None:
+            raise DomainValidationError("diagnostic allocation requires candidate_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -831,6 +837,18 @@ class EngineResult:
                 key=lambda item: (item.record_id, item.candidate_id or "", item.kind.value),
             )
         )
+        diagnostic_keys = tuple(
+            f"{item.record_id}\0{item.candidate_id or ''}\0{item.kind.value}"
+            for item in diagnostics
+        )
+        _unique(diagnostic_keys, "decision-health diagnostics")
+        all_input_ids = set(left_ids) | set(right_ids)
+        if any(
+            item.record_id not in all_input_ids
+            or (item.candidate_id is not None and item.candidate_id not in all_input_ids)
+            for item in diagnostics
+        ):
+            raise DomainValidationError("decision-health diagnostics must reference result inputs")
         paired_left = tuple(item.left_id for item in pairs)
         paired_right = tuple(item.right_id for item in pairs)
         _unique(paired_left, "paired left identities")
@@ -891,6 +909,15 @@ class EngineResult:
         ):
             raise DomainValidationError(
                 "weighted-global pairs must exactly match accepted assignment proposals"
+            )
+        pair_keys = {f"{item.left_id}:{item.right_id}" for item in pairs}
+        if any(
+            item.candidate_current_pair_id is not None
+            and item.candidate_current_pair_id not in pair_keys
+            for item in diagnostics
+        ):
+            raise DomainValidationError(
+                "diagnostic current allocations must reference result pairs"
             )
         object.__setattr__(self, "input_left_ids", left_ids)
         object.__setattr__(self, "input_right_ids", right_ids)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import fields, is_dataclass
+from dataclasses import fields, is_dataclass, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
@@ -14,6 +14,7 @@ from .assignment import AssignmentSolver, solve_assignment
 from .candidates import generate_candidates
 from .comparison import compare_pair_fields
 from .gating import gate_assignment
+from .diagnostics import diagnose_accepted_unmatched
 from .hashing import canonical_datetime, canonical_decimal
 from .reconciliation import (
     CandidateEvidence,
@@ -120,7 +121,7 @@ def reconcile(
                 )
             )
 
-    return EngineResult(
+    primary_result = EngineResult(
         left_revision_id=snapshot.left_revision_id,
         right_revision_id=snapshot.right_revision_id,
         matching_policy_version=matching_policy.policy_version,
@@ -134,6 +135,13 @@ def reconcile(
         candidates=candidates,
         components=gated.components,
     )
+    diagnostics = diagnose_accepted_unmatched(
+        snapshot=snapshot,
+        decisions=decisions,
+        matching_policy=matching_policy,
+        primary_result=primary_result,
+    )
+    return replace(primary_result, diagnostics=diagnostics)
 
 
 def candidate_graph_digest(candidates: tuple[CandidateEvidence, ...]) -> str:
