@@ -849,6 +849,49 @@ class EngineResult:
             )
         candidate_edges = tuple(f"{item.left_id}\0{item.right_id}" for item in candidates)
         _unique(candidate_edges, "candidate edges")
+        if any(
+            item.left_id not in left_ids or item.right_id not in right_ids
+            for item in candidates
+        ):
+            raise DomainValidationError("candidate edges must reference result inputs")
+        component_ids = tuple(item.component_id for item in components)
+        _unique(component_ids, "assignment component identities")
+        if any(
+            not set(item.left_ids).issubset(left_ids)
+            or not set(item.right_ids).issubset(right_ids)
+            for item in components
+        ):
+            raise DomainValidationError("assignment components must reference result inputs")
+        candidate_by_edge = {
+            (item.left_id, item.right_id): item for item in candidates
+        }
+        proposals = tuple(
+            proposal for component in components for proposal in component.proposals
+        )
+        if any(
+            (item.left_id, item.right_id) not in candidate_by_edge
+            or candidate_by_edge[(item.left_id, item.right_id)].score_bp != item.score_bp
+            for item in proposals
+        ):
+            raise DomainValidationError(
+                "assignment proposals must match result candidate evidence"
+            )
+        accepted_by_edge = {
+            (item.left_id, item.right_id): item for item in proposals if item.accepted
+        }
+        weighted_by_edge = {
+            (item.left_id, item.right_id): item
+            for item in pairs
+            if item.origin is PairOrigin.WEIGHTED_GLOBAL
+        }
+        if set(accepted_by_edge) != set(weighted_by_edge) or any(
+            weighted_by_edge[edge].score_bp != proposal.score_bp
+            or weighted_by_edge[edge].global_gap_bp != proposal.global_gap_bp
+            for edge, proposal in accepted_by_edge.items()
+        ):
+            raise DomainValidationError(
+                "weighted-global pairs must exactly match accepted assignment proposals"
+            )
         object.__setattr__(self, "input_left_ids", left_ids)
         object.__setattr__(self, "input_right_ids", right_ids)
         object.__setattr__(self, "pairs", pairs)

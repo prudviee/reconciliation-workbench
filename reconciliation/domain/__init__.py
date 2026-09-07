@@ -125,6 +125,12 @@ from reconciliation.domain.gating import (
     gate_assignment,
 )
 from reconciliation.domain.comparison import compare_pair_fields
+from reconciliation.domain.engine import (
+    candidate_graph_digest,
+    canonical_result_json,
+    engine_result_digest,
+    reconcile,
+)
 
 __all__ = [
     "AcceptedUnmatched",
@@ -213,10 +219,13 @@ __all__ = [
     "UnpairedOutcome",
     "UnpairedReason",
     "canonical_datetime",
+    "candidate_graph_digest",
+    "canonical_result_json",
     "compare_pair_fields",
     "canonical_decimal",
     "mapping_revision_digest",
     "generate_candidates",
+    "engine_result_digest",
     "observation_fingerprint",
     "parse_datetime_value",
     "parse_decimal_value",
@@ -224,6 +233,7 @@ __all__ = [
     "parse_required_text",
     "physical_artifact_hash",
     "preprocess_references",
+    "reconcile",
     "resolved_state_hash",
     "semantic_input_hash",
     "semantic_row_from_canonical",

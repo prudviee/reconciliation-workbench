@@ -53,7 +53,7 @@
   - Verify: exact and immediately beyond inclusive decimal/time tolerances, timezone-equivalent instants, unlike-currency monetary refusal, and authoritative discrepancy preservation.
   - Evidence: boundary fixtures and explanation snapshots.
 
-- [ ] **REC-T08 — Orchestrate deterministic complete engine results** (`REC-001`, `REC-011`, `REC-013`; `REC-A02`–`REC-A04`, `REC-A08`, `REC-A12`)
+- [x] **REC-T08 — Orchestrate deterministic complete engine results** (`REC-001`, `REC-011`, `REC-013`; `REC-A02`–`REC-A04`, `REC-A08`, `REC-A12`)
   - Change: pure stage orchestration, canonical graph/result digests, exactly-one terminal outcome validation, stable reason ordering, and public `reconcile` entry point.
   - Verify: end-to-end golden scenarios, hundreds of input permutations, duplicate/missing terminal-outcome mutation tests, and subprocess execution with framework/I/O access blocked.
   - Evidence: canonical result fixtures and isolated-process output digest.
@@ -74,7 +74,7 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| REC-001 | REC-T01, REC-T08, REC-T10 | REC-A12 | Partial: T01 |
+| REC-001 | REC-T01, REC-T08, REC-T10 | REC-A12 | Partial: T01, T08 |
 | REC-002 | REC-T02, REC-T10 | REC-A13 | Partial: T02 |
 | REC-003 | REC-T02, REC-T10 | REC-A01, REC-A13 | Partial: T02 |
 | REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | Partial: T02, T07 |
@@ -82,9 +82,9 @@
 | REC-006, REC-007 | REC-T04, REC-T10 | REC-A09, REC-A15 | Partial: T04 |
 | REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | Partial: T05 |
 | REC-009, REC-010 | REC-T04–REC-T06, REC-T10 | REC-A02, REC-A03, REC-A05, REC-A07, REC-A09, REC-A15 | Partial: T04–T06 |
-| REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | Partial: T01 |
+| REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | Partial: T01, T08 |
 | REC-012 | REC-T07, REC-T10 | REC-A01, REC-A05, REC-A06, REC-A16 | Partial: T07 |
-| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01, T03, T05 |
+| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01, T03, T05, T08 |
 | REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Partial: T01, T04, T07 |
 | REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01, T04–T05 |
 | REC-018 | REC-T06, REC-T10 | REC-A11 | Partial: T06 |
