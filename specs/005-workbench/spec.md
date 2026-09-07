@@ -99,3 +99,4 @@ Native mobile applications, free-form dashboard builders, real-time multi-user c
 |---|---|---|
 | 5 September 2026 | Initial draft | Define showcase workflow |
 | 5 September 2026 | Fixed accessible evidence, visual baseline, pagination/progress behavior, and traceability; marked Ready | Critical SDD review |
+| 7 September 2026 | Planned submission-critical implementation separately from post-submission showcase enhancements | User-directed submission prioritization |
