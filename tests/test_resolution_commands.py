@@ -32,6 +32,12 @@ from reconciliation.domain import (
     ReviewConflictCode,
     WorkspaceId,
 )
+from reconciliation.querying import (
+    ReviewCursorError,
+    ReviewPageSizeError,
+    ReviewQueryUnavailable,
+)
+from resolutions.queries import DecisionQueryService
 from resolutions.models import ActiveDecisionClaim, Decision, DecisionRevision
 from resolutions.models import DecisionSupersession
 from resolutions.services import (
@@ -852,3 +858,282 @@ def test_preview_and_lifecycle_changes_reveal_or_mutate_nothing_cross_workspace(
     assert owner.book.resolution_generation == 1
     assert DecisionRevision.objects.filter(decision_id=revision.decision_id).count() == 1
     assert revision.active_claims.count() == 1
+
+
+@pytest.mark.django_db
+def test_decision_query_pages_are_stable_complete_and_bounded(
+    django_assert_num_queries,
+) -> None:
+    graph = create_graph("decision-query-pages")
+    commands = DecisionCommandService(clock=lambda: NOW)
+    for generation in range(5):
+        commands.commit_initial(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            command=command(
+                graph,
+                action=DecisionAction.REJECT_CANDIDATE,
+                authority=DecisionAuthority.reject_candidate(
+                    str(graph.left[0].id), str(graph.right[0].id)
+                ),
+                observations=(
+                    graph.left_observations[0],
+                    graph.right_observations[0],
+                ),
+                generation=generation,
+            ),
+        )
+
+    query = DecisionQueryService(clock=lambda: NOW)
+    with django_assert_num_queries(4):
+        first = query.list_decisions(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            page_size=2,
+        )
+    assert first.next_cursor is not None
+
+    seen = list(first.items)
+    cursor = first.next_cursor
+    while cursor is not None:
+        page = query.list_decisions(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            cursor=cursor,
+            page_size=2,
+        )
+        seen.extend(page.items)
+        cursor = page.next_cursor
+
+    expected = list(
+        Decision.objects.filter(book=graph.book).order_by("created_at", "id")
+    )
+    assert [item.decision_id for item in seen] == [item.id for item in expected]
+    assert len({item.decision_id for item in seen}) == 5
+    assert all(item.authority_active for item in seen)
+    assert all(item.review_is_pending for item in seen)
+
+
+@pytest.mark.django_db
+def test_decision_query_history_labels_current_revision_and_bounds_queries(
+    django_assert_num_queries,
+) -> None:
+    graph = create_graph("decision-query-history")
+    commands = DecisionCommandService(clock=lambda: NOW)
+    initial = commands.commit_initial(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        command=command(
+            graph,
+            action=DecisionAction.LINK,
+            authority=DecisionAuthority.link(
+                str(graph.left[0].id), str(graph.right[0].id)
+            ),
+            observations=(graph.left_observations[0], graph.right_observations[0]),
+            generation=0,
+        ),
+    )
+    latest = commands.commit_change(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        command=DecisionCommand(
+            action=DecisionAction.REAFFIRM,
+            target=target(initial),
+            reason="Reviewed current evidence",
+            actor="WORKSPACE_REVIEWER",
+            expected_resolution_generation=1,
+            reviewed_observation_ids=(
+                str(graph.left_observations[0].id),
+                str(graph.right_observations[0].id),
+            ),
+        ),
+    )
+
+    query = DecisionQueryService(clock=lambda: NOW)
+    with django_assert_num_queries(5):
+        history = query.get_decision_history(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            decision_id=initial.decision_id,
+        )
+
+    assert history.current_revision_id == latest.id
+    assert [item.timeline_label for item in history.revisions] == [
+        "HISTORICAL",
+        "CURRENT",
+    ]
+    assert [item.authority_active for item in history.revisions] == [False, True]
+
+
+@pytest.mark.django_db
+def test_decision_query_exposes_complete_replacement_preview() -> None:
+    graph = create_graph("decision-query-preview", left_count=2)
+    commands = DecisionCommandService(clock=lambda: NOW)
+    original = commands.commit_initial(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        command=command(
+            graph,
+            action=DecisionAction.LINK,
+            authority=DecisionAuthority.link(
+                str(graph.left[0].id), str(graph.right[0].id)
+            ),
+            observations=(graph.left_observations[0], graph.right_observations[0]),
+            generation=0,
+        ),
+    )
+    conflict = commands.commit_initial(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        command=command(
+            graph,
+            action=DecisionAction.ACCEPT_UNMATCHED,
+            authority=DecisionAuthority.accept_unmatched(
+                str(graph.right[1].id), RecordSide.RIGHT
+            ),
+            observations=(graph.right_observations[1],),
+            generation=1,
+        ),
+    )
+
+    preview = DecisionQueryService(clock=lambda: NOW).preview_replacement(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        target=target(original),
+        authority=DecisionAuthority.link(
+            str(graph.left[0].id), str(graph.right[1].id)
+        ),
+    )
+
+    assert preview.expected_conflicts == (target(conflict),)
+    assert preview.resolution_generation == 2
+    assert set(preview.conflicts[0].claimed_record_ids) == {
+        str(graph.right[1].id)
+    }
+
+
+@pytest.mark.django_db
+def test_decision_query_rejects_unbounded_invalid_and_cross_projection_cursors() -> None:
+    graph = create_graph("decision-query-cursor")
+    query = DecisionQueryService(clock=lambda: NOW)
+    for size in (0, 101, True):
+        with pytest.raises(ReviewPageSizeError):
+            query.list_decisions(
+                WorkspaceId(graph.workspace.id),
+                book_id=BookId(graph.book.id),
+                scope_id=graph.scope.id,
+                page_size=size,
+            )
+    with pytest.raises(ReviewCursorError):
+        query.list_decisions(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            cursor="not-a-cursor",
+        )
+
+
+@pytest.mark.django_db
+def test_decision_query_foreign_and_absent_ids_share_one_unavailable_result() -> None:
+    owner = create_graph("decision-query-owner")
+    outsider = create_graph("decision-query-outsider")
+    revision = DecisionCommandService(clock=lambda: NOW).commit_initial(
+        WorkspaceId(owner.workspace.id),
+        book_id=BookId(owner.book.id),
+        command=command(
+            owner,
+            action=DecisionAction.ACCEPT_UNMATCHED,
+            authority=DecisionAuthority.accept_unmatched(
+                str(owner.left[0].id), RecordSide.LEFT
+            ),
+            observations=(owner.left_observations[0],),
+            generation=0,
+        ),
+    )
+    query = DecisionQueryService(clock=lambda: NOW)
+    probes = (
+        lambda: query.list_decisions(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+        ),
+        lambda: query.list_decisions(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=outsider.scope.id,
+        ),
+        lambda: query.get_decision_history(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(outsider.book.id),
+            scope_id=outsider.scope.id,
+            decision_id=revision.decision_id,
+        ),
+        lambda: query.get_decision_history(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+            decision_id=uuid4(),
+        ),
+    )
+    for probe in probes:
+        with pytest.raises(ReviewQueryUnavailable):
+            probe()
+
+@pytest.mark.django_db
+def test_decision_query_covers_absent_context_and_preview_boundaries() -> None:
+    owner = create_graph("decision-query-boundary-owner")
+    outsider = create_graph("decision-query-boundary-outsider")
+    revision = DecisionCommandService(clock=lambda: NOW).commit_initial(
+        WorkspaceId(owner.workspace.id),
+        book_id=BookId(owner.book.id),
+        command=command(
+            owner,
+            action=DecisionAction.ACCEPT_UNMATCHED,
+            authority=DecisionAuthority.accept_unmatched(
+                str(owner.left[0].id), RecordSide.LEFT
+            ),
+            observations=(owner.left_observations[0],),
+            generation=0,
+        ),
+    )
+    query = DecisionQueryService(clock=lambda: NOW)
+    probes = (
+        lambda: query.list_decisions(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(uuid4()),
+            scope_id=owner.scope.id,
+        ),
+        lambda: query.list_decisions(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=uuid4(),
+        ),
+        lambda: query.get_decision_history(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+            decision_id="invalid-id",
+        ),
+        lambda: query.preview_replacement(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(outsider.book.id),
+            target=target(revision),
+            authority=DecisionAuthority.accept_unmatched(
+                str(outsider.left[0].id), RecordSide.LEFT
+            ),
+        ),
+        lambda: query.preview_replacement(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            target=ExpectedDecisionRevision(str(uuid4()), str(uuid4())),
+            authority=DecisionAuthority.accept_unmatched(
+                str(owner.left[0].id), RecordSide.LEFT
+            ),
+        ),
+    )
+    for probe in probes:
+        with pytest.raises(ReviewQueryUnavailable):
+            probe()

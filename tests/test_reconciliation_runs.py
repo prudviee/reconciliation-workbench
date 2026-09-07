@@ -12,6 +12,7 @@ from django.db.models import F
 from books.models import BookKind, PolicyRevision, ReconciliationBook, ReconciliationScope
 from books.scopes import WorkspacePolicyRepository, WorkspaceScopeRepository, mark_dataset_activation
 from cases.models import CaseEvidenceError, CaseLineage, CaseOccurrence, CaseScopeProjection, InvestigationCase
+from cases.queries import CaseQueryService
 from ingestion.models import (
     AttemptState,
     Dataset,
@@ -40,6 +41,7 @@ from reconciliation.domain import (
     WorkspaceId,
     policy_revision_digest,
 )
+from reconciliation.querying import ReviewPageSizeError, ReviewQueryUnavailable
 from reconciliation.models import (
     FieldComparison,
     CurrentDecisionHealth,
@@ -971,3 +973,253 @@ def _manifest_hash(manifest: dict) -> str:
     return hashlib.sha256(
         __import__("json").dumps(manifest, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
     ).hexdigest()
+
+
+@pytest.mark.django_db
+def test_case_query_pages_are_stable_complete_and_bounded(
+    django_assert_num_queries,
+) -> None:
+    graph = create_graph(
+        "case-query-pages",
+        left_reference=None,
+        right_reference=None,
+        right_instrument="ETH-USD",
+    )
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    frozen = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), frozen.run_id)
+
+    query = CaseQueryService(clock=lambda: NOW)
+    with django_assert_num_queries(4):
+        first = query.list_cases(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            page_size=1,
+        )
+    assert first.next_cursor is not None
+    second = query.list_cases(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        scope_id=graph.scope.id,
+        cursor=first.next_cursor,
+        page_size=1,
+    )
+    assert second.next_cursor is None
+
+    seen = first.items + second.items
+    expected = list(
+        CaseScopeProjection.objects.filter(scope=graph.scope).order_by(
+            "case__created_at", "case_id"
+        )
+    )
+    assert [item.case_id for item in seen] == [item.case_id for item in expected]
+    assert len({item.case_id for item in seen}) == 2
+    with pytest.raises(ReviewPageSizeError):
+        query.list_cases(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            page_size=101,
+        )
+
+
+@pytest.mark.django_db
+def test_case_query_history_occurrence_and_current_review_are_explicit(
+    django_assert_num_queries,
+) -> None:
+    graph = create_graph("case-query-history", left_reference=None, right_reference=None)
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    corrected = replace_side_snapshot(
+        graph,
+        SourceRole.RIGHT,
+        gross_amount=Decimal("100.10"),
+    )
+    assert corrected is not None
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+    case = CaseOccurrence.objects.get(run_id=first.run_id, result_kind="PAIR").case
+
+    query = CaseQueryService(clock=lambda: NOW)
+    with django_assert_num_queries(5):
+        history = query.get_case_history(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            case_id=case.id,
+        )
+    assert sorted(item.timeline_label for item in history.occurrences) == [
+        "CURRENT",
+        "HISTORICAL",
+    ]
+    current_occurrence = next(
+        item for item in history.occurrences if item.timeline_label == "CURRENT"
+    )
+    with django_assert_num_queries(4):
+        occurrence = query.get_case_occurrence(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            occurrence_id=current_occurrence.occurrence_id,
+        )
+    assert occurrence.timeline_label == "CURRENT"
+    assert occurrence.run_id == second.run_id
+    with django_assert_num_queries(5):
+        current_review = query.get_current_review(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            case_id=case.id,
+        )
+    assert current_review is not None
+    assert current_review.occurrence_id == current_occurrence.occurrence_id
+
+
+@pytest.mark.django_db
+def test_case_query_returns_complete_bidirectional_lineage(
+    django_assert_num_queries,
+) -> None:
+    graph = create_graph("case-query-lineage")
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    pair_case = CaseOccurrence.objects.get(run_id=first.run_id, result_kind="PAIR").case
+
+    replace_side_snapshot(graph, SourceRole.RIGHT, reference="DIFFERENT")
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+    unpaired_case = CaseOccurrence.objects.filter(
+        run_id=second.run_id,
+        result_kind="UNPAIRED",
+    ).first().case
+
+    query = CaseQueryService(clock=lambda: NOW)
+    with django_assert_num_queries(5):
+        outgoing = query.get_case_lineage(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            case_id=pair_case.id,
+        )
+    assert len(outgoing.edges) == 2
+    assert {item.direction for item in outgoing.edges} == {"SUCCESSOR"}
+    incoming = query.get_case_lineage(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        scope_id=graph.scope.id,
+        case_id=unpaired_case.id,
+    )
+    assert [(item.direction, item.related_case_id) for item in incoming.edges] == [
+        ("PREDECESSOR", pair_case.id)
+    ]
+
+
+@pytest.mark.django_db
+def test_case_query_foreign_and_absent_ids_share_one_unavailable_result() -> None:
+    owner = create_graph("case-query-owner")
+    outsider = create_graph("case-query-outsider")
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    frozen = runner.create_run_manifest(WorkspaceId(owner.workspace.id), owner.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(owner.workspace.id), frozen.run_id)
+    occurrence = CaseOccurrence.objects.get(run_id=frozen.run_id)
+    query = CaseQueryService(clock=lambda: NOW)
+    probes = (
+        lambda: query.list_cases(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+        ),
+        lambda: query.list_cases(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=outsider.scope.id,
+        ),
+        lambda: query.get_case_history(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(outsider.book.id),
+            scope_id=outsider.scope.id,
+            case_id=occurrence.case_id,
+        ),
+        lambda: query.get_case_history(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+            case_id=uuid4(),
+        ),
+        lambda: query.get_case_occurrence(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+            occurrence_id=uuid4(),
+        ),
+    )
+    for probe in probes:
+        with pytest.raises(ReviewQueryUnavailable):
+            probe()
+
+@pytest.mark.django_db
+def test_case_query_applies_unavailable_boundary_to_every_detail_projection() -> None:
+    owner = create_graph("case-query-boundary-owner")
+    outsider = create_graph("case-query-boundary-outsider")
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    frozen = runner.create_run_manifest(WorkspaceId(owner.workspace.id), owner.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(owner.workspace.id), frozen.run_id)
+    occurrence = CaseOccurrence.objects.get(run_id=frozen.run_id)
+    query = CaseQueryService(clock=lambda: NOW)
+    foreign_probes = (
+        lambda: query.get_case_history(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(outsider.book.id),
+            scope_id=outsider.scope.id,
+            case_id=occurrence.case_id,
+        ),
+        lambda: query.get_case_occurrence(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(outsider.book.id),
+            scope_id=outsider.scope.id,
+            occurrence_id=occurrence.id,
+        ),
+        lambda: query.get_current_review(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(outsider.book.id),
+            scope_id=outsider.scope.id,
+            case_id=occurrence.case_id,
+        ),
+        lambda: query.get_case_lineage(
+            WorkspaceId(outsider.workspace.id),
+            book_id=BookId(outsider.book.id),
+            scope_id=outsider.scope.id,
+            case_id=occurrence.case_id,
+        ),
+    )
+    absent_probes = (
+        lambda: query.get_case_history(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+            case_id=uuid4(),
+        ),
+        lambda: query.get_case_occurrence(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+            occurrence_id=uuid4(),
+        ),
+        lambda: query.get_current_review(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+            case_id=uuid4(),
+        ),
+        lambda: query.get_case_lineage(
+            WorkspaceId(owner.workspace.id),
+            book_id=BookId(owner.book.id),
+            scope_id=owner.scope.id,
+            case_id=uuid4(),
+        ),
+    )
+    for probe in foreign_probes + absent_probes:
+        with pytest.raises(ReviewQueryUnavailable):
+            probe()

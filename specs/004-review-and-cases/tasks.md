@@ -63,7 +63,7 @@
   - Verify: pair case links both unpaired predecessors, pair split links every successor, overlapping ambiguity components link correctly, unrelated cases do not link, rerun idempotency, historical navigation, and cross-book/workspace denial.
   - Evidence: merge/split lineage fixtures and graph invariant checks.
 
-- [ ] **REV-T10 — Add bounded scoped review query services** (`REV-004`, `REV-009`–`REV-011`, `REV-016`; `REV-A05`, `REV-A06`, `REV-A11`, `REV-A12`)
+- [x] **REV-T10 — Add bounded scoped review query services** (`REV-004`, `REV-009`–`REV-011`, `REV-016`; `REV-A05`, `REV-A06`, `REV-A11`, `REV-A12`)
   - Change: cursor-paginated decision/case lists plus decision history, replacement preview, case occurrence, current review, and lineage detail projections for specification 005.
   - Verify: stable ordering, page-size cap 100, no duplicate/omitted rows across cursors, historical/current labels, complete affected decisions, bounded queries, and the full foreign/absent ID matrix.
   - Evidence: pagination/query measurements and isolation matrix.
