@@ -1,0 +1,28 @@
+{% extends "foundation/preparation_base.html" %}
+{% block title %}Import evidence{% endblock %}
+{% block content %}
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Workspace</a><span>/</span><a href="{% url 'foundation:book-sources' book.id %}">{{ book.name }}</a><span>/</span><span>Import {{ attempt.id|stringformat:"s"|slice:":8"|upper }}</span></nav>
+  {% if message %}<div class="notice {% if stale or attempt.state == 'REJECTED' %}notice-error{% else %}notice-success{% endif %}" role="status"><span>{% if stale %}!{% else %}✓{% endif %}</span>{{ message }}</div>{% endif %}
+  <header class="page-heading compact-heading">
+    <div><p class="section-kicker">{{ side }} source · {{ attempt.get_state_display }}</p><h1>Interpretation evidence</h1></div>
+    <p>{{ attempt.row_count }} source rows · {{ attempt.error_count }} blocking errors · delimiter <strong>{% if attempt.delimiter == '	' %}tab{% elif attempt.delimiter == ';' %}semicolon{% else %}comma{% endif %}</strong></p>
+  </header>
+  <section class="evidence-metrics" aria-label="Import summary">
+    <article><small>Physical file</small><code>{{ attempt.physical_hash|slice:":12" }}…</code></article>
+    <article><small>Semantic input</small><code>{{ attempt.semantic_hash|slice:":12" }}…</code></article>
+    <article><small>Expected base</small><code>{% if attempt.expected_base_id %}{{ attempt.expected_base_id|stringformat:"s"|slice:":8" }}{% else %}empty{% endif %}</code></article>
+    <article><small>Operations</small><strong>{% for key, count in operations.items %}{{ key }} {{ count }}{% if not forloop.last %} · {% endif %}{% endfor %}</strong></article>
+  </section>
+  {% if attempt.validation %}<section class="error-panel" role="alert" aria-labelledby="file-errors"><h2 id="file-errors">File-level errors</h2>{% for error in attempt.validation %}<p>Row {{ error.row_number }} · {{ error.field }} · {{ error.code }} — expected {{ error.expected }}</p>{% endfor %}</section>{% endif %}
+  <section class="table-section" aria-labelledby="rows-heading">
+    <div class="section-heading"><div><p class="section-kicker">Retained evidence</p><h2 id="rows-heading">Raw and canonical rows</h2></div><span class="count-pill">Page {{ page.number }} of {{ page.paginator.num_pages }}</span></div>
+    <div class="table-scroll"><table class="evidence-table"><thead><tr><th>Row</th><th>Raw source values</th><th>Canonical interpretation</th><th>Provenance / validation</th></tr></thead><tbody>
+      {% for row in page %}<tr class="{% if row.validation %}row-error{% endif %}"><th scope="row">{{ row.row_number }}</th><td><dl class="cell-list">{% for cell in row.raw_values %}<div><dt>{{ cell.column }}</dt><dd><span class="tag">{{ cell.kind }}</span> {{ cell.original|default_if_none:"—" }}</dd></div>{% endfor %}</dl></td><td>{% if row.canonical_preview %}<dl class="cell-list">{% for key, value in row.canonical_preview.items %}{% if key != 'provenance' and key != 'complete' %}<div><dt>{{ key }}</dt><dd>{{ value|default_if_none:"—" }}</dd></div>{% endif %}{% endfor %}</dl>{% else %}<span class="muted">Unavailable because the header could not be interpreted.</span>{% endif %}</td><td>{% if row.validation %}{% for error in row.validation %}<p class="inline-error"><strong>{{ error.code }}</strong><br>{{ error.field }}: “{{ error.original_value|default_if_none:"missing" }}”<br><small>Expected {{ error.expected }}</small></p>{% endfor %}{% else %}<details><summary>Show field lineage</summary><dl class="cell-list provenance-list">{% for item in row.canonical_preview.provenance %}<div><dt>{{ item.canonical_field }}</dt><dd>{{ item.source_column|default:"constant" }} · {{ item.transformation }}</dd></div>{% endfor %}</dl></details>{% endif %}</td></tr>{% empty %}<tr><td colspan="4">No data rows were retained.</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if page.has_other_pages %}<nav class="pagination" aria-label="Preview pages">{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">← Previous</a>{% endif %}<span>Rows {{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}</span>{% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next →</a>{% endif %}</nav>{% endif %}
+  </section>
+  <section class="activation-panel" aria-labelledby="activation-heading"><div><p class="section-kicker">Publication</p><h2 id="activation-heading">Activate this dataset revision</h2><p>Activation is atomic and uses the base shown above. Earlier artifacts, observations and revisions remain unchanged.</p></div>
+    {% if attempt.state == 'READY' and not stale %}<form method="post" action="{% url 'foundation:import-activate' attempt.id %}">{% csrf_token %}<button class="button button-primary" type="submit">Confirm and activate</button></form>{% elif stale %}<a class="button button-primary button-link" href="{% url 'foundation:source-upload' book.id side %}">Create a fresh preview</a>{% else %}<span class="state-chip">{{ attempt.get_state_display }}</span>{% endif %}
+  </section>
+  <section class="history-section"><div class="section-heading"><div><p class="section-kicker">Immutable history</p><h2>Dataset revisions</h2></div><a href="{% url 'foundation:artifact-download' attempt.artifact_id %}">Download original CSV</a></div><ol class="history-list">{% for revision in revisions %}<li><span>Revision {{ revision.id|stringformat:"s"|slice:":8"|upper }}</span><code>{{ revision.state_hash|slice:":14" }}…</code><a href="{% url 'foundation:import-detail' revision.attempt_id %}">Evidence</a></li>{% empty %}<li>No active revision yet.</li>{% endfor %}</ol></section>
+{% endblock %}

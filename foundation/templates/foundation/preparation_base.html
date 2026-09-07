@@ -1,0 +1,26 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Prepare private transaction evidence for reconciliation.">
+  <title>{% block title %}Preparation{% endblock %} · Reconciliation Workbench</title>
+  <link rel="icon" href="{% static 'foundation/favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'foundation/workspace.css' %}">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Reconciliation Workbench home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Reconciliation <strong>Workbench</strong></span>
+    </a>
+    <span class="stage-label">Source preparation</span>
+  </header>
+  <main id="main-content" class="preparation-main" tabindex="-1">
+    {% block content %}{% endblock %}
+  </main>
+  <footer><span>Reconciliation Workbench</span><span>Evidence first · Explainable by design</span></footer>
+</body>
+</html>

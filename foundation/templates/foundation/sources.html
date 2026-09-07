@@ -1,0 +1,32 @@
+{% extends "foundation/preparation_base.html" %}
+{% block title %}Sources{% endblock %}
+{% block content %}
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Workspace</a><span>/</span><span>{{ book.name }}</span></nav>
+  <header class="page-heading">
+    <div><p class="section-kicker">Prepare evidence</p><h1>{{ book.name }}</h1></div>
+    <p>Load one file for each side. Every preview preserves the original bytes and shows exactly how source values become canonical transactions.</p>
+  </header>
+  <section class="source-grid" aria-label="Reconciliation sources">
+    {% for source in sides %}
+      <article class="source-card">
+        <div class="source-card-heading">
+          <span class="side-badge">{{ forloop.counter|stringformat:"02d" }}</span>
+          <div><p class="section-kicker">{{ source.role }} side</p><h2>{{ source.label }}</h2></div>
+        </div>
+        {% if source.dataset.current_revision %}
+          <div class="source-state source-state-ready"><span aria-hidden="true">✓</span><div><strong>Dataset active</strong><small>{{ source.dataset.current_revision.memberships.count }} retained transactions</small></div></div>
+        {% elif source.latest_attempt %}
+          <div class="source-state"><span aria-hidden="true">◌</span><div><strong>{{ source.latest_attempt.get_state_display }}</strong><small>{{ source.latest_attempt.row_count }} rows inspected</small></div></div>
+        {% else %}
+          <div class="source-state"><span aria-hidden="true">＋</span><div><strong>No source file yet</strong><small>CSV up to 10,000 rows and 25 MiB</small></div></div>
+        {% endif %}
+        <div class="card-actions">
+          <a class="button button-primary button-link" href="{% url 'foundation:source-upload' book.id source.role %}">Upload CSV</a>
+          <a class="button button-secondary button-link" href="{% url 'foundation:source-mapping' book.id source.role %}">Define mapping</a>
+        </div>
+        {% if source.latest_attempt %}<a class="evidence-link" href="{% url 'foundation:import-detail' source.latest_attempt.id %}">View latest evidence →</a>{% endif %}
+      </article>
+    {% endfor %}
+  </section>
+  <aside class="explain-card"><strong>Nothing is matched during preparation.</strong> Activation only selects immutable source observations. Matching and reviewer decisions happen in later stages.</aside>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "foundation/preparation_base.html" %}
+{% block title %}Upload {{ side_label }}{% endblock %}
+{% block content %}
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Workspace</a><span>/</span><a href="{% url 'foundation:book-sources' book.id %}">{{ book.name }}</a><span>/</span><span>{{ side_label }} upload</span></nav>
+  <header class="page-heading compact-heading"><div><p class="section-kicker">{{ side }} side</p><h1>Preview a source file</h1></div><p>The file is retained privately. You will inspect every interpretation before activation.</p></header>
+  {% if request.GET.mapping %}<div class="notice notice-success" role="status"><span>✓</span>Your immutable mapping revision was saved. Select it below.</div>{% endif %}
+  <form class="form-card" method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="notice notice-error" role="alert"><span>!</span>{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid">
+      <div class="field-group"><label for="{{ form.adapter.id_for_label }}">Source format</label>{{ form.adapter }}{{ form.adapter.errors }}<small>Use a predefined Atlas format or a mapping saved for this side.</small></div>
+      <div class="field-group"><label for="{{ form.delimiter.id_for_label }}">Delimiter</label>{{ form.delimiter }}{{ form.delimiter.errors }}<small>The selected delimiter is recorded with the preview.</small></div>
+      <div class="field-group field-wide"><label for="{{ form.artifact.id_for_label }}">CSV file</label>{{ form.artifact }}{{ form.artifact.errors }}<small>UTF-8 or UTF-8 with BOM; maximum 25 MiB and 10,000 data rows.</small></div>
+    </div>
+    <div class="form-actions"><button class="button button-primary" type="submit">Create evidence preview</button><a href="{% url 'foundation:book-sources' book.id %}">Cancel</a></div>
+  </form>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "foundation/preparation_base.html" %}
+{% block title %}Map {{ side_label }}{% endblock %}
+{% block content %}
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Workspace</a><span>/</span><a href="{% url 'foundation:book-sources' book.id %}">{{ book.name }}</a><span>/</span><span>Column mapping</span></nav>
+  <header class="page-heading compact-heading"><div><p class="section-kicker">Configurable adapter</p><h1>Define the source contract</h1></div><p>Declare identity, time, enum and operation meaning. Saved revisions never reinterpret earlier imports.</p></header>
+  <form class="form-card" method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="notice notice-error" role="alert"><span>!</span>{{ form.non_field_errors }}</div>{% endif %}
+    <fieldset><legend>Interpretation policy</legend><div class="form-grid">
+      {% for field in form %}{% if forloop.counter <= 5 %}<div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+    </div></fieldset>
+    <fieldset><legend>Canonical columns</legend><div class="form-grid">
+      {% for field in form %}{% if forloop.counter > 5 and forloop.counter <= 15 %}<div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+    </div></fieldset>
+    <fieldset><legend>Source enum values</legend><div class="form-grid">
+      {% for field in form %}{% if forloop.counter > 15 %}<div class="field-group"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+    </div><p class="field-note">Operation fields are required only when mode is DELTA.</p></fieldset>
+    <div class="form-actions"><button class="button button-primary" type="submit">Save immutable mapping</button><a href="{% url 'foundation:book-sources' book.id %}">Cancel</a></div>
+  </form>
+{% endblock %}

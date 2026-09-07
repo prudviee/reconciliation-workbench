@@ -63,7 +63,7 @@
   - Verify: owner/foreign/random/expired/deleted cases for every ingestion resource and mutation; cancelled rows never enter the eligible-input adapter.
   - Evidence: contract-suite matrix and sanitized download headers/log capture.
 
-- [ ] **ING-T10 — Deliver the upload, map, preview, and activate interface** (`ING-003`, `ING-004`, `ING-011`, `ING-013`, `ING-017`; `ING-A01`, `ING-A02`, `ING-A07`, `ING-A11`, `ING-A14`, `ING-A16`)
+- [x] **ING-T10 — Deliver the upload, map, preview, and activate interface** (`ING-003`, `ING-004`, `ING-011`, `ING-013`, `ING-017`; `ING-A01`, `ING-A02`, `ING-A07`, `ING-A11`, `ING-A14`, `ING-A16`)
   - Change: server-rendered preparation pages, predefined/configurable contract forms, raw/canonical/provenance table, row errors, proposed changes, activation confirmation, and evidence history.
   - Verify: keyboard/no-JavaScript journey for both assignment formats and a third mapping; accessible errors; paginated large preview; stale activation recovery; desktop/mobile review.
   - Evidence: browser captures, accessibility inspection, query counts, and complete user journey.
@@ -81,19 +81,19 @@
 |---|---|---|---|
 | ING-001 | ING-T02, ING-T03, ING-T11 | ING-A10 | Partial: T02–T03 passed |
 | ING-002 | ING-T01, ING-T02, ING-T04, ING-T11 | ING-A01, ING-A11 | Partial: T01–T02, T04 passed |
-| ING-003 | ING-T04, ING-T10, ING-T11 | ING-A01 | Partial: T04 passed |
-| ING-004 | ING-T01, ING-T04, ING-T10, ING-T11 | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | Partial: T01, T04 passed |
+| ING-003 | ING-T04, ING-T10, ING-T11 | ING-A01 | Partial: T04, T10 passed |
+| ING-004 | ING-T01, ING-T04, ING-T10, ING-T11 | ING-A02, ING-A05, ING-A08, ING-A09, ING-A16 | Partial: T01, T04, T10 passed |
 | ING-005 | ING-T06, ING-T11 | ING-A05 | Partial: T06 passed |
 | ING-006 | ING-T06, ING-T08, ING-T11 | ING-A04 | Partial: T06, T08 passed |
 | ING-007 | ING-T02, ING-T06, ING-T07, ING-T11 | ING-A03, ING-A10 | Partial: T02, T06–T07 passed |
 | ING-008 | ING-T05–ING-T08, ING-T11 | ING-A03, ING-A06, ING-A09, ING-A17 | Partial: T05–T08 passed |
 | ING-009 | ING-T07, ING-T11 | ING-A03 | Partial: T07 passed |
 | ING-010 | ING-T07, ING-T11 | ING-A03 | Partial: T07 passed |
-| ING-011 | ING-T04, ING-T10, ING-T11 | ING-A11 | Partial: T04 passed |
+| ING-011 | ING-T04, ING-T10, ING-T11 | ING-A11 | Partial: T04, T10 passed |
 | ING-012 | ING-T01, ING-T09, ING-T11 | ING-A12 | Partial: T01, T09 passed |
-| ING-013 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A07 | Partial: T03–T04 passed |
+| ING-013 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A07 | Partial: T03–T04, T10 passed |
 | ING-014 | ING-T01, ING-T11 | ING-A08 | Partial: T01 passed |
 | ING-015 | ING-T01, ING-T05, ING-T11 | ING-A09 | Partial: T01, T05 passed |
 | ING-016 | ING-T01, ING-T08, ING-T11 | ING-A13 | Partial: T01, T08 passed |
-| ING-017 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A14 | Partial: T03–T04 passed |
-| ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | Partial: T02–T03, T09 passed |
+| ING-017 | ING-T03, ING-T04, ING-T10, ING-T11 | ING-A14 | Partial: T03–T04, T10 passed |
+| ING-018 | ING-T02, ING-T03, ING-T09–ING-T11 | ING-A15 | Partial: T02–T03, T09–T10 passed |

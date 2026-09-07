@@ -118,7 +118,7 @@
               </dl>
               <div class="book-footer">
                 <span>Book {{ book.id|stringformat:"s"|slice:":8"|upper }}</span>
-                <span class="coming-next">Preparation pending</span>
+                <a class="evidence-link" href="{% url 'foundation:book-sources' book.id %}">Prepare sources →</a>
               </div>
             </article>
           {% endfor %}
