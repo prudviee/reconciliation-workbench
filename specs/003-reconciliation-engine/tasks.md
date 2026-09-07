@@ -12,7 +12,7 @@
 
 ## Phase 1: immutable decision contracts
 
-- [ ] **REC-T01 — Define immutable engine inputs, policies, and outcomes** (`REC-001`, `REC-011`–`REC-017`, `REC-020`, `REC-022`; `REC-A05`, `REC-A08`, `REC-A12`)
+- [x] **REC-T01 — Define immutable engine inputs, policies, and outcomes** (`REC-001`, `REC-011`–`REC-017`, `REC-020`, `REC-022`; `REC-A05`, `REC-A08`, `REC-A12`)
   - Change: frozen record/snapshot, decision, policy, feature, pair, unpaired, component, diagnostic, and result value objects with strict validation and canonical ordering.
   - Verify: framework-free imports, invalid decimal/time/identity/policy boundaries, initial 3,500/2,500/1,500/2,500 weights and 7,000/9,000/800 thresholds, and terminal-coverage validator.
   - Evidence: focused unit results and public-contract inventory.
@@ -74,7 +74,7 @@
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| REC-001 | REC-T01, REC-T08, REC-T10 | REC-A12 | No |
+| REC-001 | REC-T01, REC-T08, REC-T10 | REC-A12 | Partial: T01 |
 | REC-002 | REC-T02, REC-T10 | REC-A13 | No |
 | REC-003 | REC-T02, REC-T10 | REC-A01, REC-A13 | No |
 | REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | No |
@@ -82,16 +82,16 @@
 | REC-006, REC-007 | REC-T04, REC-T10 | REC-A09, REC-A15 | No |
 | REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | No |
 | REC-009, REC-010 | REC-T04–REC-T06, REC-T10 | REC-A02, REC-A03, REC-A05, REC-A07, REC-A09, REC-A15 | No |
-| REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | No |
+| REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | Partial: T01 |
 | REC-012 | REC-T07, REC-T10 | REC-A01, REC-A05, REC-A06, REC-A16 | No |
-| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | No |
-| REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | No |
-| REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | No |
+| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01 |
+| REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Partial: T01 |
+| REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01 |
 | REC-018 | REC-T06, REC-T10 | REC-A11 | No |
 | REC-019 | REC-T09, REC-T10 | REC-A10 | No |
-| REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | No |
+| REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | Partial: T01 |
 | REC-021 | REC-T02, REC-T10 | REC-A18 | No |
-| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | No |
+| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01 |
 
 ## Deferred work
 
