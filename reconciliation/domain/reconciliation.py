@@ -667,6 +667,22 @@ class AssignmentComponentEvidence:
         proposals = tuple(sorted(self.proposals, key=lambda item: (item.left_id, item.right_id)))
         proposal_edges = tuple(f"{item.left_id}\0{item.right_id}" for item in proposals)
         _unique(proposal_edges, "component proposals")
+        if not self.complete and proposals:
+            raise DomainValidationError("an incomplete component cannot contain proposals")
+        if any(
+            item.left_id not in left_ids or item.right_id not in right_ids
+            for item in proposals
+        ):
+            raise DomainValidationError("component proposals must reference component members")
+        if any(
+            item.counterfactual_objective_bp > self.optimal_utility_bp
+            or item.global_gap_bp
+            != self.optimal_utility_bp - item.counterfactual_objective_bp
+            for item in proposals
+        ):
+            raise DomainValidationError(
+                "component proposal gaps must equal base minus counterfactual objective"
+            )
         object.__setattr__(self, "left_ids", left_ids)
         object.__setattr__(self, "right_ids", right_ids)
         object.__setattr__(self, "proposals", proposals)

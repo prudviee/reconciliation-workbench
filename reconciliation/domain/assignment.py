@@ -177,7 +177,7 @@ def solve_assignment(
         left_ids = tuple(sorted({item.left_id for item in component_edges}))
         right_ids = tuple(sorted({item.right_id for item in component_edges}))
         component_id = _component_id(left_ids, right_ids)
-        graph_digest = _graph_digest(
+        graph_digest = assignment_graph_digest(
             component_id=component_id,
             assignment_floor_bp=policy.assignment_floor_bp,
             edges=component_edges,
@@ -209,7 +209,7 @@ def solve_assignment(
             )
             continue
 
-        selected = _solve_component(
+        selected = solve_component(
             left_ids=left_ids,
             right_ids=right_ids,
             candidates=component_edges,
@@ -282,15 +282,18 @@ def _connected_components(
     )
 
 
-def _solve_component(
+def solve_component(
     *,
     left_ids: tuple[str, ...],
     right_ids: tuple[str, ...],
     candidates: tuple[CandidateEvidence, ...],
     assignment_floor_bp: int,
     solver: AssignmentSolver,
+    forbidden_edges: frozenset[tuple[str, str]] = frozenset(),
 ) -> tuple[SelectedAssignmentEdge, ...]:
     edges = {(item.left_id, item.right_id): item for item in candidates}
+    if not forbidden_edges.issubset(edges):
+        raise DomainValidationError("counterfactual forbidden edges must belong to the component")
     forbidden_cost = len(left_ids) * 10_001 + 1
     costs: list[list[int]] = []
     for left_id in left_ids:
@@ -299,6 +302,7 @@ def _solve_component(
                 edges[(left_id, right_id)].score_bp - assignment_floor_bp
             )
             if (left_id, right_id) in edges
+            and (left_id, right_id) not in forbidden_edges
             else forbidden_cost
             for right_id in right_ids
         ]
@@ -317,7 +321,11 @@ def _solve_component(
             continue
         left_id = left_ids[row_index]
         right_id = right_ids[column_index]
-        candidate = edges.get((left_id, right_id))
+        candidate = (
+            None
+            if (left_id, right_id) in forbidden_edges
+            else edges.get((left_id, right_id))
+        )
         if candidate is None:
             raise DomainValidationError("assignment solver selected a forbidden relationship")
         utility = candidate.score_bp - assignment_floor_bp
@@ -350,7 +358,7 @@ def _component_id(left_ids: tuple[str, ...], right_ids: tuple[str, ...]) -> str:
     return f"component-{hashlib.sha256(payload).hexdigest()[:16]}"
 
 
-def _graph_digest(
+def assignment_graph_digest(
     *,
     component_id: str,
     assignment_floor_bp: int,

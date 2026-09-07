@@ -117,6 +117,12 @@ from reconciliation.domain.assignment import (
     SelectedAssignmentEdge,
     SolvedAssignmentComponent,
     solve_assignment,
+    solve_component,
+)
+from reconciliation.domain.gating import (
+    GatedAssignmentResult,
+    ProposalGateReason,
+    gate_assignment,
 )
 
 __all__ = [
@@ -168,10 +174,12 @@ __all__ = [
     "MatchFeature",
     "MatchRecord",
     "MatchingPolicy",
+    "GatedAssignmentResult",
     "NumericSimilarityPolicy",
     "PairOrigin",
     "PairOutcome",
     "ProposalEvidence",
+    "ProposalGateReason",
     "ProhibitedRelationship",
     "QuotaAmounts",
     "QuotaExceeded",
@@ -221,5 +229,7 @@ __all__ = [
     "score_candidate",
     "score_candidates",
     "solve_assignment",
+    "solve_component",
+    "gate_assignment",
     "validate_numeric_value",
 ]
