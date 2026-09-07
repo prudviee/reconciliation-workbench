@@ -97,6 +97,13 @@ from reconciliation.domain.references import (
     ReferencePreprocessingResult,
     preprocess_references,
 )
+from reconciliation.domain.candidates import (
+    CandidateEdge,
+    CandidateGenerationResult,
+    CandidateLimitReason,
+    CandidatePartitionEvidence,
+    generate_candidates,
+)
 
 __all__ = [
     "AcceptedUnmatched",
@@ -104,6 +111,10 @@ __all__ = [
     "BlockingPassPolicy",
     "BookId",
     "CandidateEvidence",
+    "CandidateEdge",
+    "CandidateGenerationResult",
+    "CandidateLimitReason",
+    "CandidatePartitionEvidence",
     "CanonicalRow",
     "CanonicalSide",
     "CanonicalState",
@@ -174,6 +185,7 @@ __all__ = [
     "canonical_datetime",
     "canonical_decimal",
     "mapping_revision_digest",
+    "generate_candidates",
     "observation_fingerprint",
     "parse_datetime_value",
     "parse_decimal_value",

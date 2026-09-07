@@ -24,7 +24,7 @@
 
 ## Phase 2: candidate evidence
 
-- [ ] **REC-T03 — Generate a complete bounded union of blocking passes** (`REC-005`, `REC-013`, `REC-022`; `REC-A07`, `REC-A08`, `REC-A14`)
+- [x] **REC-T03 — Generate a complete bounded union of blocking passes** (`REC-005`, `REC-013`, `REC-022`; `REC-A07`, `REC-A08`, `REC-A14`)
   - Change: versioned pass definitions, deterministic union/deduplication, per-edge inclusion reasons, 200-per-record and 250,000-per-run enforcement, partition completeness evidence.
   - Verify: either-pass discovery, order invariance, exact limit boundaries, truncation, and separation of search windows from scoring/comparison settings.
   - Evidence: generated blocking fixtures and completeness matrix.
@@ -78,20 +78,20 @@
 | REC-002 | REC-T02, REC-T10 | REC-A13 | Partial: T02 |
 | REC-003 | REC-T02, REC-T10 | REC-A01, REC-A13 | Partial: T02 |
 | REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | Partial: T02 |
-| REC-005 | REC-T03, REC-T10 | REC-A07, REC-A14 | No |
+| REC-005 | REC-T03, REC-T10 | REC-A07, REC-A14 | Partial: T03 |
 | REC-006, REC-007 | REC-T04, REC-T10 | REC-A09, REC-A15 | No |
 | REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | No |
 | REC-009, REC-010 | REC-T04–REC-T06, REC-T10 | REC-A02, REC-A03, REC-A05, REC-A07, REC-A09, REC-A15 | No |
 | REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | Partial: T01 |
 | REC-012 | REC-T07, REC-T10 | REC-A01, REC-A05, REC-A06, REC-A16 | No |
-| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01 |
+| REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01, T03 |
 | REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Partial: T01 |
 | REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01 |
 | REC-018 | REC-T06, REC-T10 | REC-A11 | No |
 | REC-019 | REC-T09, REC-T10 | REC-A10 | No |
 | REC-020 | REC-T01, REC-T02, REC-T04, REC-T10 | REC-A17 | Partial: T01–T02 |
 | REC-021 | REC-T02, REC-T10 | REC-A18 | Partial: T02 |
-| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01 |
+| REC-022 | REC-T01, REC-T03, REC-T05, REC-T09, REC-T10 | REC-A07 | Partial: T01, T03 |
 
 ## Deferred work
 
