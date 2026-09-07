@@ -505,9 +505,9 @@ class ComparisonPolicy:
         return cls(
             policy_version="demo-comparison-v1",
             timestamp_tolerance=timedelta(seconds=60),
-            quantity_tolerance=DecimalTolerance(Decimal("0"), Decimal("0")),
+            quantity_tolerance=DecimalTolerance(Decimal("0.00000001"), Decimal("0")),
             unit_price_tolerance=DecimalTolerance(Decimal("0.01"), Decimal("0")),
-            gross_amount_tolerance=DecimalTolerance(Decimal("0.01"), Decimal("0")),
+            gross_amount_tolerance=DecimalTolerance(Decimal("0.05"), Decimal("0")),
             compatible_state_pairs=((CanonicalState.SETTLED, CanonicalState.SETTLED),),
         )
 
@@ -704,8 +704,28 @@ class FieldComparison:
         _required_text(self.explanation, "comparison explanation")
         object.__setattr__(self, "left_value", _validate_scalar(self.left_value, "comparison left_value"))
         object.__setattr__(self, "right_value", _validate_scalar(self.right_value, "comparison right_value"))
-        object.__setattr__(self, "signed_difference", _validate_difference(self.signed_difference, "comparison signed_difference"))
-        object.__setattr__(self, "allowed_difference", _validate_difference(self.allowed_difference, "comparison allowed_difference"))
+        signed = _validate_difference(self.signed_difference, "comparison signed_difference")
+        allowed = _validate_difference(self.allowed_difference, "comparison allowed_difference")
+        if (signed is None) != (allowed is None):
+            raise DomainValidationError(
+                "comparison signed and allowed differences must both be present or absent"
+            )
+        if signed is not None and type(signed) is not type(allowed):
+            raise DomainValidationError(
+                "comparison signed and allowed differences must have the same type"
+            )
+        if isinstance(allowed, Decimal) and allowed < 0:
+            raise DomainValidationError("comparison allowed decimal difference must be nonnegative")
+        if isinstance(allowed, timedelta) and allowed < timedelta(0):
+            raise DomainValidationError("comparison allowed elapsed difference must be nonnegative")
+        if self.status in (ComparisonStatus.MISSING, ComparisonStatus.NOT_COMPARABLE) and (
+            signed is not None or allowed is not None
+        ):
+            raise DomainValidationError(
+                "missing and not-comparable comparisons cannot contain calculated differences"
+            )
+        object.__setattr__(self, "signed_difference", signed)
+        object.__setattr__(self, "allowed_difference", allowed)
 
 
 @dataclass(frozen=True, slots=True)

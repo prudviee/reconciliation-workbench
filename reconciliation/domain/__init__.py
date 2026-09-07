@@ -124,6 +124,7 @@ from reconciliation.domain.gating import (
     ProposalGateReason,
     gate_assignment,
 )
+from reconciliation.domain.comparison import compare_pair_fields
 
 __all__ = [
     "AcceptedUnmatched",
@@ -212,6 +213,7 @@ __all__ = [
     "UnpairedOutcome",
     "UnpairedReason",
     "canonical_datetime",
+    "compare_pair_fields",
     "canonical_decimal",
     "mapping_revision_digest",
     "generate_candidates",

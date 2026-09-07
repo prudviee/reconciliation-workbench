@@ -48,7 +48,7 @@
 
 ## Phase 4: comparison and orchestration
 
-- [ ] **REC-T07 — Compare paired fields with exact explicit semantics** (`REC-004`, `REC-012`, `REC-015`; `REC-A01`, `REC-A06`, `REC-A16`)
+- [x] **REC-T07 — Compare paired fields with exact explicit semantics** (`REC-004`, `REC-012`, `REC-015`; `REC-A01`, `REC-A06`, `REC-A16`)
   - Change: exact/tolerated/discrepant/not-comparable results for reference, instrument, side, quantity, timestamp, unit price, gross amount, and currency; factual explanations only.
   - Verify: exact and immediately beyond inclusive decimal/time tolerances, timezone-equivalent instants, unlike-currency monetary refusal, and authoritative discrepancy preservation.
   - Evidence: boundary fixtures and explanation snapshots.
@@ -77,15 +77,15 @@
 | REC-001 | REC-T01, REC-T08, REC-T10 | REC-A12 | Partial: T01 |
 | REC-002 | REC-T02, REC-T10 | REC-A13 | Partial: T02 |
 | REC-003 | REC-T02, REC-T10 | REC-A01, REC-A13 | Partial: T02 |
-| REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | Partial: T02 |
+| REC-004 | REC-T02, REC-T07, REC-T10 | REC-A01 | Partial: T02, T07 |
 | REC-005 | REC-T03, REC-T10 | REC-A07, REC-A14 | Partial: T03 |
 | REC-006, REC-007 | REC-T04, REC-T10 | REC-A09, REC-A15 | Partial: T04 |
 | REC-008 | REC-T05, REC-T10 | REC-A02, REC-A04 | Partial: T05 |
 | REC-009, REC-010 | REC-T04–REC-T06, REC-T10 | REC-A02, REC-A03, REC-A05, REC-A07, REC-A09, REC-A15 | Partial: T04–T06 |
 | REC-011 | REC-T01, REC-T08, REC-T10 | REC-A02–REC-A04 | Partial: T01 |
-| REC-012 | REC-T07, REC-T10 | REC-A01, REC-A05, REC-A06, REC-A16 | No |
+| REC-012 | REC-T07, REC-T10 | REC-A01, REC-A05, REC-A06, REC-A16 | Partial: T07 |
 | REC-013 | REC-T01, REC-T03, REC-T05, REC-T08, REC-T10 | REC-A08 | Partial: T01, T03, T05 |
-| REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Partial: T01, T04 |
+| REC-014, REC-015 | REC-T01, REC-T04, REC-T07, REC-T10 | REC-A15 | Partial: T01, T04, T07 |
 | REC-016, REC-017 | REC-T01, REC-T04, REC-T05, REC-T10 | REC-A05, REC-A09 | Partial: T01, T04–T05 |
 | REC-018 | REC-T06, REC-T10 | REC-A11 | Partial: T06 |
 | REC-019 | REC-T09, REC-T10 | REC-A10 | No |
