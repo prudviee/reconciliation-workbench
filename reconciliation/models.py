@@ -8,6 +8,7 @@ from django.db import models
 
 from reconciliation.domain import (
     ComparisonStatus,
+    DecisionHealth,
     DiagnosticKind,
     PairOrigin,
     RecordSide,
@@ -60,6 +61,12 @@ class ImmutableRunQuerySet(RunOwnedQuerySet):
 
     def delete(self):
         raise RunEvidenceError("immutable run evidence can be removed only through retention cleanup")
+
+
+class CurrentHealthQuerySet(models.QuerySet):
+    def owned_by(self, workspace_id: WorkspaceId | UUID):
+        value = workspace_id.value if isinstance(workspace_id, WorkspaceId) else workspace_id
+        return self.filter(workspace_id=value)
 
 
 class ImmutableRunModel(models.Model):
@@ -340,7 +347,7 @@ class RunDiagnostic(ImmutableRunModel):
     kind = models.CharField(max_length=32, choices=[(item.value, item.name.title()) for item in DiagnosticKind])
     record_observation = models.ForeignKey("ingestion.TransactionObservation", on_delete=models.PROTECT, related_name="diagnostics_as_record")
     candidate_observation = models.ForeignKey("ingestion.TransactionObservation", on_delete=models.PROTECT, null=True, blank=True, related_name="diagnostics_as_candidate")
-    candidate_current_pair_observation = models.ForeignKey("ingestion.TransactionObservation", on_delete=models.PROTECT, null=True, blank=True, related_name="diagnostics_as_allocation")
+    candidate_current_pair_id = models.CharField(max_length=80, null=True, blank=True)
     complete = models.BooleanField()
     explanation = models.TextField()
 
@@ -352,3 +359,53 @@ class RunDiagnostic(ImmutableRunModel):
             models.UniqueConstraint(fields=["run", "record_observation", "candidate_observation", "kind"], name="run_diagnostic_unique"),
             models.CheckConstraint(condition=models.Q(kind__in=[item.value for item in DiagnosticKind]), name="run_diagnostic_kind_valid"),
         ]
+
+
+class DecisionHealthSnapshot(ImmutableRunModel):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    workspace = models.ForeignKey("workspaces.Workspace", on_delete=models.CASCADE, related_name="decision_health_snapshots")
+    run = models.ForeignKey(ReconciliationRun, on_delete=models.CASCADE, related_name="decision_health")
+    decision = models.ForeignKey("resolutions.Decision", on_delete=models.PROTECT, related_name="health_snapshots")
+    decision_revision = models.ForeignKey("resolutions.DecisionRevision", on_delete=models.PROTECT, related_name="health_snapshots")
+    health = models.CharField(max_length=20, choices=[(item.value, item.name.title()) for item in DecisionHealth])
+    attention = models.JSONField(default=list)
+    endpoints_available = models.BooleanField()
+    evidence_changed = models.BooleanField()
+    current_observation_ids = models.JSONField()
+    current_evidence_digest = models.CharField(max_length=64, null=True, blank=True)
+    created_at = models.DateTimeField()
+
+    objects = ImmutableRunQuerySet.as_manager()
+
+    class Meta:
+        db_table = "decision_health_snapshot"
+        constraints = [
+            models.UniqueConstraint(fields=["run", "decision_revision"], name="run_decision_health_unique"),
+            models.CheckConstraint(condition=models.Q(health__in=[item.value for item in DecisionHealth]), name="decision_health_value_valid"),
+        ]
+        indexes = [models.Index(fields=["workspace", "decision", "created_at"], name="health_snapshot_decision_idx")]
+
+
+class CurrentDecisionHealth(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    workspace = models.ForeignKey("workspaces.Workspace", on_delete=models.CASCADE, related_name="current_decision_health")
+    scope = models.ForeignKey("books.ReconciliationScope", on_delete=models.CASCADE, related_name="current_decision_health")
+    decision = models.ForeignKey("resolutions.Decision", on_delete=models.CASCADE, related_name="current_health")
+    decision_revision = models.ForeignKey("resolutions.DecisionRevision", on_delete=models.PROTECT, related_name="current_health")
+    run = models.ForeignKey(ReconciliationRun, on_delete=models.PROTECT, related_name="current_decision_health")
+    snapshot = models.OneToOneField(DecisionHealthSnapshot, on_delete=models.PROTECT, related_name="current_projection")
+    health = models.CharField(max_length=20, choices=[(item.value, item.name.title()) for item in DecisionHealth])
+    attention = models.JSONField(default=list)
+    applied_data_generation = models.PositiveBigIntegerField()
+    applied_resolution_generation = models.PositiveBigIntegerField()
+    updated_at = models.DateTimeField()
+
+    objects = CurrentHealthQuerySet.as_manager()
+
+    class Meta:
+        db_table = "current_decision_health"
+        constraints = [
+            models.UniqueConstraint(fields=["scope", "decision"], name="scope_decision_health_unique"),
+            models.CheckConstraint(condition=models.Q(health__in=[item.value for item in DecisionHealth]), name="current_decision_health_valid"),
+        ]
+        indexes = [models.Index(fields=["workspace", "scope", "health"], name="current_health_scope_idx")]

@@ -46,7 +46,7 @@
   - Verify: exact dataset/decision/policy/version manifest, engine-input authority mapping, terminal partition constraints, publication rollback injection, stale generation result retained without pointer advance, immutable completed facts, and foreign-run denial.
   - Evidence: manifest digest fixture, publication inventory, rollback proof, and run-fact snapshot.
 
-- [ ] **REV-T07 — Project decision health without changing authority** (`REV-005`–`REV-008`, `REV-015`; `REV-A01`–`REV-A03`, `REV-A09`, `REV-A13`)
+- [x] **REV-T07 — Project decision health without changing authority** (`REV-005`–`REV-008`, `REV-015`; `REV-A01`–`REV-A03`, `REV-A09`, `REV-A13`)
   - Change: pure health classification and persisted per-run/current projection evidence for changed observations/comparisons, unavailable partners, accepted-unmatched candidates/limits, and rejected-reference conflicts.
   - Verify: exact four-status fixtures, manual-link correction keeps pair and flags comparison, accepted-unmatched remains reserved, rejection survives equal reference/corrections, reaffirm resets reviewed baseline, and health changes never alter claims or engine authority inputs.
   - Evidence: authority-versus-health matrix and correction/rerun snapshots.

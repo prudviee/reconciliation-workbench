@@ -19,6 +19,7 @@ from reconciliation.domain import (
     DecisionCommand,
     DecisionConflict,
     DecisionHealth,
+    DecisionHealthEvidence,
     DecisionHealthProjection,
     DomainValidationError,
     ExpectedDecisionRevision,
@@ -28,6 +29,7 @@ from reconciliation.domain import (
     ReviewConflictCode,
     ambiguity_case_key,
     pair_case_key,
+    project_decision_health,
     unpaired_case_key,
 )
 
@@ -300,6 +302,76 @@ def test_health_is_exact_separate_vocabulary_with_canonical_attention() -> None:
     )
     with pytest.raises(DomainValidationError, match="DecisionHealth"):
         DecisionHealthProjection("D1", "R1", "RUN2", "UNCHANGED")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("evidence", "health", "attention"),
+    [
+        (
+            DecisionHealthEvidence(DecisionAuthorityKind.LINK, True, False),
+            DecisionHealth.UNCHANGED,
+            (),
+        ),
+        (
+            DecisionHealthEvidence(
+                DecisionAuthorityKind.LINK,
+                True,
+                True,
+                comparison_changed=True,
+            ),
+            DecisionHealth.EVIDENCE_CHANGED,
+            (DecisionAttention.COMPARISON_CHANGED,),
+        ),
+        (
+            DecisionHealthEvidence(DecisionAuthorityKind.LINK, False, True),
+            DecisionHealth.PARTNER_UNAVAILABLE,
+            (),
+        ),
+        (
+            DecisionHealthEvidence(
+                DecisionAuthorityKind.ACCEPT_UNMATCHED,
+                True,
+                True,
+                new_candidate=True,
+            ),
+            DecisionHealth.NEW_CANDIDATE,
+            (),
+        ),
+        (
+            DecisionHealthEvidence(
+                DecisionAuthorityKind.ACCEPT_UNMATCHED,
+                True,
+                False,
+                diagnostic_complete=False,
+            ),
+            DecisionHealth.UNCHANGED,
+            (DecisionAttention.DIAGNOSTIC_INCOMPLETE,),
+        ),
+        (
+            DecisionHealthEvidence(
+                DecisionAuthorityKind.REJECT_CANDIDATE,
+                True,
+                True,
+                authoritative_reference_conflict=True,
+            ),
+            DecisionHealth.EVIDENCE_CHANGED,
+            (DecisionAttention.AUTHORITATIVE_REFERENCE_CONFLICT,),
+        ),
+    ],
+)
+def test_health_projection_has_explicit_precedence_and_separate_attention(
+    evidence: DecisionHealthEvidence,
+    health: DecisionHealth,
+    attention: tuple[DecisionAttention, ...],
+) -> None:
+    projected = project_decision_health(
+        decision_id="D1",
+        revision_id="R1",
+        run_id="RUN1",
+        evidence=evidence,
+    )
+    assert projected.health is health
+    assert projected.attention == attention
 
 
 def test_pair_and_unpaired_keys_use_stable_logical_identity_and_side() -> None:

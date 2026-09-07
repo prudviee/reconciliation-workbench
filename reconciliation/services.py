@@ -20,6 +20,7 @@ from reconciliation.domain import (
     CanonicalState,
     DecisionAction,
     DecisionAuthorityKind,
+    DecisionHealthEvidence,
     DecisionInputs,
     EngineResult,
     EngineSnapshot,
@@ -33,6 +34,7 @@ from reconciliation.domain import (
     WorkspaceId,
     canonical_result_json,
     engine_result_digest,
+    project_decision_health,
     reconcile,
 )
 from reconciliation.policies import comparison_policy_from_payload, matching_policy_from_payload
@@ -45,6 +47,8 @@ from workspaces.repositories import WorkspaceUnavailable
 from .models import (
     AssignmentComponent,
     CandidateEvidence,
+    CurrentDecisionHealth,
+    DecisionHealthSnapshot,
     FieldComparison,
     ReconciliationRun,
     RunDecisionInput,
@@ -299,11 +303,16 @@ class ReconciliationRunService:
                 raise RunStateConflict("run has already been published")
             if run.lifecycle != RunLifecycle.RUNNING:
                 raise RunStateConflict("run must be running before publication")
-            inputs = tuple(RunInput.objects.owned_by(workspace_id).filter(run=run).select_related("observation", "logical_transaction"))
+            inputs = tuple(
+                RunInput.objects.owned_by(workspace_id)
+                .filter(run=run)
+                .select_related(
+                    "observation__raw_row__attempt__contract_revision",
+                    "logical_transaction",
+                )
+            )
             self._validate_result(run, inputs, result)
             payload = json.loads(canonical_result_json(result))
-            self._persist_result(workspace_id, run, inputs, result, payload)
-            self.publication_probe(run)
             latest_policy_id = (
                 PolicyRevision.objects.owned_by(workspace_id).filter(book_id=scope.book_id).order_by("-revision", "-id").values_list("id", flat=True).first()
             )
@@ -315,6 +324,16 @@ class ReconciliationRunService:
                 and book.resolution_generation == run.resolution_generation
                 and scope.generation == run.scope_generation
             )
+            self._persist_result(workspace_id, run, inputs, result, payload)
+            self._persist_decision_health(
+                workspace_id,
+                run,
+                inputs,
+                result,
+                is_current=fresh,
+                created_at=completed_at,
+            )
+            self.publication_probe(run)
             freshness = RunFreshness.CURRENT if fresh else RunFreshness.STALE
             digest = engine_result_digest(result)
             counts = {
@@ -552,12 +571,152 @@ class ReconciliationRunService:
                     kind=item.kind.value,
                     record_observation_id=item.record_id,
                     candidate_observation_id=item.candidate_id,
-                    candidate_current_pair_observation_id=item.candidate_current_pair_id,
+                    candidate_current_pair_id=item.candidate_current_pair_id,
                     complete=item.complete,
                     explanation=item.explanation,
                 )
                 for item in result.diagnostics
             ]
+        )
+
+    def _persist_decision_health(
+        self,
+        workspace_id: WorkspaceId,
+        run: ReconciliationRun,
+        inputs: tuple[RunInput, ...],
+        result: EngineResult,
+        *,
+        is_current: bool,
+        created_at: datetime,
+    ) -> None:
+        input_by_logical = {item.logical_transaction_id: item for item in inputs}
+        diagnostics_by_record: dict[str, list] = {}
+        for diagnostic in result.diagnostics:
+            diagnostics_by_record.setdefault(diagnostic.record_id, []).append(diagnostic)
+        matching_policy = matching_policy_from_payload(run.policy_revision.matching_policy)
+        decision_rows = tuple(
+            RunDecisionInput.objects.owned_by(workspace_id)
+            .filter(run=run)
+            .select_related("decision_revision__decision")
+            .order_by("decision_revision_id")
+        )
+        snapshots: list[DecisionHealthSnapshot] = []
+        for row in decision_rows:
+            revision = row.decision_revision
+            kind = DecisionAuthorityKind(revision.authority_kind)
+            logical_ids = (
+                (revision.record_logical_id,)
+                if kind is DecisionAuthorityKind.ACCEPT_UNMATCHED
+                else (revision.left_logical_id, revision.right_logical_id)
+            )
+            current_inputs = tuple(
+                input_by_logical[logical_id]
+                for logical_id in logical_ids
+                if logical_id in input_by_logical
+            )
+            endpoints_available = len(current_inputs) == len(logical_ids)
+            current_digest = (
+                _reviewed_evidence_digest(tuple(item.observation for item in current_inputs))
+                if current_inputs
+                else None
+            )
+            evidence_changed = (
+                endpoints_available
+                and current_digest != revision.reviewed_evidence_digest
+            )
+            new_candidate = False
+            diagnostic_complete = True
+            authoritative_conflict = False
+            if kind is DecisionAuthorityKind.ACCEPT_UNMATCHED and current_inputs:
+                record_id = str(current_inputs[0].observation_id)
+                diagnostics = diagnostics_by_record.get(record_id, [])
+                new_candidate = any(
+                    item.kind.value == "ACCEPTED_UNMATCHED_CANDIDATE"
+                    for item in diagnostics
+                )
+                diagnostic_complete = not any(
+                    item.kind.value == "INCOMPLETE_SEARCH" or not item.complete
+                    for item in diagnostics
+                )
+            elif kind is DecisionAuthorityKind.REJECT_CANDIDATE and endpoints_available:
+                authoritative_conflict = self._authoritative_reference_conflict(
+                    current_inputs,
+                    matching_policy.reference_contract.value,
+                )
+            projection = project_decision_health(
+                decision_id=str(revision.decision_id),
+                revision_id=str(revision.id),
+                run_id=str(run.id),
+                evidence=DecisionHealthEvidence(
+                    authority_kind=kind,
+                    endpoints_available=endpoints_available,
+                    evidence_changed=evidence_changed,
+                    new_candidate=new_candidate,
+                    diagnostic_complete=diagnostic_complete,
+                    comparison_changed=(
+                        kind is DecisionAuthorityKind.LINK
+                        and endpoints_available
+                        and evidence_changed
+                    ),
+                    authoritative_reference_conflict=authoritative_conflict,
+                ),
+            )
+            snapshot = DecisionHealthSnapshot.objects.create(
+                workspace_id=workspace_id.value,
+                run=run,
+                decision_id=revision.decision_id,
+                decision_revision=revision,
+                health=projection.health.value,
+                attention=[item.value for item in projection.attention],
+                endpoints_available=endpoints_available,
+                evidence_changed=evidence_changed,
+                current_observation_ids=sorted(
+                    str(item.observation_id) for item in current_inputs
+                ),
+                current_evidence_digest=current_digest,
+                created_at=created_at,
+            )
+            snapshots.append(snapshot)
+        if not is_current:
+            return
+        current_decision_ids = [item.decision_id for item in snapshots]
+        CurrentDecisionHealth.objects.owned_by(workspace_id).filter(
+            scope_id=run.scope_id
+        ).exclude(decision_id__in=current_decision_ids).delete()
+        for snapshot in snapshots:
+            CurrentDecisionHealth.objects.update_or_create(
+                workspace_id=workspace_id.value,
+                scope_id=run.scope_id,
+                decision_id=snapshot.decision_id,
+                defaults={
+                    "decision_revision_id": snapshot.decision_revision_id,
+                    "run": run,
+                    "snapshot": snapshot,
+                    "health": snapshot.health,
+                    "attention": snapshot.attention,
+                    "applied_data_generation": run.data_generation,
+                    "applied_resolution_generation": run.resolution_generation,
+                    "updated_at": created_at,
+                },
+            )
+
+    @staticmethod
+    def _authoritative_reference_conflict(
+        inputs: tuple[RunInput, ...],
+        reference_contract: str,
+    ) -> bool:
+        if len(inputs) != 2:
+            return False
+        left = ReconciliationRunService._match_record(inputs[0])
+        right = ReconciliationRunService._match_record(inputs[1])
+        if reference_contract == "SHARED_MUST_AGREE":
+            return (
+                left.reference_value is not None
+                and left.reference_value == right.reference_value
+            )
+        return (
+            left.shared_reference_alias is not None
+            and left.shared_reference_alias == right.shared_reference_alias
         )
 
     def _get_run(self, workspace_id: WorkspaceId, run_id: UUID) -> ReconciliationRun:
@@ -578,6 +737,20 @@ class ReconciliationRunService:
 def _canonical_digest(value: dict) -> str:
     payload = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def _reviewed_evidence_digest(observations: tuple) -> str:
+    payload = [
+        {
+            "logical_transaction_id": str(item.logical_transaction_id),
+            "observation_id": str(item.id),
+            "fingerprint": item.fingerprint,
+        }
+        for item in sorted(observations, key=lambda value: str(value.id))
+    ]
+    return _canonical_digest(
+        {"version": "reviewed-evidence-v1", "observations": payload}
+    )
 
 
 def _pair_explanation(origin: PairOrigin) -> str:

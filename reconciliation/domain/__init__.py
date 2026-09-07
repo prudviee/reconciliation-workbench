@@ -148,6 +148,7 @@ from reconciliation.domain.review import (
     DecisionCommand,
     DecisionConflict,
     DecisionHealth,
+    DecisionHealthEvidence,
     DecisionHealthProjection,
     ExpectedDecisionRevision,
     ReplacementPreview,
@@ -155,6 +156,7 @@ from reconciliation.domain.review import (
     ReviewConflictCode,
     ambiguity_case_key,
     pair_case_key,
+    project_decision_health,
     unpaired_case_key,
 )
 
@@ -196,6 +198,7 @@ __all__ = [
     "DecisionCommand",
     "DecisionConflict",
     "DecisionHealth",
+    "DecisionHealthEvidence",
     "DecisionHealthProjection",
     "DecisionInputs",
     "DecimalTolerance",
@@ -275,6 +278,7 @@ __all__ = [
     "engine_result_digest",
     "observation_fingerprint",
     "pair_case_key",
+    "project_decision_health",
     "parse_datetime_value",
     "parse_decimal_value",
     "parse_enum_value",

@@ -358,6 +358,84 @@ class DecisionHealthProjection:
 
 
 @dataclass(frozen=True, slots=True)
+class DecisionHealthEvidence:
+    authority_kind: DecisionAuthorityKind
+    endpoints_available: bool
+    evidence_changed: bool
+    new_candidate: bool = False
+    diagnostic_complete: bool = True
+    comparison_changed: bool = False
+    authoritative_reference_conflict: bool = False
+
+    def __post_init__(self) -> None:
+        _strict_enum(self.authority_kind, DecisionAuthorityKind, "health authority kind")
+        for name in (
+            "endpoints_available",
+            "evidence_changed",
+            "new_candidate",
+            "diagnostic_complete",
+            "comparison_changed",
+            "authoritative_reference_conflict",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise DomainValidationError(f"{name} must be boolean")
+        if self.authority_kind is not DecisionAuthorityKind.ACCEPT_UNMATCHED and (
+            self.new_candidate or not self.diagnostic_complete
+        ):
+            raise DomainValidationError(
+                "new-candidate and diagnostic-completeness evidence belongs to accepted-unmatched authority"
+            )
+        if self.authority_kind is not DecisionAuthorityKind.LINK and self.comparison_changed:
+            raise DomainValidationError("comparison-change attention belongs to link authority")
+        if (
+            self.authority_kind is not DecisionAuthorityKind.REJECT_CANDIDATE
+            and self.authoritative_reference_conflict
+        ):
+            raise DomainValidationError(
+                "authoritative-reference conflict belongs to rejected relationships"
+            )
+
+
+def project_decision_health(
+    *,
+    decision_id: str,
+    revision_id: str,
+    run_id: str,
+    evidence: DecisionHealthEvidence,
+) -> DecisionHealthProjection:
+    """Classify current evidence without changing reviewer authority."""
+
+    if not isinstance(evidence, DecisionHealthEvidence):
+        raise DomainValidationError("health evidence must be DecisionHealthEvidence")
+    attention: list[DecisionAttention] = []
+    if evidence.comparison_changed:
+        attention.append(DecisionAttention.COMPARISON_CHANGED)
+    if evidence.authoritative_reference_conflict:
+        attention.append(DecisionAttention.AUTHORITATIVE_REFERENCE_CONFLICT)
+    if not evidence.diagnostic_complete:
+        attention.append(DecisionAttention.DIAGNOSTIC_INCOMPLETE)
+
+    if not evidence.endpoints_available:
+        health = DecisionHealth.PARTNER_UNAVAILABLE
+    elif (
+        evidence.authority_kind is DecisionAuthorityKind.ACCEPT_UNMATCHED
+        and evidence.new_candidate
+    ):
+        health = DecisionHealth.NEW_CANDIDATE
+    elif evidence.evidence_changed or evidence.comparison_changed:
+        health = DecisionHealth.EVIDENCE_CHANGED
+    else:
+        health = DecisionHealth.UNCHANGED
+    return DecisionHealthProjection(
+        decision_id=decision_id,
+        revision_id=revision_id,
+        run_id=run_id,
+        health=health,
+        attention=tuple(attention),
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class CaseKey:
     kind: CaseKind
     digest: str

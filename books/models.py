@@ -126,7 +126,7 @@ class ReconciliationScope(models.Model):
     is_dirty = models.BooleanField(default=True)
     current_run = models.ForeignKey(
         "reconciliation.ReconciliationRun",
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="current_for_scopes",
