@@ -153,6 +153,33 @@ def test_missing_required_blocking_value_or_timestamp_produces_no_candidate_with
     assert result.limited_record_ids == ()
 
 
+def test_explicit_alias_pass_without_time_window_can_surface_sparse_candidate() -> None:
+    policy = replace(
+        MatchingPolicy.initial_demo(),
+        blocking_passes=(
+            BlockingPassPolicy(
+                "alias-without-time",
+                "1",
+                None,
+                require_instrument=False,
+                require_side=False,
+                require_currency=False,
+                use_shared_alias=True,
+            ),
+        ),
+    )
+    result = generate(
+        (record("L1", executed_at=None, shared_reference_alias="A"),),
+        (record("R1", executed_at=None, shared_reference_alias="A"),),
+        policy=policy,
+    )
+
+    assert edge_map(result) == {
+        ("L1", "R1"): ("alias-without-time@1",)
+    }
+    assert result.complete is True
+
+
 def test_per_record_limit_is_inclusive_then_marks_entire_partition_incomplete() -> None:
     limits = CapacityLimits(
         max_component_nodes=100,

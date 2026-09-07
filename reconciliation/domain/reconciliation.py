@@ -317,7 +317,7 @@ class DecisionInputs:
 class BlockingPassPolicy:
     pass_id: str
     version: str
-    time_window: timedelta
+    time_window: timedelta | None
     require_instrument: bool = True
     require_side: bool = True
     require_currency: bool = True
@@ -326,8 +326,11 @@ class BlockingPassPolicy:
     def __post_init__(self) -> None:
         _required_text(self.pass_id, "pass_id")
         _required_text(self.version, "blocking pass version")
-        if not isinstance(self.time_window, timedelta) or self.time_window <= timedelta(0):
-            raise DomainValidationError("blocking time_window must be greater than zero")
+        if self.time_window is not None and (
+            not isinstance(self.time_window, timedelta)
+            or self.time_window <= timedelta(0)
+        ):
+            raise DomainValidationError("blocking time_window must be None or greater than zero")
         for name in (
             "require_instrument",
             "require_side",
@@ -531,6 +534,8 @@ class FeatureEvidence:
         _boolean(self.present, "feature present")
         if not self.present and (self.similarity_bp != 0 or self.contribution_bp != 0):
             raise DomainValidationError("a missing feature must contribute zero")
+        if self.contribution_bp > self.weight_bp:
+            raise DomainValidationError("feature contribution cannot exceed its weight")
         if isinstance(self.band, Decimal):
             _finite_decimal(self.band, "feature band", nonnegative=True)
         elif not isinstance(self.band, timedelta) or self.band < timedelta(0):
@@ -538,6 +543,27 @@ class FeatureEvidence:
         object.__setattr__(self, "left_value", _validate_scalar(self.left_value, "feature left_value"))
         object.__setattr__(self, "right_value", _validate_scalar(self.right_value, "feature right_value"))
         object.__setattr__(self, "difference", _validate_difference(self.difference, "feature difference"))
+        if self.feature is MatchFeature.TIMESTAMP:
+            values_valid = all(
+                value is None or isinstance(value, datetime)
+                for value in (self.left_value, self.right_value)
+            )
+            shape_valid = isinstance(self.band, timedelta) and (
+                self.difference is None or isinstance(self.difference, timedelta)
+            )
+        else:
+            values_valid = all(
+                value is None or isinstance(value, Decimal)
+                for value in (self.left_value, self.right_value)
+            )
+            shape_valid = isinstance(self.band, Decimal) and (
+                self.difference is None or isinstance(self.difference, Decimal)
+            )
+        if not values_valid or not shape_valid:
+            raise DomainValidationError("feature evidence values, difference, and band must match its feature")
+        values_present = self.left_value is not None and self.right_value is not None
+        if self.present != values_present or self.present != (self.difference is not None):
+            raise DomainValidationError("feature presence must match its values and difference")
 
 
 @dataclass(frozen=True, slots=True)
@@ -547,9 +573,11 @@ class CandidateEvidence:
     blocking_reasons: tuple[str, ...]
     features: tuple[FeatureEvidence, ...]
     contradictions: tuple[str, ...]
+    coverage_failures: tuple[str, ...]
     coverage_sufficient: bool
     complete_computation: bool
     score_bp: int
+    score_label: str = "Rule score"
 
     def __post_init__(self) -> None:
         _required_text(self.left_id, "candidate left_id")
@@ -558,6 +586,9 @@ class CandidateEvidence:
             raise DomainValidationError("candidate evidence requires a blocking reason")
         reasons = tuple(sorted({_required_text(value, "blocking reason") for value in self.blocking_reasons}))
         contradictions = tuple(sorted({_required_text(value, "contradiction") for value in self.contradictions}))
+        coverage_failures = tuple(
+            sorted({_required_text(value, "coverage failure") for value in self.coverage_failures})
+        )
         ordered_features = tuple(sorted(self.features, key=lambda item: item.feature.value))
         feature_names = tuple(item.feature.value for item in ordered_features)
         _unique(feature_names, "candidate feature evidence")
@@ -568,9 +599,16 @@ class CandidateEvidence:
             raise DomainValidationError("candidate score must equal feature contributions")
         _boolean(self.coverage_sufficient, "candidate coverage_sufficient")
         _boolean(self.complete_computation, "candidate complete_computation")
+        if self.coverage_sufficient == bool(coverage_failures):
+            raise DomainValidationError(
+                "coverage_sufficient must be true exactly when coverage failures are empty"
+            )
+        if self.score_label != "Rule score":
+            raise DomainValidationError("candidate score label must be 'Rule score'")
         object.__setattr__(self, "blocking_reasons", reasons)
         object.__setattr__(self, "features", ordered_features)
         object.__setattr__(self, "contradictions", contradictions)
+        object.__setattr__(self, "coverage_failures", coverage_failures)
 
 
 @dataclass(frozen=True, slots=True)

@@ -104,6 +104,12 @@ from reconciliation.domain.candidates import (
     CandidatePartitionEvidence,
     generate_candidates,
 )
+from reconciliation.domain.scoring import (
+    ContradictionCode,
+    CoverageFailure,
+    score_candidate,
+    score_candidates,
+)
 
 __all__ = [
     "AcceptedUnmatched",
@@ -121,6 +127,8 @@ __all__ = [
     "CapacityLimits",
     "ComparisonPolicy",
     "ComparisonStatus",
+    "ContradictionCode",
+    "CoverageFailure",
     "DatasetMode",
     "DateFoldPolicy",
     "DecisionHealthDiagnostic",
@@ -197,5 +205,7 @@ __all__ = [
     "semantic_input_hash",
     "semantic_row_from_canonical",
     "source_contract_digest",
+    "score_candidate",
+    "score_candidates",
     "validate_numeric_value",
 ]

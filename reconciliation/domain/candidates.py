@@ -162,12 +162,19 @@ def generate_candidates(
                 partition.limit_reason = CandidateLimitReason.RUN_EDGE_LIMIT
                 continue
 
-            right_times = tuple(_required_time(record) for record in right_records)
+            right_times = (
+                tuple(_required_time(record) for record in right_records)
+                if blocking_pass.time_window is not None
+                else ()
+            )
             stop_partition = False
             for left in left_records:
-                executed_at = _required_time(left)
-                first = bisect_left(right_times, executed_at - blocking_pass.time_window)
-                last = bisect_right(right_times, executed_at + blocking_pass.time_window)
+                if blocking_pass.time_window is None:
+                    first, last = 0, len(right_records)
+                else:
+                    executed_at = _required_time(left)
+                    first = bisect_left(right_times, executed_at - blocking_pass.time_window)
+                    last = bisect_right(right_times, executed_at + blocking_pass.time_window)
                 for right in right_records[first:last]:
                     edge_key = (left.observation_id, right.observation_id)
                     if edge_key in prohibited:
@@ -234,7 +241,7 @@ def _group_records(
 ) -> dict[tuple[str | None, ...], tuple[MatchRecord, ...]]:
     groups: defaultdict[tuple[str | None, ...], list[MatchRecord]] = defaultdict(list)
     for record in records:
-        if record.executed_at is None:
+        if blocking_pass.time_window is not None and record.executed_at is None:
             continue
         if blocking_pass.require_instrument and record.instrument is None:
             continue
@@ -255,7 +262,10 @@ def _group_records(
         key: tuple(
             sorted(
                 values,
-                key=lambda item: (_required_time(item), item.observation_id),
+                key=lambda item: (
+                    _required_time(item) if blocking_pass.time_window is not None else item.observation_id,
+                    item.observation_id,
+                ),
             )
         )
         for key, values in groups.items()
