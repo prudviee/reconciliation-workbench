@@ -1,6 +1,6 @@
 # 006 Jobs, Operations, and Deployment — Specification
 
-- **Status:** Ready
+- **Status:** Verified
 - **Prefix:** `OPS`
 - **Depends on:** 001–005
 - **Reviewed:** 5 September 2026

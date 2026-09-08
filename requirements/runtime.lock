@@ -1,9 +1,16 @@
 asgiref==3.12.1
+boto3==1.43.89
+botocore==1.43.89
 Django==5.2.17
+jmespath==1.1.0
 numpy==2.5.3
 psycopg==3.3.5
 psycopg-binary==3.3.5
+python-dateutil==2.9.0.post0
+s3transfer==0.19.2
 scipy==1.18.1
+six==1.17.0
 sqlparse==0.6.0
 typing_extensions==4.16.0
 tzdata==2026.3
+urllib3==2.7.0

@@ -1,0 +1,96 @@
+{
+  "capacity": {
+    "automatic_pairs": 0,
+    "cartesian_relationships": 100000000,
+    "component_count": 1,
+    "computation_limited_records": 20000,
+    "cpu_count": 12,
+    "incomplete_components": 1,
+    "platform": "Linux-6.10.14-linuxkit-aarch64-with-glibc2.36",
+    "retained_candidates": 200,
+    "rows_per_side": 10000,
+    "runtime_seconds": 11.012257,
+    "tracemalloc_peak_mib": 8.318
+  },
+  "evaluation": {
+    "eligible_truth_pairs": 30,
+    "heuristic_truth_pairs": 20,
+    "label": "synthetic-v1-not-production-accuracy",
+    "records_per_side": 35,
+    "runtime_seconds": 0.004158,
+    "strategies": {
+      "exact_reference": {
+        "automatic_precision": {
+          "denominator": 10,
+          "numerator": 10,
+          "percent": 100.0
+        },
+        "automatic_recall": {
+          "denominator": 30,
+          "numerator": 10,
+          "percent": 33.3333
+        },
+        "candidate_recall": {
+          "denominator": 20,
+          "numerator": 0,
+          "percent": 0.0
+        },
+        "false_automatic_matches": 0,
+        "review_rate": {
+          "denominator": 70,
+          "numerator": 50,
+          "percent": 71.4286
+        },
+        "workflow_coverage_percent": 100.0
+      },
+      "greedy_weighted": {
+        "automatic_precision": {
+          "denominator": 30,
+          "numerator": 20,
+          "percent": 66.6667
+        },
+        "automatic_recall": {
+          "denominator": 30,
+          "numerator": 20,
+          "percent": 66.6667
+        },
+        "candidate_recall": {
+          "denominator": 20,
+          "numerator": 20,
+          "percent": 100.0
+        },
+        "false_automatic_matches": 10,
+        "review_rate": {
+          "denominator": 70,
+          "numerator": 10,
+          "percent": 14.2857
+        },
+        "workflow_coverage_percent": 100.0
+      },
+      "weighted_global_abstention": {
+        "automatic_precision": {
+          "denominator": 20,
+          "numerator": 20,
+          "percent": 100.0
+        },
+        "automatic_recall": {
+          "denominator": 30,
+          "numerator": 20,
+          "percent": 66.6667
+        },
+        "candidate_recall": {
+          "denominator": 20,
+          "numerator": 20,
+          "percent": 100.0
+        },
+        "false_automatic_matches": 0,
+        "review_rate": {
+          "denominator": 70,
+          "numerator": 30,
+          "percent": 42.8571
+        },
+        "workflow_coverage_percent": 100.0
+      }
+    }
+  }
+}

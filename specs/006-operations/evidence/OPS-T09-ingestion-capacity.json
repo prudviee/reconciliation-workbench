@@ -1,0 +1,45 @@
+{
+  "environment": {
+    "database": "postgresql",
+    "django": "5.2.17",
+    "platform": "Linux-6.10.14-linuxkit-aarch64-with-glibc2.36",
+    "python": "3.12.14"
+  },
+  "invariants": {
+    "delta_members": 9900,
+    "delta_ready": true,
+    "full_members": 10000,
+    "full_ready": true,
+    "near_limit_ready": true
+  },
+  "measurements": {
+    "delta_activation": {
+      "peak_mib": 176.5,
+      "queries": 47,
+      "seconds": 10.402
+    },
+    "full_activation": {
+      "peak_mib": 238.68,
+      "queries": 82,
+      "seconds": 26.122
+    },
+    "full_preview": {
+      "peak_mib": 102.16,
+      "queries": 41,
+      "seconds": 23.119
+    },
+    "near_limit_preview": {
+      "peak_mib": 154.66,
+      "queries": 41,
+      "seconds": 24.565
+    }
+  },
+  "workloads": {
+    "delta_base_members": 10000,
+    "delta_operations": 1000,
+    "delta_result_members": 9900,
+    "full_snapshot_bytes": 600069,
+    "full_snapshot_rows": 10000,
+    "near_limit_preview_bytes": 24610077
+  }
+}

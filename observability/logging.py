@@ -6,6 +6,8 @@ import json
 import logging
 from collections.abc import Mapping
 
+from django.utils.crypto import salted_hmac
+
 
 EVENT_FIELDS = (
     "event",
@@ -16,7 +18,22 @@ EVENT_FIELDS = (
     "duration_ms",
     "workspace_ref",
     "failure_category",
+    "book_id",
+    "scope_id",
+    "run_id",
+    "import_id",
+    "job_id",
+    "stage",
 )
+
+_WORKSPACE_REF_SALT = "reconciliation-workbench.workspace-log.v1"
+
+
+def hash_workspace_ref(workspace_id: object) -> str:
+    """The same salted, truncated reference used by request-side logging."""
+    return salted_hmac(
+        _WORKSPACE_REF_SALT, str(workspace_id), algorithm="sha256"
+    ).hexdigest()[:16]
 
 
 def safe_event(values: Mapping[str, object]) -> dict[str, object]:

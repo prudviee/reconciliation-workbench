@@ -117,7 +117,61 @@ def test_event_allowlist_drops_unknown_and_non_scalar_values() -> None:
         "duration_ms",
         "workspace_ref",
         "failure_category",
+        "book_id",
+        "scope_id",
+        "run_id",
+        "import_id",
+        "job_id",
+        "stage",
     }
+
+
+def test_job_execution_log_carries_stage_and_job_id_without_raw_workspace_id(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import hashlib
+    from datetime import UTC, datetime, timedelta
+    from uuid import uuid4
+
+    from jobs.services import claim_and_execute
+    from reconciliation.domain import JobKind, RetryPolicy, WorkspaceId
+    from workspaces.cleanup import execute_claimed_cleanup
+    from workspaces.lifecycle import WorkspaceLifecycleService
+    from workspaces.models import Workspace
+
+    now = datetime(2026, 9, 8, tzinfo=UTC)
+    workspace = Workspace.objects.create(
+        session_digest=hashlib.sha256(f"jobs-log-{uuid4()}".encode()).hexdigest(),
+        created_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+    WorkspaceLifecycleService().delete(WorkspaceId(workspace.id), now=now)
+    caplog.set_level(logging.INFO, logger="reconciliation.jobs.events")
+
+    claim_and_execute(
+        JobKind.WORKSPACE_CLEANUP,
+        now=now,
+        lease_duration=timedelta(seconds=60),
+        retry_policy=RetryPolicy(max_attempts=3, backoff=timedelta(seconds=5)),
+        executor=execute_claimed_cleanup,
+        work_item_id=None,
+        batch_size=10,
+    )
+
+    events = [
+        record.structured_event
+        for record in caplog.records
+        if record.name == "reconciliation.jobs.events"
+        and hasattr(record, "structured_event")
+    ]
+    serialized = json.dumps(events)
+    assert len(events) == 1
+    assert events[0]["event"] == "job_execution_completed"
+    assert events[0]["stage"] == JobKind.WORKSPACE_CLEANUP.value
+    assert events[0]["failure_category"] is None
+    assert isinstance(events[0]["duration_ms"], (int, float))
+    assert events[0]["workspace_ref"] is not None
+    assert str(workspace.id) not in serialized
 
 
 def test_json_formatter_emits_only_fixed_schema() -> None:

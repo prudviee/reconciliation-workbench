@@ -9,11 +9,14 @@ from datetime import datetime
 from typing import Callable
 from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from books.models import PolicyRevision, ReconciliationBook, ReconciliationScope
 from ingestion.models import DatasetMembership
+from jobs.models import WorkItem
+from jobs.services import TransientJobFailure, enqueue
 from reconciliation.domain import (
     AcceptedUnmatched,
     CanonicalSide,
@@ -24,6 +27,7 @@ from reconciliation.domain import (
     DecisionInputs,
     EngineResult,
     EngineSnapshot,
+    JobKind,
     ManualLink,
     MatchRecord,
     PairOrigin,
@@ -80,6 +84,7 @@ class FrozenRun:
     manifest_hash: str
     input_count: int
     decision_count: int
+    work_item_id: UUID
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,7 +176,20 @@ class ReconciliationRunService:
                 scope=scope, manifest_hash=manifest_hash
             ).first()
             if existing is not None:
-                return FrozenRun(existing.id, existing.manifest_hash, existing.inputs.count(), existing.decision_inputs.count())
+                work_item = enqueue(
+                    workspace_id,
+                    JobKind.RECONCILIATION_RUN,
+                    max_attempts=settings.JOBS_RUN_MAX_ATTEMPTS,
+                    now=created_at,
+                    reconciliation_run=existing,
+                )
+                return FrozenRun(
+                    existing.id,
+                    existing.manifest_hash,
+                    existing.inputs.count(),
+                    existing.decision_inputs.count(),
+                    work_item.id,
+                )
             run = ReconciliationRun.objects.create(
                 workspace_id=workspace_id.value,
                 scope=scope,
@@ -208,23 +226,48 @@ class ReconciliationRunService:
             RunDecisionInput.objects.bulk_create(
                 [RunDecisionInput(workspace_id=workspace_id.value, run=run, decision_revision=item) for item in decisions]
             )
-            return FrozenRun(run.id, manifest_hash, len(left_members) + len(right_members), len(decisions))
+            work_item = enqueue(
+                workspace_id,
+                JobKind.RECONCILIATION_RUN,
+                max_attempts=settings.JOBS_RUN_MAX_ATTEMPTS,
+                now=created_at,
+                reconciliation_run=run,
+            )
+            return FrozenRun(
+                run.id,
+                manifest_hash,
+                len(left_members) + len(right_members),
+                len(decisions),
+                work_item.id,
+            )
 
-    def execute_and_publish_run(self, workspace_id: WorkspaceId, run_id: UUID) -> PublishedRun:
+    def execute_and_publish_run(
+        self,
+        workspace_id: WorkspaceId,
+        run_id: UUID,
+        *,
+        attempt_token: str | None = None,
+    ) -> PublishedRun:
         now = self.clock()
         self._require_active_workspace(workspace_id, now, lock=False)
         run = self._get_run(workspace_id, run_id)
         if run.lifecycle == RunLifecycle.COMPLETED:
             assert run.result_digest is not None
             return PublishedRun(run.id, RunFreshness(run.freshness), run.result_digest, run.result_counts["pairs"], run.result_counts["unpaired"])
-        if run.lifecycle not in (RunLifecycle.FROZEN, RunLifecycle.FAILED):
-            raise RunStateConflict("run is already executing")
-        ReconciliationRun.objects.owned_by(workspace_id).filter(id=run.id).update(
+        claim_filter = {"id": run.id}
+        if attempt_token is None:
+            if run.lifecycle not in (RunLifecycle.FROZEN, RunLifecycle.FAILED):
+                raise RunStateConflict("run is already executing")
+            claim_filter["lifecycle__in"] = (RunLifecycle.FROZEN, RunLifecycle.FAILED)
+        claimed = ReconciliationRun.objects.owned_by(workspace_id).filter(
+            **claim_filter
+        ).update(
             lifecycle=RunLifecycle.RUNNING,
             freshness=RunFreshness.PENDING,
             started_at=now,
             completed_at=None,
             failure_code=None,
+            current_attempt_token=attempt_token,
             progress_stage=RunProgressStage.LOADING_INPUTS,
             progress_counts={
                 "inputs": len(run.manifest["left_inputs"])
@@ -232,14 +275,19 @@ class ReconciliationRunService:
                 "decisions": len(run.manifest["decision_revision_ids"]),
             },
         )
+        if claimed == 0:
+            raise RunStateConflict("run is already executing")
         try:
             result = self.compute_run(workspace_id, run.id)
-            return self.publish_run(workspace_id, run.id, result)
+            return self.publish_run(workspace_id, run.id, result, attempt_token=attempt_token)
         except Exception as error:
-            ReconciliationRun.objects.owned_by(workspace_id).filter(id=run.id, lifecycle=RunLifecycle.RUNNING).update(
+            ReconciliationRun.objects.owned_by(workspace_id).filter(
+                id=run.id, lifecycle=RunLifecycle.RUNNING, current_attempt_token=attempt_token
+            ).update(
                 lifecycle=RunLifecycle.FAILED,
                 failure_code=type(error).__name__[:80],
                 progress_stage=RunProgressStage.FAILED,
+                current_attempt_token=None,
             )
             raise
 
@@ -288,7 +336,14 @@ class ReconciliationRunService:
             raise RunResultMismatch("the frozen solver version is unavailable")
         return reconcile(snapshot=snapshot, matching_policy=matching, comparison_policy=comparison, decisions=decisions, solver=solver)
 
-    def publish_run(self, workspace_id: WorkspaceId, run_id: UUID, result: EngineResult) -> PublishedRun:
+    def publish_run(
+        self,
+        workspace_id: WorkspaceId,
+        run_id: UUID,
+        result: EngineResult,
+        *,
+        attempt_token: str | None = None,
+    ) -> PublishedRun:
         completed_at = self.clock()
         publishing_counts = {
             "pairs computed": len(result.pairs),
@@ -340,6 +395,10 @@ class ReconciliationRunService:
                 raise RunStateConflict("run has already been published")
             if run.lifecycle != RunLifecycle.RUNNING:
                 raise RunStateConflict("run must be running before publication")
+            if attempt_token is not None and run.current_attempt_token != attempt_token:
+                raise RunStateConflict(
+                    "a newer attempt has reclaimed this run; the fenced attempt cannot publish"
+                )
             inputs = tuple(
                 RunInput.objects.owned_by(workspace_id)
                 .filter(run=run)
@@ -396,6 +455,7 @@ class ReconciliationRunService:
                 result_counts=counts,
                 completed_at=completed_at,
                 failure_code=None,
+                current_attempt_token=None,
                 progress_stage=RunProgressStage.COMPLETED,
                 progress_counts=counts,
             )
@@ -806,3 +866,21 @@ def _pair_explanation(origin: PairOrigin) -> str:
         PairOrigin.AUTHORITATIVE_REFERENCE: "Paired by the configured authoritative shared reference.",
         PairOrigin.WEIGHTED_GLOBAL: "Paired by the deterministic global assignment and acceptance gates.",
     }[origin]
+
+
+def execute_claimed_run(work_item: WorkItem, token) -> None:
+    """A `jobs.services.claim_and_execute` executor for `JobKind.RECONCILIATION_RUN`.
+
+    Categorizes a lost fencing race as transient (worth retrying under a new
+    claim) and lets every other failure propagate as permanent.
+    """
+    if work_item.reconciliation_run_id is None:
+        raise RunUnavailable("work item has no reconciliation run target")
+    try:
+        ReconciliationRunService().execute_and_publish_run(
+            WorkspaceId(work_item.workspace_id),
+            work_item.reconciliation_run_id,
+            attempt_token=str(token),
+        )
+    except RunStateConflict as error:
+        raise TransientJobFailure(str(error)) from error

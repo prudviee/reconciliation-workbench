@@ -150,6 +150,29 @@ class WorkspaceIngestionRepository:
             completed_at=completed_at,
         )
 
+    def complete_attempt(
+        self,
+        attempt_id: UUID,
+        *,
+        state: AttemptState,
+        semantic_hash: str | None,
+        row_count: int,
+        error_count: int,
+        completed_at: datetime,
+        validation: list[dict[str, Any]] | None = None,
+    ) -> IngestionAttempt:
+        attempt = self.get_attempt(attempt_id)
+        IngestionAttempt.objects.owned_by(self.workspace_id).filter(id=attempt.id).update(
+            state=state,
+            semantic_hash=semantic_hash,
+            row_count=row_count,
+            error_count=error_count,
+            completed_at=completed_at,
+            validation=validation or [],
+        )
+        attempt.refresh_from_db()
+        return attempt
+
     def create_raw_row(
         self,
         *,

@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -17,20 +18,24 @@ from foundation.forms import MappingForm, UploadForm
 from ingestion.activation import AttemptNotReady, FullSnapshotActivationService, StalePreview
 from ingestion.artifacts import ArtifactIntakeError
 from ingestion.models import AttemptState, Dataset, DatasetRevision, IngestionAttempt, RawRow
-from ingestion.preview import PreviewService
+from ingestion.preview import PreviewService, execute_claimed_import
 from ingestion.repositories import (
     IngestionResourceUnavailable,
     WorkspaceIngestionRepository,
 )
 from ingestion.services import ArtifactIntakeService, configured_artifact_store
 from ingestion.workflow import SourcePreparationService
+from jobs.models import WorkerHeartbeat
+from jobs.services import claim_and_execute, enqueue
 from reconciliation.domain import (
     BookId,
     DecisionAction,
     DecisionAuthority,
     DecisionCommand,
+    JobKind,
     QuotaExceeded,
     QuotaResource,
+    RetryPolicy,
 )
 from reconciliation.querying import (
     ReviewCursorError,
@@ -38,7 +43,7 @@ from reconciliation.querying import (
     ReviewPageSizeError,
     ReviewQueryUnavailable,
 )
-from reconciliation.services import ReconciliationRunService, RunUnavailable
+from reconciliation.services import ReconciliationRunService, RunUnavailable, execute_claimed_run
 from resolutions.services import (
     DecisionCommandService,
     DecisionMutationConflict,
@@ -66,11 +71,28 @@ def readiness(request: HttpRequest) -> JsonResponse:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
+        database_ready = True
     except Exception:
-        return JsonResponse(
-            {"status": "unavailable", "database": "unavailable"}, status=503
+        database_ready = False
+
+    latest_heartbeat = WorkerHeartbeat.objects.order_by("-updated_at").first()
+    if latest_heartbeat is None:
+        worker_status = "unknown"
+        worker_heartbeat_age_seconds = None
+    else:
+        age_seconds = (timezone.now() - latest_heartbeat.updated_at).total_seconds()
+        worker_heartbeat_age_seconds = round(age_seconds, 3)
+        worker_status = (
+            "healthy" if age_seconds <= settings.JOBS_WORKER_STALE_SECONDS else "stale"
         )
-    return JsonResponse({"status": "ready", "database": "ready"})
+
+    payload = {
+        "status": "ready" if database_ready else "unavailable",
+        "database": "ready" if database_ready else "unavailable",
+        "worker_status": worker_status,
+        "worker_heartbeat_age_seconds": worker_heartbeat_age_seconds,
+    }
+    return JsonResponse(payload, status=200 if database_ready else 503)
 
 
 @workspace_required
@@ -235,13 +257,37 @@ def source_upload(request: HttpRequest, book_id: object, side: str) -> HttpRespo
                 delimiter=form.cleaned_data["delimiter"],
                 chunks=uploaded.chunks(),
             )
-            attempt = PreviewService.configured().preview(
+            attempt = PreviewService.configured().create_shell(
                 access.workspace_id,
                 artifact_id=artifact.id,
                 dataset_id=dataset.id,
                 contract_revision_id=contract_revision.id,
                 delimiter=form.cleaned_data["delimiter"],
             )
+            work_item = enqueue(
+                access.workspace_id,
+                JobKind.IMPORT_VALIDATION,
+                max_attempts=settings.JOBS_IMPORT_MAX_ATTEMPTS,
+                now=timezone.now(),
+                import_attempt=attempt,
+            )
+            try:
+                claim_and_execute(
+                    JobKind.IMPORT_VALIDATION,
+                    now=timezone.now(),
+                    lease_duration=timedelta(seconds=settings.JOBS_IMPORT_LEASE_SECONDS),
+                    retry_policy=RetryPolicy(
+                        max_attempts=settings.JOBS_IMPORT_MAX_ATTEMPTS,
+                        backoff=timedelta(seconds=settings.JOBS_IMPORT_BACKOFF_SECONDS),
+                    ),
+                    executor=execute_claimed_import,
+                    work_item_id=work_item.id,
+                )
+            except Exception:
+                logger.exception(
+                    "import_validation_failed",
+                    extra={"attempt_id": str(attempt.id)},
+                )
             return redirect("foundation:import-preview", attempt_id=attempt.id)
         except LookupError:
             pass
@@ -627,18 +673,36 @@ def reconciliation_run_start(request: HttpRequest, book_id: object) -> HttpRespo
     except (WorkbenchUnavailable, RunUnavailable):
         raise Http404 from None
     try:
-        runner.execute_and_publish_run(access.workspace_id, frozen.run_id)
+        records = claim_and_execute(
+            JobKind.RECONCILIATION_RUN,
+            now=timezone.now(),
+            lease_duration=timedelta(seconds=settings.JOBS_RUN_LEASE_SECONDS),
+            retry_policy=RetryPolicy(
+                max_attempts=settings.JOBS_RUN_MAX_ATTEMPTS,
+                backoff=timedelta(seconds=settings.JOBS_RUN_BACKOFF_SECONDS),
+            ),
+            executor=execute_claimed_run,
+            work_item_id=frozen.work_item_id,
+        )
     except Exception:
         logger.exception(
             "reconciliation_run_failed",
             extra={"run_id": str(frozen.run_id)},
         )
-        scope.refresh_from_db(fields=["current_run"])
-        query = "?failed=1"
-        if scope.current_run_id is not None:
-            query = f"?run={scope.current_run_id}&failed=1"
-        return redirect(f"/books/{book.id}/workbench{query}")
+        return _run_failed_redirect(book, scope)
+    if not records:
+        return redirect(f"/books/{book.id}/workbench")
+    if not records[0].succeeded:
+        return _run_failed_redirect(book, scope)
     return redirect(f"/books/{book.id}/workbench?run={frozen.run_id}&completed=1")
+
+
+def _run_failed_redirect(book, scope) -> HttpResponse:
+    scope.refresh_from_db(fields=["current_run"])
+    query = "?failed=1"
+    if scope.current_run_id is not None:
+        query = f"?run={scope.current_run_id}&failed=1"
+    return redirect(f"/books/{book.id}/workbench{query}")
 
 
 @workspace_required

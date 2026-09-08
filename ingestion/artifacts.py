@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from threading import Lock
-from typing import Iterable
+from typing import Iterable, Protocol
 from uuid import uuid4
 
 from reconciliation.domain import WorkspaceId
@@ -88,6 +88,31 @@ class PublishedArtifact:
     path: Path
 
 
+class StorageAdapter(Protocol):
+    """The contract every artifact storage backend implements.
+
+    `PrivateArtifactStore` below is the local filesystem implementation.
+    `ingestion.s3_artifacts.S3ArtifactStore` is the object-storage
+    implementation for the deployed target (`OPS-013`); both satisfy this
+    same structural interface, so `configured_artifact_store()` can return
+    either one without any caller changing.
+    """
+
+    def stage(
+        self, chunks: Iterable[bytes], *, delimiter: str, limits: "IntakeLimits"
+    ) -> "StagedArtifact": ...
+
+    def publish(
+        self, staged: "StagedArtifact", *, workspace_id: WorkspaceId
+    ) -> "PublishedArtifact": ...
+
+    def discard_path(self, path: Path) -> None: ...
+
+    def resolve(self, storage_key: str) -> Path: ...
+
+    def delete_published(self, storage_key: str) -> None: ...
+
+
 class PrivateArtifactStore:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
@@ -147,6 +172,9 @@ class PrivateArtifactStore:
 
     def resolve(self, storage_key: str) -> Path:
         return self._resolve_key(storage_key)
+
+    def delete_published(self, storage_key: str) -> None:
+        self._resolve_key(storage_key).unlink(missing_ok=True)
 
     def _resolve_key(self, storage_key: str) -> Path:
         candidate = (self.root / storage_key).resolve()

@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     "resolutions",
     "reconciliation",
     "cases",
+    "jobs",
     "foundation",
 ]
 
@@ -171,10 +172,17 @@ WORKSPACE_RETAINED_BYTES_LIMIT = env_nonnegative_int(
     "WORKSPACE_RETAINED_BYTES_LIMIT", 250 * 1024 * 1024
 )
 WORKSPACE_BOOK_LIMIT = env_nonnegative_int("WORKSPACE_BOOK_LIMIT", 10)
-WORKSPACE_ACTIVE_JOB_LIMIT = env_nonnegative_int("WORKSPACE_ACTIVE_JOB_LIMIT", 2)
+WORKSPACE_ACTIVE_JOB_LIMIT = env_nonnegative_int("WORKSPACE_ACTIVE_JOB_LIMIT", 10)
 
 INGESTION_PRIVATE_ROOT = Path(
     os.getenv("INGESTION_PRIVATE_ROOT", BASE_DIR / ".private-artifacts")
+).resolve()
+INGESTION_STORAGE_BACKEND = os.getenv("INGESTION_STORAGE_BACKEND", "local")
+INGESTION_S3_BUCKET = os.getenv("INGESTION_S3_BUCKET", "")
+INGESTION_S3_REGION = os.getenv("INGESTION_S3_REGION") or None
+INGESTION_S3_ENDPOINT_URL = os.getenv("INGESTION_S3_ENDPOINT_URL") or None
+INGESTION_S3_CACHE_ROOT = Path(
+    os.getenv("INGESTION_S3_CACHE_ROOT", BASE_DIR / ".private-artifacts-cache")
 ).resolve()
 INGESTION_MAX_BYTES = env_nonnegative_int(
     "INGESTION_MAX_BYTES", 25 * 1024 * 1024
@@ -184,6 +192,18 @@ INGESTION_MAX_COLUMNS = env_nonnegative_int("INGESTION_MAX_COLUMNS", 100)
 INGESTION_MAX_FIELD_CHARACTERS = env_nonnegative_int(
     "INGESTION_MAX_FIELD_CHARACTERS", 4_096
 )
+
+JOBS_RUN_MAX_ATTEMPTS = env_nonnegative_int("JOBS_RUN_MAX_ATTEMPTS", 3)
+JOBS_RUN_LEASE_SECONDS = env_nonnegative_int("JOBS_RUN_LEASE_SECONDS", 60)
+JOBS_RUN_BACKOFF_SECONDS = env_nonnegative_int("JOBS_RUN_BACKOFF_SECONDS", 5)
+JOBS_IMPORT_MAX_ATTEMPTS = env_nonnegative_int("JOBS_IMPORT_MAX_ATTEMPTS", 3)
+JOBS_IMPORT_LEASE_SECONDS = env_nonnegative_int("JOBS_IMPORT_LEASE_SECONDS", 60)
+JOBS_IMPORT_BACKOFF_SECONDS = env_nonnegative_int("JOBS_IMPORT_BACKOFF_SECONDS", 5)
+JOBS_CLEANUP_MAX_ATTEMPTS = env_nonnegative_int("JOBS_CLEANUP_MAX_ATTEMPTS", 3)
+JOBS_CLEANUP_LEASE_SECONDS = env_nonnegative_int("JOBS_CLEANUP_LEASE_SECONDS", 60)
+JOBS_CLEANUP_BACKOFF_SECONDS = env_nonnegative_int("JOBS_CLEANUP_BACKOFF_SECONDS", 5)
+JOBS_WORKER_BATCH_SIZE = env_nonnegative_int("JOBS_WORKER_BATCH_SIZE", 10)
+JOBS_WORKER_STALE_SECONDS = env_nonnegative_int("JOBS_WORKER_STALE_SECONDS", 30)
 
 LOGGING = {
     "version": 1,
@@ -204,6 +224,11 @@ LOGGING = {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
-        }
+        },
+        "reconciliation.jobs.events": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
     },
 }

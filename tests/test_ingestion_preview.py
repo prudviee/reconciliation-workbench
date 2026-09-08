@@ -547,5 +547,8 @@ def test_preview_persistence_rolls_back_if_any_raw_row_fails(
     with pytest.raises(RuntimeError, match="injected row persistence failure"):
         run_preview(workspace, preview_service, graph)
 
-    assert not IngestionAttempt.objects.exists()
+    attempt = IngestionAttempt.objects.get()
+    assert attempt.state == AttemptState.RECEIVED
+    assert attempt.row_count == 0
+    assert attempt.semantic_hash is None
     assert not RawRow.objects.exists()
