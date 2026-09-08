@@ -41,8 +41,8 @@
   - Verify: specification 002's existing `PrivateArtifactStore` contract test suite (stage, publish, hash, quota-limit, byte/row/column/field-limit behavior) passes unmodified against both implementations.
   - Evidence: contract-test parity report across both adapters.
 
-- [ ] **OPS-T06 — Route import validation through claim-and-execute** (`OPS-001`–`OPS-004`, `OPS-007`, `OPS-008`, `OPS-017`; `OPS-A04`, `OPS-A09`, `OPS-A11`, `OPS-A12`, `OPS-A16`)
-  - Change: `import_preview` creates its `IngestionAttempt` and `IMPORT_VALIDATION` `WorkItem` in one transaction; `ArtifactIntakeService`'s parse/validate/preview step runs from a claimed attempt instead of inline in the request, reusing the identical claim/fence/retry/ownership-validation path proven in OPS-T03–OPS-T04.
+- [x] **OPS-T06 — Route import validation through claim-and-execute** (`OPS-001`–`OPS-004`, `OPS-007`, `OPS-008`, `OPS-017`; `OPS-A04`, `OPS-A09`, `OPS-A11`, `OPS-A12`, `OPS-A16`)
+  - Change: `source_upload` creates its `IngestionAttempt` shell and `IMPORT_VALIDATION` `WorkItem`; `PreviewService`'s parse/validate step (`complete()`, split out of the former all-in-one `preview()`) runs from a claimed attempt instead of inline in the request, reusing the identical claim/fence/retry/ownership-validation path proven in OPS-T03–OPS-T04.
   - Verify: the same claim-concurrency, fencing, retry-limit, cross-workspace-manifest, and truthful-progress tests as OPS-T03/OPS-T04, applied to import attempts; physical/semantic hash deduplication from specification 002 is unaffected by the claim indirection.
   - Evidence: parity test results against OPS-T04's evidence, confirming the shared mechanism behaves identically for both callers.
 

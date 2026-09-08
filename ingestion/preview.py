@@ -43,6 +43,8 @@ from reconciliation.domain import (
     semantic_row_from_canonical,
     source_contract_digest,
 )
+from jobs.models import WorkItem
+from jobs.services import TransientJobFailure
 from sources.adapters import InvalidSourceContract, contract_from_payload
 from sources.models import SourceContractRevision
 from sources.repositories import WorkspaceSourceRepository
@@ -52,7 +54,7 @@ from workspaces.repositories import WorkspaceRepository, WorkspaceUnavailable
 
 from .artifacts import (
     IntakeLimits,
-    PrivateArtifactStore,
+    StorageAdapter,
     read_bounded_csv,
 )
 from .models import AttemptState, IngestionAttempt
@@ -61,6 +63,10 @@ from .repositories import (
     WorkspaceIngestionRepository,
 )
 from .services import configured_artifact_store, configured_intake_limits
+
+
+class ImportStateConflict(RuntimeError):
+    """A claimed import attempt's fencing token no longer matches."""
 
 
 T = TypeVar("T")
@@ -88,7 +94,7 @@ class InterpretedPreview:
 
 @dataclass(slots=True)
 class PreviewService:
-    store: PrivateArtifactStore
+    store: StorageAdapter
     limits: IntakeLimits
     clock: Callable[[], datetime] = timezone.now
     lifecycle_service: WorkspaceLifecycleService = field(
@@ -108,6 +114,26 @@ class PreviewService:
         contract_revision_id: UUID,
         delimiter: str,
     ) -> IngestionAttempt:
+        """Synchronous convenience: create the shell attempt and complete it immediately."""
+        attempt = self.create_shell(
+            workspace_id,
+            artifact_id=artifact_id,
+            dataset_id=dataset_id,
+            contract_revision_id=contract_revision_id,
+            delimiter=delimiter,
+        )
+        return self.complete(workspace_id, attempt.id)
+
+    def create_shell(
+        self,
+        workspace_id: WorkspaceId,
+        *,
+        artifact_id: UUID,
+        dataset_id: UUID,
+        contract_revision_id: UUID,
+        delimiter: str,
+    ) -> IngestionAttempt:
+        """Create the `RECEIVED` attempt a claimed `IMPORT_VALIDATION` job later completes."""
         workspace = WorkspaceRepository().get(workspace_id)
         self.lifecycle_service.require_active(workspace, now=self.clock())
         repository = WorkspaceIngestionRepository(workspace_id)
@@ -120,16 +146,43 @@ class PreviewService:
             raise IngestionResourceUnavailable
         contract = contract_from_payload(contract_revision.contract)
         self._verify_revision_contract(contract_revision, contract)
-        path = self.store.resolve(artifact.storage_key)
+        now = self.clock()
+        return repository.create_attempt(
+            artifact_id=artifact.id,
+            dataset_id=dataset.id,
+            contract_revision_id=contract_revision.id,
+            expected_base_id=dataset.current_revision_id,
+            state=AttemptState.RECEIVED,
+            physical_hash=artifact.physical_hash,
+            semantic_hash=None,
+            delimiter=delimiter,
+            row_count=0,
+            error_count=0,
+            created_at=now,
+            completed_at=None,
+        )
+
+    def complete(
+        self,
+        workspace_id: WorkspaceId,
+        attempt_id: UUID,
+        *,
+        attempt_token: str | None = None,
+    ) -> IngestionAttempt:
+        """Parse the staged artifact and populate a `RECEIVED` attempt's evidence."""
+        repository = WorkspaceIngestionRepository(workspace_id)
+        attempt = repository.get_attempt(attempt_id)
+        contract = contract_from_payload(attempt.contract_revision.contract)
+        path = self.store.resolve(attempt.artifact.storage_key)
         interpreted = interpret_csv(
             path,
-            delimiter=delimiter,
+            delimiter=attempt.delimiter,
             limits=self.limits,
             contract=contract,
         )
         state = AttemptState.READY if interpreted.error_count == 0 else AttemptState.REJECTED
         semantic_hash = semantic_input_hash(
-            contract_digest=contract_revision.digest,
+            contract_digest=attempt.contract_revision.digest,
             header=interpreted.header,
             rows=(_semantic_row(row) for row in interpreted.rows),
         )
@@ -140,18 +193,24 @@ class PreviewService:
                 locked_workspace,
                 now=self.clock(),
             )
-            attempt = repository.create_attempt(
-                artifact_id=artifact.id,
-                dataset_id=dataset.id,
-                contract_revision_id=contract_revision.id,
-                expected_base_id=dataset.current_revision_id,
+            if attempt_token is not None:
+                work_item = (
+                    WorkItem.objects.select_for_update()
+                    .get(import_attempt_id=attempt.id)
+                )
+                if work_item.current_token != attempt_token:
+                    raise ImportStateConflict(
+                        "a newer attempt has reclaimed this import; "
+                        "the fenced attempt cannot complete it"
+                    )
+            if attempt.state != AttemptState.RECEIVED:
+                raise ImportStateConflict("import attempt is not awaiting completion")
+            attempt = repository.complete_attempt(
+                attempt.id,
                 state=state,
-                physical_hash=artifact.physical_hash,
                 semantic_hash=semantic_hash,
-                delimiter=delimiter,
                 row_count=len(interpreted.rows),
                 error_count=interpreted.error_count,
-                created_at=completed_at,
                 completed_at=completed_at,
                 validation=[issue_to_payload(issue) for issue in interpreted.issues],
             )
@@ -197,6 +256,20 @@ class PreviewService:
             raise InvalidSourceContract(
                 "stored source contract metadata does not match its payload"
             )
+
+
+def execute_claimed_import(work_item: WorkItem, token) -> None:
+    """A `jobs.services.claim_and_execute` executor for `JobKind.IMPORT_VALIDATION`."""
+    if work_item.import_attempt_id is None:
+        raise IngestionResourceUnavailable("work item has no import attempt target")
+    try:
+        PreviewService.configured().complete(
+            WorkspaceId(work_item.workspace_id),
+            work_item.import_attempt_id,
+            attempt_token=str(token),
+        )
+    except ImportStateConflict as error:
+        raise TransientJobFailure(str(error)) from error
 
 
 def interpret_csv(
