@@ -10,6 +10,7 @@ This directory is the canonical design package for the transaction-reconciliatio
 4. [Reconciliation algorithm](./04-reconciliation-algorithm.md) — normalization, candidate generation, weighted scoring, global assignment, ambiguity, and comparison.
 5. [Architecture decisions](./05-architecture-decisions.md) — selected choices, why they were selected, rejected alternatives, and consequences.
 6. [Verification and delivery](./06-verification-and-delivery.md) — test strategy, synthetic evaluation, performance targets, demo, and implementation sequence.
+7. [Deployment](./07-deployment.md) — the resolved deployment target, environment configuration, migrations-as-release-step, health signals, and retention disclosure.
 
 The root [DESIGN.md](../DESIGN.md) is the earlier consolidated design. These focused documents are easier to review and should be updated first if a decision changes.
 
