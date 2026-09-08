@@ -436,6 +436,12 @@ class CaseQueryService:
                     "right_value": item.right_value,
                     "signed_difference": item.signed_difference,
                     "allowed_difference": item.allowed_difference,
+                    "left_display": self._semantic_label(item.left_value),
+                    "right_display": self._semantic_label(item.right_value),
+                    "difference_display": self._semantic_label(
+                        item.signed_difference
+                    ),
+                    "allowed_display": self._semantic_label(item.allowed_difference),
                     "explanation": item.explanation,
                 }
                 for item in pair.comparisons.all().order_by("field")
@@ -650,7 +656,22 @@ class CaseQueryService:
         if isinstance(value, dict) and len(value) == 1:
             key, payload = next(iter(value.items()))
             if key == "timedelta_microseconds":
-                return f"{payload} µs"
+                microseconds = int(payload)
+                if microseconds == 0:
+                    return "0 s"
+                if microseconds % 60_000_000 == 0:
+                    return f"{microseconds // 60_000_000} min"
+                if microseconds % 1_000_000 == 0:
+                    return f"{microseconds // 1_000_000} s"
+                if microseconds % 1_000 == 0:
+                    return f"{microseconds // 1_000} ms"
+                return f"{microseconds} µs"
+            if key == "datetime":
+                try:
+                    parsed = datetime.fromisoformat(str(payload).replace("Z", "+00:00"))
+                except ValueError:
+                    return str(payload)
+                return parsed.strftime("%Y-%m-%d %H:%M:%S UTC")
             return str(payload)
         return str(value)
 

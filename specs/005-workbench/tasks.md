@@ -46,7 +46,9 @@
   - [x] **UX-T08A — Expose accept-unmatched review in the browser** (`UX-004`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A04`, `UX-A10`, `UX-A11`)
     - Change: preview the retained unpaired record, require a reason, commit the reserved decision with optimistic concurrency, label the pending rerun, and hide the action for cancelled or already-reviewed evidence.
     - Evidence: [UX-T08A acceptance](./evidence/UX-T08A.md).
-  - [ ] **UX-T08B — Format typed comparison values for reviewers** (`UX-004`, `UX-015`; `UX-A01`, `UX-A08`)
+  - [x] **UX-T08B — Format typed comparison values for reviewers** (`UX-004`, `UX-015`; `UX-A01`, `UX-A08`)
+    - Change: preserve typed evidence internally while presenting decimals, UTC timestamps, missing values, and time tolerances as readable comparison labels.
+    - Evidence: [UX-T08B acceptance](./evidence/UX-T08B.md).
   - [ ] **UX-T08C — Make selected historical occurrence evidence inspectable** (`UX-004`, `UX-006`; `UX-A06`)
 
 ## Scope decision

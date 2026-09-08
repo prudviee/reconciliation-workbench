@@ -357,6 +357,11 @@ def test_case_detail_exposes_side_by_side_evidence_and_history(tmp_path) -> None
         assert "Occurrence history" in content
         assert "Policy digest" in content
         assert "T-1001" in content
+        assert "2025-07-01 09:15:00 UTC" in content
+        assert "(allowed 1 min)" in content
+        assert "timedelta_microseconds" not in content
+        assert "&#x27;decimal&#x27;" not in content
+        assert "&#x27;datetime&#x27;" not in content
         assert "<script" not in content
 
 
