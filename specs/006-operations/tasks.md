@@ -29,7 +29,7 @@
   - Verify: an attempt whose lease expired and was reclaimed by a second attempt cannot publish once the second attempt completes; a forced failure between `compute_run` and `publish_run` leaves no partial `run_pair`/`run_unpaired`/case row and `scope.current_run` unchanged; a decision or dataset change between enqueue and worker start, or during computation, publishes as `STALE` and does not advance the current pointer, while a subsequent coalesced rerun does.
   - Evidence: PostgreSQL concurrency probe (reclaim-then-publish), forced-failure rollback snapshot, stale/current before-after snapshot.
 
-- [ ] **OPS-T04 — Route reconciliation-run execution through claim-and-execute** (`OPS-001`, `OPS-002`, `OPS-007`, `OPS-008`, `OPS-017`; `OPS-A04`, `OPS-A09`, `OPS-A11`, `OPS-A12`, `OPS-A16`)
+- [x] **OPS-T04 — Route reconciliation-run execution through claim-and-execute** (`OPS-001`, `OPS-002`, `OPS-007`, `OPS-008`, `OPS-017`; `OPS-A04`, `OPS-A09`, `OPS-A11`, `OPS-A12`, `OPS-A16`)
   - Change: `create_run_manifest` creates its `WorkItem` inside the same transaction that freezes the manifest; `execute_and_publish_run` is replaced by `jobs.services.claim_and_execute`, which validates every manifest resource ID against the manifest's own workspace before `compute_run` reads any financial row, then calls the unchanged `compute_run`/`publish_run` boundary; transient failures re-ready the item with backoff up to `max_attempts`, permanent failures fail on the first attempt; `active_jobs` quota is reserved on enqueue and released on the terminal state; `foundation.views.reconciliation_run_start` calls `claim_and_execute` inline for the local single-process Compose path.
   - Verify: a manifest containing another workspace's scope/dataset/decision ID fails before any `TransactionObservation` value is read and leaves the owning workspaces unchanged; a transient failure retries to the documented limit and then reports `FAILED` while the last successful run stays selectable throughout; a permanent validation failure reaches `FAILED` without retrying; the workbench receives only persisted `RunProgressStage` names and measured counts at every polled state, never an invented percentage.
   - Evidence: adversarial cross-workspace manifest test, retry-limit test log, browser evidence reused from specification 005 confirming no percentage appears.
@@ -55,8 +55,8 @@
 
 ## Phase 5: operability, deployment, and release
 
-- [ ] **OPS-T08 — Extend health reporting and structured observability** (`OPS-011`, `OPS-014`; `OPS-A08`, `OPS-A13`, `OPS-A14`)
-  - Change: `/health/ready` reports web readiness, database reachability, and worker liveness/freshness (computed from the most recent `job_attempt` heartbeat) as independent fields; `observability.logging.EVENT_FIELDS` gains book/scope/run/import/job identifiers and stage duration; a worker-side structured logger reuses the existing salted-HMAC workspace reference from `observability.middleware`.
+- [ ] **OPS-T08 — Extend health reporting and structured observability** (`OPS-003`, `OPS-011`, `OPS-014`; `OPS-A08`, `OPS-A13`, `OPS-A14`)
+  - Change: `foundation.management.commands.worker`'s heartbeat-only loop is replaced with a real claim loop that calls `jobs.services.claim_and_execute` for every registered `JobKind` each cycle, keeping the existing heartbeat-file write for the local Compose healthcheck; `/health/ready` reports web readiness, database reachability, and worker liveness/freshness (computed from the most recent `job_attempt` heartbeat) as independent fields; `observability.logging.EVENT_FIELDS` gains book/scope/run/import/job identifiers and stage duration; a worker-side structured logger reuses the existing salted-HMAC workspace reference from `observability.middleware`.
   - Verify: a stopped worker degrades only the worker signal while web/database stay healthy; sampled job and request logs built from representative session and financial fixtures contain only allowlisted fields — no raw transaction row or session secret appears.
   - Evidence: health-endpoint independence matrix and a log-field audit against the fixture corpus.
 
@@ -76,7 +76,7 @@
 |---|---|---|---|
 | OPS-001 | OPS-T02, OPS-T04, OPS-T06, OPS-T10 | OPS-A10 | No |
 | OPS-002 | OPS-T02, OPS-T04, OPS-T06, OPS-T10 | OPS-A09 | No |
-| OPS-003 | OPS-T01, OPS-T02, OPS-T03, OPS-T10 | OPS-A01 | No |
+| OPS-003 | OPS-T01, OPS-T02, OPS-T03, OPS-T08, OPS-T10 | OPS-A01 | No |
 | OPS-004 | OPS-T03, OPS-T10 | OPS-A01, OPS-A02, OPS-A04, OPS-A10 | No |
 | OPS-005 | OPS-T03, OPS-T10 | OPS-A03 | No |
 | OPS-006 | OPS-T03, OPS-T10 | OPS-A02, OPS-A04, OPS-A10 | No |

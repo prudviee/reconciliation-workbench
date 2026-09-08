@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -12,14 +13,24 @@ from reconciliation.domain import (
     FailureCategory,
     JobState,
     LeaseToken,
+    QuotaAmounts,
     RetryOutcome,
+    RetryPolicy,
+    WorkspaceId,
 )
+from workspaces.quotas import WorkspaceQuotaService
 
 from .models import JobAttempt, JobAttemptOutcome, WorkItem
+
+_ONE_ACTIVE_JOB = QuotaAmounts(active_jobs=1)
 
 
 class WorkItemUnavailable(LookupError):
     """A work item or its claimed attempt does not exist."""
+
+
+class TransientJobFailure(RuntimeError):
+    """Raised by an executor for a failure that should retry."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,8 +39,74 @@ class ClaimedWork:
     token: LeaseToken
 
 
+@dataclass(frozen=True, slots=True)
+class ExecutionRecord:
+    work_item: WorkItem
+    succeeded: bool
+
+
 def _generate_token() -> str:
     return secrets.token_hex(32)
+
+
+def _claimable(now: datetime):
+    return models.Q(state=JobState.READY, available_at__lte=now) | models.Q(
+        state=JobState.LEASED, lease_until__lt=now
+    )
+
+
+def enqueue(
+    workspace_id: WorkspaceId,
+    kind: str,
+    *,
+    max_attempts: int,
+    now: datetime,
+    **target,
+) -> WorkItem:
+    """Create, or reuse, the one `WorkItem` for a target.
+
+    `target` must be exactly one of `import_attempt=`, `reconciliation_run=`,
+    or `cleanup_request=`, matching the model's exact-shape constraint. The
+    `active_jobs` quota is reserved only when a new row is actually created —
+    calling this again for the same target (e.g. an unchanged manifest) is a
+    no-op that returns the existing item without reserving twice.
+    """
+    if len(target) != 1:
+        raise ValueError("enqueue requires exactly one target keyword argument")
+    existing = WorkItem.objects.filter(**target).first()
+    if existing is not None:
+        return existing
+    WorkspaceQuotaService().reserve(workspace_id, _ONE_ACTIVE_JOB)
+    return WorkItem.objects.create(
+        workspace_id=workspace_id.value,
+        kind=kind,
+        max_attempts=max_attempts,
+        available_at=now,
+        created_at=now,
+        updated_at=now,
+        **target,
+    )
+
+
+def _claim_row(item: WorkItem, *, now: datetime, lease_duration: timedelta) -> ClaimedWork:
+    token = LeaseToken(_generate_token())
+    lease_until = now + lease_duration
+    WorkItem.objects.filter(id=item.id).update(
+        state=JobState.LEASED,
+        lease_until=lease_until,
+        current_token=str(token),
+        attempt_count=models.F("attempt_count") + 1,
+        updated_at=now,
+    )
+    JobAttempt.objects.create(
+        workspace_id=item.workspace_id,
+        work_item=item,
+        token=str(token),
+        leased_at=now,
+        lease_until=lease_until,
+    )
+    item.refresh_from_db()
+    return ClaimedWork(work_item=item, token=token)
 
 
 @transaction.atomic
@@ -49,33 +126,29 @@ def claim_batch(
     candidates = list(
         WorkItem.objects.select_for_update(skip_locked=True)
         .filter(kind=kind)
-        .filter(
-            models.Q(state=JobState.READY, available_at__lte=now)
-            | models.Q(state=JobState.LEASED, lease_until__lt=now)
-        )
+        .filter(_claimable(now))
         .order_by("available_at")[:batch_size]
     )
-    claimed: list[ClaimedWork] = []
-    for item in candidates:
-        token = LeaseToken(_generate_token())
-        lease_until = now + lease_duration
-        WorkItem.objects.filter(id=item.id).update(
-            state=JobState.LEASED,
-            lease_until=lease_until,
-            current_token=str(token),
-            attempt_count=models.F("attempt_count") + 1,
-            updated_at=now,
-        )
-        JobAttempt.objects.create(
-            workspace_id=item.workspace_id,
-            work_item=item,
-            token=str(token),
-            leased_at=now,
-            lease_until=lease_until,
-        )
-        item.refresh_from_db()
-        claimed.append(ClaimedWork(work_item=item, token=token))
-    return claimed
+    return [_claim_row(item, now=now, lease_duration=lease_duration) for item in candidates]
+
+
+@transaction.atomic
+def claim_one(work_item_id, *, now: datetime, lease_duration: timedelta) -> ClaimedWork | None:
+    """Claim exactly one work item by id, if it is currently claimable.
+
+    Used by a caller that just enqueued a specific item and needs to run it
+    inline (the local single-process Compose path), rather than pulling
+    whatever is next in the system-wide queue for that kind.
+    """
+    candidate = (
+        WorkItem.objects.select_for_update(skip_locked=True)
+        .filter(id=work_item_id)
+        .filter(_claimable(now))
+        .first()
+    )
+    if candidate is None:
+        return None
+    return _claim_row(candidate, now=now, lease_duration=lease_duration)
 
 
 @transaction.atomic
@@ -100,6 +173,7 @@ def mark_succeeded(token: LeaseToken, *, now: datetime) -> bool:
     JobAttempt.objects.filter(token=str(token)).update(
         outcome=JobAttemptOutcome.SUCCEEDED, completed_at=now
     )
+    WorkspaceQuotaService().release(WorkspaceId(work_item.workspace_id), _ONE_ACTIVE_JOB)
     return True
 
 
@@ -140,4 +214,57 @@ def mark_failed(
         completed_at=now,
         failure_category=failure_category,
     )
+    if outcome.state is JobState.FAILED:
+        WorkspaceQuotaService().release(WorkspaceId(work_item.workspace_id), _ONE_ACTIVE_JOB)
     return True
+
+
+def claim_and_execute(
+    kind: str,
+    *,
+    now: datetime,
+    lease_duration: timedelta,
+    retry_policy: RetryPolicy,
+    executor: Callable[[WorkItem, LeaseToken], None],
+    batch_size: int = 1,
+    work_item_id=None,
+) -> list[ExecutionRecord]:
+    """Claim work of one kind and run `executor` on each claimed item.
+
+    With `work_item_id`, claims exactly that item (or nothing, if it is not
+    currently claimable) via `claim_one`; otherwise claims up to `batch_size`
+    items system-wide via `claim_batch`. `executor` must raise
+    `TransientJobFailure` for a retryable failure and let any other exception
+    propagate for a permanent one; both are recorded through `mark_failed`
+    using `retry_policy` before the exception (if any) is re-raised.
+    """
+    if work_item_id is not None:
+        one = claim_one(work_item_id, now=now, lease_duration=lease_duration)
+        claimed = [one] if one is not None else []
+    else:
+        claimed = claim_batch(kind, now=now, lease_duration=lease_duration, batch_size=batch_size)
+    records: list[ExecutionRecord] = []
+    for work in claimed:
+        try:
+            executor(work.work_item, work.token)
+        except TransientJobFailure:
+            outcome = retry_policy.decide(
+                attempt_count=work.work_item.attempt_count,
+                failure_category=FailureCategory.TRANSIENT,
+                now=now,
+            )
+            mark_failed(work.token, outcome=outcome, failure_category=FailureCategory.TRANSIENT, now=now)
+            records.append(ExecutionRecord(work.work_item, succeeded=False))
+        except Exception:
+            outcome = retry_policy.decide(
+                attempt_count=work.work_item.attempt_count,
+                failure_category=FailureCategory.PERMANENT,
+                now=now,
+            )
+            mark_failed(work.token, outcome=outcome, failure_category=FailureCategory.PERMANENT, now=now)
+            records.append(ExecutionRecord(work.work_item, succeeded=False))
+            raise
+        else:
+            mark_succeeded(work.token, now=now)
+            records.append(ExecutionRecord(work.work_item, succeeded=True))
+    return records

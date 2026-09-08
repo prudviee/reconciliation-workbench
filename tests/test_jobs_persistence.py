@@ -26,6 +26,7 @@ from jobs.models import JobAttempt, JobAttemptOutcome, JobEvidenceError, WorkIte
 from jobs.services import (
     ClaimedWork,
     claim_batch,
+    enqueue,
     mark_failed,
     mark_succeeded,
 )
@@ -361,19 +362,17 @@ def test_work_item_rejects_a_target_reused_by_a_second_work_item() -> None:
         )
 
 
-def test_work_item_reconciliation_run_and_cleanup_shapes_are_accepted() -> None:
+def test_reconciliation_run_creation_enqueues_its_own_work_item() -> None:
     run_workspace = _create_workspace("run-shape")
     run = _create_reconciliation_run(run_workspace, "run-shape")
-    WorkItem.objects.create(
-        workspace=run_workspace,
-        kind=JobKind.RECONCILIATION_RUN,
-        reconciliation_run=run,
-        available_at=NOW,
-        max_attempts=3,
-        created_at=NOW,
-        updated_at=NOW,
-    )
 
+    item = WorkItem.objects.get(reconciliation_run=run)
+    assert item.kind == JobKind.RECONCILIATION_RUN
+    assert item.state == JobState.READY
+    assert item.workspace_id == run_workspace.id
+
+
+def test_work_item_cleanup_shape_is_accepted() -> None:
     cleanup_workspace = _create_workspace("cleanup-shape")
     cleanup = _create_cleanup_request(cleanup_workspace)
     WorkItem.objects.create(
@@ -531,14 +530,12 @@ def test_a_fenced_attempt_cannot_publish_success_after_reclaim() -> None:
 def test_mark_succeeded_completes_the_current_attempt() -> None:
     workspace = _create_workspace("success")
     attempt = _create_ingestion_attempt(workspace, "success")
-    WorkItem.objects.create(
-        workspace=workspace,
-        kind=JobKind.IMPORT_VALIDATION,
-        import_attempt=attempt,
-        available_at=NOW,
+    enqueue(
+        WorkspaceId(workspace.id),
+        JobKind.IMPORT_VALIDATION,
         max_attempts=3,
-        created_at=NOW,
-        updated_at=NOW,
+        now=NOW,
+        import_attempt=attempt,
     )
     claimed = claim_batch(
         JobKind.IMPORT_VALIDATION, now=NOW, lease_duration=timedelta(seconds=10)
@@ -554,19 +551,19 @@ def test_mark_succeeded_completes_the_current_attempt() -> None:
     job_attempt = JobAttempt.objects.get(token=str(claimed.token))
     assert job_attempt.outcome == JobAttemptOutcome.SUCCEEDED
     assert job_attempt.completed_at == NOW + timedelta(seconds=1)
+    workspace.refresh_from_db()
+    assert workspace.active_job_count == 0
 
 
 def test_mark_failed_applies_the_supplied_retry_outcome() -> None:
     workspace = _create_workspace("retry")
     attempt = _create_ingestion_attempt(workspace, "retry")
-    WorkItem.objects.create(
-        workspace=workspace,
-        kind=JobKind.IMPORT_VALIDATION,
-        import_attempt=attempt,
-        available_at=NOW,
+    enqueue(
+        WorkspaceId(workspace.id),
+        JobKind.IMPORT_VALIDATION,
         max_attempts=3,
-        created_at=NOW,
-        updated_at=NOW,
+        now=NOW,
+        import_attempt=attempt,
     )
     claimed = claim_batch(
         JobKind.IMPORT_VALIDATION, now=NOW, lease_duration=timedelta(seconds=10)
@@ -588,19 +585,19 @@ def test_mark_failed_applies_the_supplied_retry_outcome() -> None:
     job_attempt = JobAttempt.objects.get(token=str(claimed.token))
     assert job_attempt.outcome == JobAttemptOutcome.FAILED
     assert job_attempt.failure_category == FailureCategory.TRANSIENT
+    workspace.refresh_from_db()
+    assert workspace.active_job_count == 1
 
 
 def test_mark_failed_terminal_outcome_leaves_the_item_failed() -> None:
     workspace = _create_workspace("terminal")
     attempt = _create_ingestion_attempt(workspace, "terminal")
-    WorkItem.objects.create(
-        workspace=workspace,
-        kind=JobKind.IMPORT_VALIDATION,
-        import_attempt=attempt,
-        available_at=NOW,
+    enqueue(
+        WorkspaceId(workspace.id),
+        JobKind.IMPORT_VALIDATION,
         max_attempts=1,
-        created_at=NOW,
-        updated_at=NOW,
+        now=NOW,
+        import_attempt=attempt,
     )
     claimed = claim_batch(
         JobKind.IMPORT_VALIDATION, now=NOW, lease_duration=timedelta(seconds=10)
@@ -615,6 +612,8 @@ def test_mark_failed_terminal_outcome_leaves_the_item_failed() -> None:
 
     work_item = WorkItem.objects.get(id=claimed.work_item.id)
     assert work_item.state == JobState.FAILED
+    workspace.refresh_from_db()
+    assert workspace.active_job_count == 0
 
 
 def test_job_attempt_rows_cannot_be_updated_outside_the_claim_service() -> None:

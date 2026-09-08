@@ -9,11 +9,14 @@ from datetime import datetime
 from typing import Callable
 from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from books.models import PolicyRevision, ReconciliationBook, ReconciliationScope
 from ingestion.models import DatasetMembership
+from jobs.models import WorkItem
+from jobs.services import TransientJobFailure, enqueue
 from reconciliation.domain import (
     AcceptedUnmatched,
     CanonicalSide,
@@ -24,6 +27,7 @@ from reconciliation.domain import (
     DecisionInputs,
     EngineResult,
     EngineSnapshot,
+    JobKind,
     ManualLink,
     MatchRecord,
     PairOrigin,
@@ -80,6 +84,7 @@ class FrozenRun:
     manifest_hash: str
     input_count: int
     decision_count: int
+    work_item_id: UUID
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,7 +176,20 @@ class ReconciliationRunService:
                 scope=scope, manifest_hash=manifest_hash
             ).first()
             if existing is not None:
-                return FrozenRun(existing.id, existing.manifest_hash, existing.inputs.count(), existing.decision_inputs.count())
+                work_item = enqueue(
+                    workspace_id,
+                    JobKind.RECONCILIATION_RUN,
+                    max_attempts=settings.JOBS_RUN_MAX_ATTEMPTS,
+                    now=created_at,
+                    reconciliation_run=existing,
+                )
+                return FrozenRun(
+                    existing.id,
+                    existing.manifest_hash,
+                    existing.inputs.count(),
+                    existing.decision_inputs.count(),
+                    work_item.id,
+                )
             run = ReconciliationRun.objects.create(
                 workspace_id=workspace_id.value,
                 scope=scope,
@@ -208,7 +226,20 @@ class ReconciliationRunService:
             RunDecisionInput.objects.bulk_create(
                 [RunDecisionInput(workspace_id=workspace_id.value, run=run, decision_revision=item) for item in decisions]
             )
-            return FrozenRun(run.id, manifest_hash, len(left_members) + len(right_members), len(decisions))
+            work_item = enqueue(
+                workspace_id,
+                JobKind.RECONCILIATION_RUN,
+                max_attempts=settings.JOBS_RUN_MAX_ATTEMPTS,
+                now=created_at,
+                reconciliation_run=run,
+            )
+            return FrozenRun(
+                run.id,
+                manifest_hash,
+                len(left_members) + len(right_members),
+                len(decisions),
+                work_item.id,
+            )
 
     def execute_and_publish_run(
         self,
@@ -835,3 +866,21 @@ def _pair_explanation(origin: PairOrigin) -> str:
         PairOrigin.AUTHORITATIVE_REFERENCE: "Paired by the configured authoritative shared reference.",
         PairOrigin.WEIGHTED_GLOBAL: "Paired by the deterministic global assignment and acceptance gates.",
     }[origin]
+
+
+def execute_claimed_run(work_item: WorkItem, token) -> None:
+    """A `jobs.services.claim_and_execute` executor for `JobKind.RECONCILIATION_RUN`.
+
+    Categorizes a lost fencing race as transient (worth retrying under a new
+    claim) and lets every other failure propagate as permanent.
+    """
+    if work_item.reconciliation_run_id is None:
+        raise RunUnavailable("work item has no reconciliation run target")
+    try:
+        ReconciliationRunService().execute_and_publish_run(
+            WorkspaceId(work_item.workspace_id),
+            work_item.reconciliation_run_id,
+            attempt_token=str(token),
+        )
+    except RunStateConflict as error:
+        raise TransientJobFailure(str(error)) from error

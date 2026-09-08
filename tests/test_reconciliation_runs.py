@@ -624,7 +624,7 @@ def test_workbench_keeps_current_result_during_running_and_failed_rerun(
     assert "Failure code: RunResultMismatch" in failed_content
     assert "Retry reconciliation" in failed_content
 
-    def fail_retry(_service, _workspace_id, _run_id):
+    def fail_retry(_service, _workspace_id, _run_id, **_kwargs):
         raise RuntimeError("retry failed")
 
     monkeypatch.setattr(

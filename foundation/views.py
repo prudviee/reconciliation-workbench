@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -24,13 +25,16 @@ from ingestion.repositories import (
 )
 from ingestion.services import ArtifactIntakeService, configured_artifact_store
 from ingestion.workflow import SourcePreparationService
+from jobs.services import claim_and_execute
 from reconciliation.domain import (
     BookId,
     DecisionAction,
     DecisionAuthority,
     DecisionCommand,
+    JobKind,
     QuotaExceeded,
     QuotaResource,
+    RetryPolicy,
 )
 from reconciliation.querying import (
     ReviewCursorError,
@@ -38,7 +42,7 @@ from reconciliation.querying import (
     ReviewPageSizeError,
     ReviewQueryUnavailable,
 )
-from reconciliation.services import ReconciliationRunService, RunUnavailable
+from reconciliation.services import ReconciliationRunService, RunUnavailable, execute_claimed_run
 from resolutions.services import (
     DecisionCommandService,
     DecisionMutationConflict,
@@ -627,18 +631,36 @@ def reconciliation_run_start(request: HttpRequest, book_id: object) -> HttpRespo
     except (WorkbenchUnavailable, RunUnavailable):
         raise Http404 from None
     try:
-        runner.execute_and_publish_run(access.workspace_id, frozen.run_id)
+        records = claim_and_execute(
+            JobKind.RECONCILIATION_RUN,
+            now=timezone.now(),
+            lease_duration=timedelta(seconds=settings.JOBS_RUN_LEASE_SECONDS),
+            retry_policy=RetryPolicy(
+                max_attempts=settings.JOBS_RUN_MAX_ATTEMPTS,
+                backoff=timedelta(seconds=settings.JOBS_RUN_BACKOFF_SECONDS),
+            ),
+            executor=execute_claimed_run,
+            work_item_id=frozen.work_item_id,
+        )
     except Exception:
         logger.exception(
             "reconciliation_run_failed",
             extra={"run_id": str(frozen.run_id)},
         )
-        scope.refresh_from_db(fields=["current_run"])
-        query = "?failed=1"
-        if scope.current_run_id is not None:
-            query = f"?run={scope.current_run_id}&failed=1"
-        return redirect(f"/books/{book.id}/workbench{query}")
+        return _run_failed_redirect(book, scope)
+    if not records:
+        return redirect(f"/books/{book.id}/workbench")
+    if not records[0].succeeded:
+        return _run_failed_redirect(book, scope)
     return redirect(f"/books/{book.id}/workbench?run={frozen.run_id}&completed=1")
+
+
+def _run_failed_redirect(book, scope) -> HttpResponse:
+    scope.refresh_from_db(fields=["current_run"])
+    query = "?failed=1"
+    if scope.current_run_id is not None:
+        query = f"?run={scope.current_run_id}&failed=1"
+    return redirect(f"/books/{book.id}/workbench{query}")
 
 
 @workspace_required
