@@ -1,5 +1,7 @@
 # 006 Jobs, Operations, and Deployment — Tasks
 
+> **Storage note:** Specification 007 removes the external storage adapter delivered by OPS-T05 and narrows the current release to its private persistent filesystem. The completed entries below remain historical task evidence.
+
 - **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Plan:** [plan.md](./plan.md)

@@ -15,7 +15,7 @@ from reconciliation.domain import QuotaAmounts, WorkspaceId
 from workspaces.quotas import WorkspaceQuotaService
 from workspaces.repositories import WorkspaceRepository
 
-from .artifacts import IntakeLimits, PrivateArtifactStore, StorageAdapter
+from .artifacts import IntakeLimits, PrivateArtifactStore
 from .models import FileArtifact
 from .repositories import WorkspaceIngestionRepository
 
@@ -29,22 +29,13 @@ def configured_intake_limits() -> IntakeLimits:
     )
 
 
-def configured_artifact_store() -> StorageAdapter:
-    if settings.INGESTION_STORAGE_BACKEND == "s3":
-        from .s3_artifacts import S3ArtifactStore
-
-        return S3ArtifactStore(
-            bucket=settings.INGESTION_S3_BUCKET,
-            cache_root=Path(settings.INGESTION_S3_CACHE_ROOT),
-            region_name=settings.INGESTION_S3_REGION,
-            endpoint_url=settings.INGESTION_S3_ENDPOINT_URL,
-        )
+def configured_artifact_store() -> PrivateArtifactStore:
     return PrivateArtifactStore(Path(settings.INGESTION_PRIVATE_ROOT))
 
 
 @dataclass(slots=True)
 class ArtifactIntakeService:
-    store: StorageAdapter = field(default_factory=configured_artifact_store)
+    store: PrivateArtifactStore = field(default_factory=configured_artifact_store)
     limits: IntakeLimits = field(default_factory=configured_intake_limits)
     quota_service: WorkspaceQuotaService = field(default_factory=WorkspaceQuotaService)
     clock: Callable[[], datetime] = timezone.now

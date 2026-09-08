@@ -1,5 +1,7 @@
 # OPS-T09 Verification Evidence
 
+> **Storage target superseded:** Specification 007 makes the verified release local-only. Capacity measurements remain valid; external-storage deployment statements below are historical.
+
 - **Task:** Ship deployment configuration and measured capacity
 - **Requirements:** `OPS-010`, `OPS-012`, `OPS-013`, `OPS-016`
 - **Acceptance scenarios:** `OPS-A06`, `OPS-A13`, `OPS-A15`

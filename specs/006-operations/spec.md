@@ -1,5 +1,7 @@
 # 006 Jobs, Operations, and Deployment — Specification
 
+> **Storage note:** The external object-storage requirement records the release decision at the time this specification was verified. Specification 007 supersedes that choice for the current release with private persistent local storage. Job, fencing, cleanup, health, and capacity requirements remain current.
+
 - **Status:** Verified
 - **Prefix:** `OPS`
 - **Depends on:** 001–005

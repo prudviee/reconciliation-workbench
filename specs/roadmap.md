@@ -10,6 +10,7 @@ This roadmap orders feature specifications by dependency. It does not reduce the
 | 004 | Decisions and stable cases | REV | 001–003 | Verified | Durable review authority, case history, concurrency safety |
 | 005 | Workbench and run history | UX | 001–004 | Verified | Polished complete user workflow and accessible evidence |
 | 006 | Jobs, operations, and deployment | OPS | 001–005 | Verified | Reliable background execution, observability, retention, deployment |
+| 007 | Local-only storage simplification | STO | 006 | Verified | Zero-cost private file storage with no external storage SDK |
 
 ## Milestone 1: executable foundation
 

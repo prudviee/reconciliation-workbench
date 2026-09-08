@@ -96,30 +96,12 @@ def test_configured_limits_match_the_ingestion_specification() -> None:
     )
 
 
-def test_configured_artifact_store_defaults_to_local(settings) -> None:
-    settings.INGESTION_STORAGE_BACKEND = "local"
-
-    assert isinstance(configured_artifact_store(), PrivateArtifactStore)
-
-
-def test_configured_artifact_store_selects_s3_when_configured(
-    settings,
-    tmp_path: Path,
-    isolated_aws_credentials,
-) -> None:
-    from ingestion.s3_artifacts import S3ArtifactStore
-
-    settings.INGESTION_STORAGE_BACKEND = "s3"
-    settings.INGESTION_S3_BUCKET = "cogweb-reconciliation-artifacts"
-    settings.INGESTION_S3_REGION = "auto"
-    settings.INGESTION_S3_ENDPOINT_URL = "https://example-r2-endpoint.example.com"
-    settings.INGESTION_S3_CACHE_ROOT = tmp_path
-
+def test_configured_artifact_store_uses_the_private_root(settings, tmp_path: Path) -> None:
+    settings.INGESTION_PRIVATE_ROOT = tmp_path
     store = configured_artifact_store()
 
-    assert isinstance(store, S3ArtifactStore)
-    assert store.bucket == "cogweb-reconciliation-artifacts"
-    assert store.cache_root == tmp_path.resolve()
+    assert isinstance(store, PrivateArtifactStore)
+    assert store.root == tmp_path.resolve()
 
 
 def test_storage_keys_cannot_escape_the_private_root(tmp_path: Path) -> None:

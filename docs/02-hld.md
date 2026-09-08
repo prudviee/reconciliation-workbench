@@ -157,16 +157,14 @@ A daily scheduler, if included, invokes the same run-creation service as the man
 
 ```mermaid
 flowchart TB
-    I[Internet] --> H[HTTPS ingress]
-    H --> W[Django web replicas]
-    W --> P[(Managed PostgreSQL)]
-    W --> S[(Private object storage)]
+    B[Browser] --> W[Django web process]
+    W --> P[(PostgreSQL volume)]
+    W --> S[(Private artifact volume)]
     J[Worker replicas] --> P
     J --> S
-    C[Scheduled trigger] --> W
 ```
 
-One versioned image runs different web and worker commands. Local development uses Docker Compose with PostgreSQL and persistent volumes. Deployment uses managed PostgreSQL and private object storage. Migrations execute once as a release step.
+One versioned image runs different web and worker commands. The verified release uses Docker Compose with PostgreSQL and persistent database and artifact volumes. A future hosted target must provide equivalent private persistent storage. Migrations execute once as a release step.
 
 Health reporting separates web readiness, database reachability, and worker heartbeat. Logs include workspace/book/scope/run/import/job IDs and stage durations without raw financial rows or session secrets.
 

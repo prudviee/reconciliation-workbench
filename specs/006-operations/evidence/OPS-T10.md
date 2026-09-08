@@ -1,5 +1,7 @@
 # OPS-T10 Verification Evidence
 
+> **Storage target superseded:** Specification 007 removes the external storage adapter. The jobs, fencing, cleanup, health, and capacity evidence below remains applicable.
+
 - **Task:** Close jobs, operations, and deployment acceptance
 - **Requirements:** `OPS-001`–`OPS-017`
 - **Acceptance scenarios:** `OPS-A01`–`OPS-A16`

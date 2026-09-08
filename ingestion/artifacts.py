@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from threading import Lock
-from typing import Iterable, Protocol
+from typing import Iterable
 from uuid import uuid4
 
 from reconciliation.domain import WorkspaceId
@@ -86,31 +86,6 @@ class StagedArtifact:
 class PublishedArtifact:
     storage_key: str
     path: Path
-
-
-class StorageAdapter(Protocol):
-    """The contract every artifact storage backend implements.
-
-    `PrivateArtifactStore` below is the local filesystem implementation.
-    `ingestion.s3_artifacts.S3ArtifactStore` is the object-storage
-    implementation for the deployed target (`OPS-013`); both satisfy this
-    same structural interface, so `configured_artifact_store()` can return
-    either one without any caller changing.
-    """
-
-    def stage(
-        self, chunks: Iterable[bytes], *, delimiter: str, limits: "IntakeLimits"
-    ) -> "StagedArtifact": ...
-
-    def publish(
-        self, staged: "StagedArtifact", *, workspace_id: WorkspaceId
-    ) -> "PublishedArtifact": ...
-
-    def discard_path(self, path: Path) -> None: ...
-
-    def resolve(self, storage_key: str) -> Path: ...
-
-    def delete_published(self, storage_key: str) -> None: ...
 
 
 class PrivateArtifactStore:

@@ -1,0 +1,26 @@
+{
+  "task": "STO-T01",
+  "result": "pass",
+  "verified_at": "2026-09-08",
+  "focused_tests": {
+    "passed": 49,
+    "failed": 0
+  },
+  "full_suite": {
+    "passed": 532,
+    "failed": 0,
+    "warnings": 2
+  },
+  "django_check": "pass",
+  "migration_drift": false,
+  "dependency_check": "pass",
+  "external_storage_sdk_in_runtime_image": false,
+  "docker": {
+    "database": "healthy",
+    "web": "healthy",
+    "worker": "healthy"
+  },
+  "readiness_http_status": 200,
+  "persistent_artifact_files_after_rebuild": 2,
+  "browser_workbench": "pass"
+}

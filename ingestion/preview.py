@@ -54,7 +54,7 @@ from workspaces.repositories import WorkspaceRepository, WorkspaceUnavailable
 
 from .artifacts import (
     IntakeLimits,
-    StorageAdapter,
+    PrivateArtifactStore,
     read_bounded_csv,
 )
 from .models import AttemptState, IngestionAttempt
@@ -94,7 +94,7 @@ class InterpretedPreview:
 
 @dataclass(slots=True)
 class PreviewService:
-    store: StorageAdapter
+    store: PrivateArtifactStore
     limits: IntakeLimits
     clock: Callable[[], datetime] = timezone.now
     lifecycle_service: WorkspaceLifecycleService = field(

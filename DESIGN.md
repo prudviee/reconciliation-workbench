@@ -104,7 +104,7 @@ flowchart LR
 | Database | PostgreSQL; relational integrity, exact numeric values, revision pointers, jobs |
 | Assignment solver | SciPy linear assignment solver behind a pure domain adapter |
 | Jobs | PostgreSQL-backed job records and a separate Python worker |
-| Files | Private object storage in deployment; filesystem adapter in local development |
+| Files | Private filesystem storage on a persistent Docker volume |
 | Tests | Pytest, pytest-django, Hypothesis, and Playwright |
 | Packaging | One repository and container image, separate web/worker commands, Docker Compose locally |
 
@@ -755,7 +755,7 @@ Structured logs include workspace/book/scope/run/import/job IDs and stage durati
 
 Uploads have byte, row, field-length, and processing limits. Filenames never become trusted storage paths. Private downloads recheck workspace authorization. HTML output escapes uploaded strings. The deployment uses HTTPS, secure cookies, CSRF protection, private storage, and environment-held secrets.
 
-Local development runs web, worker, and PostgreSQL through Docker Compose with persistent volumes. Deployment runs web and worker from the same versioned image, uses managed PostgreSQL and private object storage, and applies migrations once as a release step. Health checks distinguish web readiness, database availability, and worker heartbeat.
+The verified release runs web, worker, and PostgreSQL through Docker Compose with persistent database and artifact volumes. A future hosted deployment may run web and worker from the same versioned image, but it must provide a private persistent filesystem before uploads are enabled. Health checks distinguish web readiness, database availability, and worker heartbeat.
 
 Expiry cleanup invalidates access before deleting rows and files, coalesces or cancels jobs, and checks live references before removing shared artifacts. Backup retention can outlive live-store expiry; the deployed retention notice must name that period rather than promise immediate erasure from backups.
 

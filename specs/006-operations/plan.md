@@ -1,5 +1,7 @@
 # 006 Jobs, Operations, and Deployment — Implementation Plan
 
+> **Storage note:** Specification 007 supersedes this plan's external object-storage implementation. The text below remains historical design evidence for specification 006.
+
 - **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Target branch:** `codex/006-operations`

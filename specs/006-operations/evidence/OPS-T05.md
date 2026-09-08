@@ -1,5 +1,7 @@
 # OPS-T05 Verification Evidence
 
+> **Superseded:** Specification 007 removes the adapter described here. This file is retained as historical evidence of what OPS-T05 originally verified.
+
 - **Task:** Extract `StorageAdapter` and add the object-storage implementation
 - **Requirements:** `OPS-010`, `OPS-013`
 - **Date:** 8 September 2026
