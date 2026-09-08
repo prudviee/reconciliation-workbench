@@ -228,3 +228,16 @@ class JobAttempt(models.Model):
         raise JobEvidenceError(
             "job attempts can be removed only through retention cleanup"
         )
+
+
+class WorkerHeartbeat(models.Model):
+    """The most recent liveness signal from one worker process.
+
+    Not workspace-owned: this is operational infrastructure, not user data.
+    """
+
+    worker_id = models.CharField(max_length=64, primary_key=True)
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "worker_heartbeat"

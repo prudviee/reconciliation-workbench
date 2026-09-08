@@ -200,6 +200,10 @@ JOBS_IMPORT_MAX_ATTEMPTS = env_nonnegative_int("JOBS_IMPORT_MAX_ATTEMPTS", 3)
 JOBS_IMPORT_LEASE_SECONDS = env_nonnegative_int("JOBS_IMPORT_LEASE_SECONDS", 60)
 JOBS_IMPORT_BACKOFF_SECONDS = env_nonnegative_int("JOBS_IMPORT_BACKOFF_SECONDS", 5)
 JOBS_CLEANUP_MAX_ATTEMPTS = env_nonnegative_int("JOBS_CLEANUP_MAX_ATTEMPTS", 3)
+JOBS_CLEANUP_LEASE_SECONDS = env_nonnegative_int("JOBS_CLEANUP_LEASE_SECONDS", 60)
+JOBS_CLEANUP_BACKOFF_SECONDS = env_nonnegative_int("JOBS_CLEANUP_BACKOFF_SECONDS", 5)
+JOBS_WORKER_BATCH_SIZE = env_nonnegative_int("JOBS_WORKER_BATCH_SIZE", 10)
+JOBS_WORKER_STALE_SECONDS = env_nonnegative_int("JOBS_WORKER_STALE_SECONDS", 30)
 
 LOGGING = {
     "version": 1,
@@ -220,6 +224,11 @@ LOGGING = {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
-        }
+        },
+        "reconciliation.jobs.events": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
     },
 }

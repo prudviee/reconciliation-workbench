@@ -25,6 +25,7 @@ from ingestion.repositories import (
 )
 from ingestion.services import ArtifactIntakeService, configured_artifact_store
 from ingestion.workflow import SourcePreparationService
+from jobs.models import WorkerHeartbeat
 from jobs.services import claim_and_execute, enqueue
 from reconciliation.domain import (
     BookId,
@@ -70,11 +71,28 @@ def readiness(request: HttpRequest) -> JsonResponse:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
+        database_ready = True
     except Exception:
-        return JsonResponse(
-            {"status": "unavailable", "database": "unavailable"}, status=503
+        database_ready = False
+
+    latest_heartbeat = WorkerHeartbeat.objects.order_by("-updated_at").first()
+    if latest_heartbeat is None:
+        worker_status = "unknown"
+        worker_heartbeat_age_seconds = None
+    else:
+        age_seconds = (timezone.now() - latest_heartbeat.updated_at).total_seconds()
+        worker_heartbeat_age_seconds = round(age_seconds, 3)
+        worker_status = (
+            "healthy" if age_seconds <= settings.JOBS_WORKER_STALE_SECONDS else "stale"
         )
-    return JsonResponse({"status": "ready", "database": "ready"})
+
+    payload = {
+        "status": "ready" if database_ready else "unavailable",
+        "database": "ready" if database_ready else "unavailable",
+        "worker_status": worker_status,
+        "worker_heartbeat_age_seconds": worker_heartbeat_age_seconds,
+    }
+    return JsonResponse(payload, status=200 if database_ready else 503)
 
 
 @workspace_required

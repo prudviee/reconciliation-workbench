@@ -9,11 +9,10 @@ from time import perf_counter
 from uuid import uuid4
 
 from django.http import HttpRequest, HttpResponse
-from django.utils.crypto import salted_hmac
 
 from reconciliation.domain import WorkspaceAccess
 
-from .logging import safe_event
+from .logging import hash_workspace_ref, safe_event
 
 
 CORRELATION_HEADER = "X-Correlation-ID"
@@ -32,11 +31,7 @@ def workspace_reference(request: HttpRequest) -> str | None:
     access = getattr(request, "workspace_access", None)
     if not isinstance(access, WorkspaceAccess):
         return None
-    return salted_hmac(
-        "reconciliation-workbench.workspace-log.v1",
-        str(access.workspace_id),
-        algorithm="sha256",
-    ).hexdigest()[:16]
+    return hash_workspace_ref(access.workspace_id)
 
 
 def failure_category(status: int) -> str | None:

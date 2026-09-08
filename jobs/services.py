@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from time import perf_counter
 
 from django.db import models, transaction
 
@@ -22,6 +24,8 @@ from workspaces.quotas import WorkspaceQuotaService
 
 from .models import JobAttempt, JobAttemptOutcome, WorkItem
 
+logger = logging.getLogger("reconciliation.jobs")
+execution_logger = logging.getLogger("reconciliation.jobs.events")
 _ONE_ACTIVE_JOB = QuotaAmounts(active_jobs=1)
 
 
@@ -236,7 +240,10 @@ def claim_and_execute(
     items system-wide via `claim_batch`. `executor` must raise
     `TransientJobFailure` for a retryable failure and let any other exception
     propagate for a permanent one; both are recorded through `mark_failed`
-    using `retry_policy` before the exception (if any) is re-raised.
+    using `retry_policy` and logged, but never re-raised — one item's failure
+    does not stop the rest of the batch from being attempted, which matters
+    for a polling worker processing many items per cycle. The caller reads
+    `ExecutionRecord.succeeded` per item rather than catching exceptions.
 
     A successful `WORKSPACE_CLEANUP` executor deletes the workspace, which
     cascades away its own `WorkItem`/`JobAttempt` rows before this function's
@@ -251,9 +258,12 @@ def claim_and_execute(
         claimed = claim_batch(kind, now=now, lease_duration=lease_duration, batch_size=batch_size)
     records: list[ExecutionRecord] = []
     for work in claimed:
+        started = perf_counter()
+        failure_category_value: str | None = None
         try:
             executor(work.work_item, work.token)
         except TransientJobFailure:
+            failure_category_value = FailureCategory.TRANSIENT.value
             outcome = retry_policy.decide(
                 attempt_count=work.work_item.attempt_count,
                 failure_category=FailureCategory.TRANSIENT,
@@ -262,6 +272,11 @@ def claim_and_execute(
             mark_failed(work.token, outcome=outcome, failure_category=FailureCategory.TRANSIENT, now=now)
             records.append(ExecutionRecord(work.work_item, succeeded=False))
         except Exception:
+            failure_category_value = FailureCategory.PERMANENT.value
+            logger.exception(
+                "claimed_work_failed",
+                extra={"kind": kind, "work_item_id": str(work.work_item.id)},
+            )
             outcome = retry_policy.decide(
                 attempt_count=work.work_item.attempt_count,
                 failure_category=FailureCategory.PERMANENT,
@@ -269,11 +284,45 @@ def claim_and_execute(
             )
             mark_failed(work.token, outcome=outcome, failure_category=FailureCategory.PERMANENT, now=now)
             records.append(ExecutionRecord(work.work_item, succeeded=False))
-            raise
         else:
             try:
                 mark_succeeded(work.token, now=now)
             except WorkItemUnavailable:
                 pass
             records.append(ExecutionRecord(work.work_item, succeeded=True))
+        finally:
+            _log_job_execution(
+                kind=kind,
+                work_item=work.work_item,
+                duration_ms=round((perf_counter() - started) * 1000, 3),
+                failure_category=failure_category_value,
+            )
     return records
+
+
+def _log_job_execution(
+    *,
+    kind: str,
+    work_item: WorkItem,
+    duration_ms: float,
+    failure_category: str | None,
+) -> None:
+    from observability.logging import hash_workspace_ref, safe_event
+
+    event = safe_event(
+        {
+            "event": "job_execution_completed",
+            "stage": kind,
+            "job_id": str(work_item.id),
+            "run_id": str(work_item.reconciliation_run_id)
+            if work_item.reconciliation_run_id
+            else None,
+            "import_id": str(work_item.import_attempt_id)
+            if work_item.import_attempt_id
+            else None,
+            "workspace_ref": hash_workspace_ref(work_item.workspace_id),
+            "duration_ms": duration_ms,
+            "failure_category": failure_category,
+        }
+    )
+    execution_logger.info("job_execution_completed", extra={"structured_event": event})
