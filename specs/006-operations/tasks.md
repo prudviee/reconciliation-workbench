@@ -24,7 +24,7 @@
 
 ## Phase 2: reconciliation-run fencing
 
-- [ ] **OPS-T03 — Add the run fencing token and verify it at publication** (`OPS-003`, `OPS-004`, `OPS-005`, `OPS-006`; `OPS-A01`, `OPS-A02`, `OPS-A03`, `OPS-A10`)
+- [x] **OPS-T03 — Add the run fencing token and verify it at publication** (`OPS-003`, `OPS-004`, `OPS-005`, `OPS-006`; `OPS-A01`, `OPS-A02`, `OPS-A03`, `OPS-A10`)
   - Change: `reconciliation_run.current_attempt_token` (nullable); `publish_run` compares it against the claiming attempt's token inside the existing `select_for_update` transaction and raises the existing `RunStateConflict` on mismatch without writing any fact.
   - Verify: an attempt whose lease expired and was reclaimed by a second attempt cannot publish once the second attempt completes; a forced failure between `compute_run` and `publish_run` leaves no partial `run_pair`/`run_unpaired`/case row and `scope.current_run` unchanged; a decision or dataset change between enqueue and worker start, or during computation, publishes as `STALE` and does not advance the current pointer, while a subsequent coalesced rerun does.
   - Evidence: PostgreSQL concurrency probe (reclaim-then-publish), forced-failure rollback snapshot, stale/current before-after snapshot.

@@ -129,6 +129,7 @@ class ReconciliationRun(models.Model):
         default=RunProgressStage.QUEUED,
     )
     progress_counts = models.JSONField(default=dict)
+    current_attempt_token = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateTimeField()
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -171,6 +172,13 @@ class ReconciliationRun(models.Model):
                     )
                 ),
                 name="run_state_shape_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(lifecycle=RunLifecycle.RUNNING)
+                    | models.Q(current_attempt_token__isnull=True)
+                ),
+                name="run_attempt_token_only_while_running",
             ),
         ]
         indexes = [
