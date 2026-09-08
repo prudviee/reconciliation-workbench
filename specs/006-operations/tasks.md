@@ -12,7 +12,7 @@
 
 ## Phase 1: job domain and persistence contracts
 
-- [ ] **OPS-T01 — Define pure job domain contracts** (`OPS-003`, `OPS-007`, `OPS-017`)
+- [x] **OPS-T01 — Define pure job domain contracts** (`OPS-003`, `OPS-007`, `OPS-017`)
   - Change: `reconciliation/domain/jobs.py` — `JobKind` (`IMPORT_VALIDATION`, `RECONCILIATION_RUN`, `WORKSPACE_CLEANUP`), `JobState` (`READY`, `LEASED`, `SUCCEEDED`, `FAILED`), `LeaseToken`, `RetryDecision` (pure function of attempt count, max attempts, and an explicit transient/permanent failure category), and `ClaimEligibility` (pure evaluation of a work item's claimability given state/available_at/lease_until and the current time).
   - Verify: every `RetryDecision` boundary (`attempt_count == max_attempts`, transient vs. permanent category), every `ClaimEligibility` boundary (lease exactly expired, exactly not yet available), and a blocked-import test proving the module performs no database, HTTP, file, clock, or network access.
   - Evidence: domain test results and the retry/eligibility boundary matrix.
