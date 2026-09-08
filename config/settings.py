@@ -177,6 +177,13 @@ WORKSPACE_ACTIVE_JOB_LIMIT = env_nonnegative_int("WORKSPACE_ACTIVE_JOB_LIMIT", 1
 INGESTION_PRIVATE_ROOT = Path(
     os.getenv("INGESTION_PRIVATE_ROOT", BASE_DIR / ".private-artifacts")
 ).resolve()
+INGESTION_STORAGE_BACKEND = os.getenv("INGESTION_STORAGE_BACKEND", "local")
+INGESTION_S3_BUCKET = os.getenv("INGESTION_S3_BUCKET", "")
+INGESTION_S3_REGION = os.getenv("INGESTION_S3_REGION") or None
+INGESTION_S3_ENDPOINT_URL = os.getenv("INGESTION_S3_ENDPOINT_URL") or None
+INGESTION_S3_CACHE_ROOT = Path(
+    os.getenv("INGESTION_S3_CACHE_ROOT", BASE_DIR / ".private-artifacts-cache")
+).resolve()
 INGESTION_MAX_BYTES = env_nonnegative_int(
     "INGESTION_MAX_BYTES", 25 * 1024 * 1024
 )

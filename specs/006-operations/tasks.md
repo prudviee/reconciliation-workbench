@@ -36,7 +36,7 @@
 
 ## Phase 3: import validation and storage
 
-- [ ] **OPS-T05 — Extract `StorageAdapter` and add the object-storage implementation** (`OPS-010`, `OPS-013`)
+- [x] **OPS-T05 — Extract `StorageAdapter` and add the object-storage implementation** (`OPS-010`, `OPS-013`)
   - Change: a `StorageAdapter` protocol behind `ingestion.artifacts.PrivateArtifactStore` (kept as the local filesystem implementation); one S3-compatible object-storage implementation selected as the deployment target's adapter (see `plan.md`'s resolved deployment-target decision); settings-driven adapter selection.
   - Verify: specification 002's existing `PrivateArtifactStore` contract test suite (stage, publish, hash, quota-limit, byte/row/column/field-limit behavior) passes unmodified against both implementations.
   - Evidence: contract-test parity report across both adapters.
