@@ -34,6 +34,7 @@ include = [
     "config*",
     "foundation*",
     "ingestion*",
+    "jobs*",
     "observability*",
     "reconciliation*",
     "resolutions*",

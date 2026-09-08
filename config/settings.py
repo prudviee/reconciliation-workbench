@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     "resolutions",
     "reconciliation",
     "cases",
+    "jobs",
     "foundation",
 ]
 

@@ -17,7 +17,7 @@
   - Verify: every `RetryDecision` boundary (`attempt_count == max_attempts`, transient vs. permanent category), every `ClaimEligibility` boundary (lease exactly expired, exactly not yet available), and a blocked-import test proving the module performs no database, HTTP, file, clock, or network access.
   - Evidence: domain test results and the retry/eligibility boundary matrix.
 
-- [ ] **OPS-T02 — Persist `WorkItem`/`JobAttempt` and the claim query** (`OPS-001`, `OPS-002`, `OPS-003`, `OPS-017`; `OPS-A04`, `OPS-A09`)
+- [x] **OPS-T02 — Persist `WorkItem`/`JobAttempt` and the claim query** (`OPS-001`, `OPS-002`, `OPS-003`, `OPS-017`; `OPS-A04`, `OPS-A09`)
   - Change: new `jobs` app; `WorkItem` (workspace, kind, state, one exact-shape target FK per kind, available_at, lease_until, current_token, attempt_count, max_attempts) and `JobAttempt` (work_item, token, leased_at, lease_until, completed_at, outcome, failure_category, immutable after creation); the `select_for_update(skip_locked=True)` claim query; `owned_by()` querysets matching every other table.
   - Verify: exact-shape check constraint rejects a row with zero or two target FKs set for its kind; two concurrent claim transactions against the same ready rows never claim the same row (`skip_locked` proof); a rollback of manifest-freeze-plus-enqueue leaves no work item, and a retry after a successful freeze reuses the same logical run rather than creating a second one.
   - Evidence: migration/constraint inventory and concurrent-claim test result.
