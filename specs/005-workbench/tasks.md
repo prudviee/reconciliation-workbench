@@ -49,7 +49,9 @@
   - [x] **UX-T08B — Format typed comparison values for reviewers** (`UX-004`, `UX-015`; `UX-A01`, `UX-A08`)
     - Change: preserve typed evidence internally while presenting decimals, UTC timestamps, missing values, and time tolerances as readable comparison labels.
     - Evidence: [UX-T08B acceptance](./evidence/UX-T08B.md).
-  - [ ] **UX-T08C — Make selected historical occurrence evidence inspectable** (`UX-004`, `UX-006`; `UX-A06`)
+  - [x] **UX-T08C — Make selected historical occurrence evidence inspectable** (`UX-004`, `UX-006`; `UX-A06`)
+    - Change: list the selected historical run's immutable cases separately from current review, link each result to its retained occurrence, identify historical evidence and current-review status independently, and disable reviewer actions on past evidence.
+    - Evidence: [UX-T08C acceptance](./evidence/UX-T08C.md).
 
 ## Scope decision
 

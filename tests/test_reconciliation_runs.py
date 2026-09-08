@@ -1551,6 +1551,13 @@ def test_workbench_snapshot_separates_selected_run_from_current_cases() -> None:
     assert {item.run_id for item in snapshot.runs} == {first.run_id, second.run_id}
     assert snapshot.current_cases.items
     assert {item.run_id for item in snapshot.current_cases.items} == {second.run_id}
+    assert snapshot.selected_run_cases.items
+    assert {item.run_id for item in snapshot.selected_run_cases.items} == {
+        first.run_id
+    }
+    assert snapshot.selected_run_cases.total == CaseOccurrence.objects.filter(
+        run_id=first.run_id
+    ).count()
 
     outsider = create_graph("workbench-snapshot-outsider")
     for selected in (outsider.scope.id, uuid4(), "invalid"):

@@ -540,6 +540,32 @@ def test_curated_atlas_demo_completes_the_submission_journey(tmp_path) -> None:
         assert RunPair.objects.filter(run=latest, origin="MANUAL").exists()
         assert "Historical run" in second_page.content.decode()
 
+        historical_page = client.get(
+            f"/books/{book.id}/workbench", {"run": first_run.id}
+        )
+        historical_content = historical_page.content.decode()
+        assert historical_page.status_code == 200
+        assert "Cases from selected historical run" in historical_content
+        assert "The current review queue remains separate below" in historical_content
+        assert "historical · completed" in historical_content
+        historical_case_url = (
+            f"/books/{book.id}/cases/{manual_case}?run={first_run.id}"
+        )
+        assert historical_case_url in historical_content
+
+        historical_detail = client.get(historical_case_url)
+        detail_content = historical_detail.content.decode()
+        assert historical_detail.status_code == 200
+        assert "Historical occurrence" in detail_content
+        assert str(first_run.id) in detail_content
+        assert f"/workbench?run={first_run.id}" in detail_content
+        assert "not in current review" in detail_content
+        assert "Save manual link" not in detail_content
+        assert "Accept unmatched record" not in detail_content
+        assert client.get(
+            f"/books/{book.id}/cases/{manual_case}", {"run": latest.id}
+        ).status_code == 404
+
 
 @override_settings(DEBUG=False)
 def test_workbench_combines_search_filters_sort_and_complete_totals(tmp_path) -> None:

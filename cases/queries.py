@@ -32,10 +32,11 @@ from .models import (
     CaseScopeProjection,
     InvestigationCase,
 )
-from reconciliation.models import CandidateEvidence
+from reconciliation.models import CandidateEvidence, ReconciliationRun
 
 
 _CASE_CURSOR = "review-cases-v1"
+_RUN_CASE_CURSOR = "run-cases-v1"
 _CASE_KINDS = frozenset({"PAIR", "UNPAIRED", "AMBIGUITY"})
 _REVIEW_HEALTH = frozenset(
     {"UNCHANGED", "EVIDENCE_CHANGED", "PARTNER_UNAVAILABLE", "NEW_CANDIDATE"}
@@ -261,6 +262,71 @@ class CaseQueryService:
             )
         return ReviewPage(items=items, next_cursor=next_cursor, total=total)
 
+    def list_run_cases(
+        self,
+        workspace_id: WorkspaceId,
+        *,
+        book_id: BookId,
+        scope_id: UUID | str,
+        run_id: UUID | str,
+        cursor: str | None = None,
+        page_size: int = 50,
+    ) -> ReviewPage[CaseListItem]:
+        size = bounded_page_size(page_size)
+        book, scope = self._context(workspace_id, book_id, scope_id)
+        public_run_id = self._public_id(run_id)
+        if not ReconciliationRun.objects.owned_by(workspace_id).filter(
+            id=public_run_id, scope=scope
+        ).exists():
+            raise ReviewQueryUnavailable
+        cursor_namespace = f"{_RUN_CASE_CURSOR}:{public_run_id}"
+        position = decode_review_cursor(cursor_namespace, cursor)
+        queryset = (
+            CaseOccurrence.objects.owned_by(workspace_id)
+            .filter(case__book=book, run_id=public_run_id, run__scope=scope)
+            .select_related(
+                "case",
+                "case__left_logical",
+                "case__right_logical",
+                "case__record_logical",
+                "run",
+            )
+            .order_by("created_at", "id")
+        )
+        total = queryset.count()
+        if position is not None:
+            queryset = queryset.filter(
+                Q(created_at__gt=position.created_at)
+                | Q(created_at=position.created_at, id__gt=position.public_id)
+            )
+        rows = list(queryset[: size + 1])
+        page_rows = rows[:size]
+        items = tuple(
+            CaseListItem(
+                case_id=row.case_id,
+                kind=row.case.kind,
+                stable_key=row.case.stable_key,
+                display_label=self._case_label(row.case),
+                occurrence_id=row.id,
+                run_id=row.run_id,
+                result_kind=row.result_kind,
+                review_health=None,
+                attention=(),
+                created_at=row.created_at,
+                updated_at=row.created_at,
+            )
+            for row in page_rows
+        )
+        next_cursor = None
+        if len(rows) > size and page_rows:
+            last = page_rows[-1]
+            next_cursor = encode_review_cursor(
+                cursor_namespace,
+                created_at=last.created_at,
+                public_id=last.id,
+            )
+        return ReviewPage(items=items, next_cursor=next_cursor, total=total)
+
     @staticmethod
     def _case_filters(
         *,
@@ -383,6 +449,7 @@ class CaseQueryService:
         book_id: BookId,
         scope_id: UUID | str,
         case_id: UUID | str,
+        run_id: UUID | str | None = None,
     ) -> CaseEvidenceDetail:
         book, scope = self._context(workspace_id, book_id, scope_id)
         case = self._case(workspace_id, book, scope, case_id)
@@ -392,10 +459,23 @@ class CaseQueryService:
             .select_related("current_occurrence__run")
             .first()
         )
-        if projection is None:
-            raise ReviewQueryUnavailable
+        if run_id is None:
+            if projection is None:
+                raise ReviewQueryUnavailable
+            evidence_occurrence_id = projection.current_occurrence_id
+        else:
+            selected_run_id = self._public_id(run_id)
+            selected_occurrence = (
+                CaseOccurrence.objects.owned_by(workspace_id)
+                .filter(case=case, run_id=selected_run_id, run__scope=scope)
+                .only("id")
+                .first()
+            )
+            if selected_occurrence is None:
+                raise ReviewQueryUnavailable
+            evidence_occurrence_id = selected_occurrence.id
         occurrence = self._occurrence_with_evidence(
-            workspace_id, book, scope, projection.current_occurrence_id
+            workspace_id, book, scope, evidence_occurrence_id
         )
         history = self.get_case_history(
             workspace_id, book_id=book_id, scope_id=scope.id, case_id=case.id
@@ -406,9 +486,9 @@ class CaseQueryService:
         current_review = self.get_current_review(
             workspace_id, book_id=book_id, scope_id=scope.id, case_id=case.id
         )
-        current_occurrence = (
+        evidence_occurrence = (
             CaseOccurrence.objects.owned_by(workspace_id)
-            .filter(id=projection.current_occurrence_id)
+            .filter(id=evidence_occurrence_id)
             .select_related(
                 "run__policy_revision",
                 "pair__left_observation__logical_transaction",
@@ -424,8 +504,8 @@ class CaseQueryService:
         left = right = None
         comparisons: tuple[dict, ...] = ()
         candidates: tuple[dict, ...] = ()
-        if current_occurrence.pair_id:
-            pair = current_occurrence.pair
+        if evidence_occurrence.pair_id:
+            pair = evidence_occurrence.pair
             left = self._record("LEFT", pair.left_observation)
             right = self._record("RIGHT", pair.right_observation)
             comparisons = tuple(
@@ -446,14 +526,14 @@ class CaseQueryService:
                 }
                 for item in pair.comparisons.all().order_by("field")
             )
-        elif current_occurrence.unpaired_id:
-            item = current_occurrence.unpaired
+        elif evidence_occurrence.unpaired_id:
+            item = evidence_occurrence.unpaired
             record = self._record(item.side, item.observation)
             if item.side == "LEFT":
                 left = record
             else:
                 right = record
-        elif current_occurrence.component_id:
+        elif evidence_occurrence.component_id:
             candidates = tuple(
                 {
                     "score_bp": item.score_bp,
@@ -466,14 +546,14 @@ class CaseQueryService:
                     "right_observation_id": item.right_observation_id,
                 }
                 for item in CandidateEvidence.objects.owned_by(workspace_id)
-                .filter(component_id=current_occurrence.component_id)
+                .filter(component_id=evidence_occurrence.component_id)
                 .order_by("-score_bp", "id")
             )
         link_options: tuple[dict, ...] = ()
         if (left is None) != (right is None):
             own_observation_id = (left or right).observation_id
             options = CandidateEvidence.objects.owned_by(workspace_id).filter(
-                run=current_occurrence.run
+                run=evidence_occurrence.run
             ).filter(
                 Q(left_observation_id=own_observation_id)
                 | Q(right_observation_id=own_observation_id)
@@ -516,9 +596,9 @@ class CaseQueryService:
             )
         allocation = self._allocation_evidence(
             workspace_id,
-            current_occurrence,
+            evidence_occurrence,
         )
-        policy = current_occurrence.run.policy_revision
+        policy = evidence_occurrence.run.policy_revision
         return CaseEvidenceDetail(
             case_id=case.id,
             kind=case.kind,
@@ -534,12 +614,12 @@ class CaseQueryService:
             link_options=link_options,
             allocation=allocation,
             run_metadata={
-                "run_id": current_occurrence.run_id,
-                "created_at": current_occurrence.run.created_at,
-                "data_generation": current_occurrence.run.data_generation,
-                "resolution_generation": current_occurrence.run.resolution_generation,
-                "engine_version": current_occurrence.run.engine_version,
-                "solver_version": current_occurrence.run.solver_version,
+                "run_id": evidence_occurrence.run_id,
+                "created_at": evidence_occurrence.run.created_at,
+                "data_generation": evidence_occurrence.run.data_generation,
+                "resolution_generation": evidence_occurrence.run.resolution_generation,
+                "engine_version": evidence_occurrence.run.engine_version,
+                "solver_version": evidence_occurrence.run.solver_version,
                 "policy_digest": policy.digest,
                 "matching_policy_version": policy.matching_policy.get("policy_version"),
                 "comparison_policy_version": policy.comparison_policy.get("policy_version"),

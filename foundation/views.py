@@ -558,6 +558,7 @@ def reconciliation_workbench(request: HttpRequest, book_id: object) -> HttpRespo
             case_kind=filters["kind"],
             case_review=filters["review"],
             case_sort=filters["sort"],
+            selected_case_cursor=request.GET.get("run_cursor"),
         )
     except WorkbenchUnavailable:
         raise Http404 from None
@@ -566,6 +567,11 @@ def reconciliation_workbench(request: HttpRequest, book_id: object) -> HttpRespo
     retained_params = {key: value for key, value in filters.items() if value}
     if snapshot.selected_run is not None:
         retained_params["run"] = str(snapshot.selected_run.run_id)
+    selected_run_query = urlencode(
+        {"run": str(snapshot.selected_run.run_id)}
+        if snapshot.selected_run is not None
+        else {}
+    )
     current_export_params = {"view": "current_review", **filters}
     current_export_params = {
         key: value for key, value in current_export_params.items() if value
@@ -581,6 +587,7 @@ def reconciliation_workbench(request: HttpRequest, book_id: object) -> HttpRespo
             "snapshot": snapshot,
             "filters": filters,
             "next_query": urlencode(retained_params),
+            "selected_run_query": selected_run_query,
             "current_export_query": urlencode(current_export_params),
             "run_export_query": urlencode(run_export_params),
             "message": (
@@ -722,6 +729,7 @@ def reconciliation_case_detail(request: HttpRequest, book_id: object, case_id: o
             book_id=BookId(book.id),
             scope_id=readiness.scope_id,
             case_id=case_id,
+            run_id=request.GET.get("run"),
         )
     except ReviewQueryUnavailable:
         raise Http404 from None
@@ -733,8 +741,14 @@ def reconciliation_case_detail(request: HttpRequest, book_id: object, case_id: o
             "evidence": evidence,
             "pending_changes": (
                 evidence.current_review is not None
+                and evidence.occurrence.timeline_label == "CURRENT"
                 and book.resolution_generation
                 != evidence.current_review.applied_resolution_generation
+            ),
+            "workbench_query": urlencode(
+                {"run": str(evidence.occurrence.run_id)}
+                if evidence.occurrence.timeline_label != "CURRENT"
+                else {}
             ),
             "message": (
                 "Manual link saved. Run reconciliation again to publish it into a new immutable result."

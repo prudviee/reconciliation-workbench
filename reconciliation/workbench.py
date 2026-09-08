@@ -76,6 +76,7 @@ class WorkbenchSnapshot:
     runs: tuple[WorkbenchRunItem, ...]
     latest_attempt: WorkbenchRunItem | None
     current_cases: ReviewPage[CaseListItem]
+    selected_run_cases: ReviewPage[CaseListItem]
 
 
 @dataclass(slots=True)
@@ -202,6 +203,7 @@ class WorkbenchService:
         case_kind: str | None = None,
         case_review: str | None = None,
         case_sort: str = "oldest",
+        selected_case_cursor: str | None = None,
     ) -> WorkbenchSnapshot:
         book = self._book(workspace_id, book_id)
         state = self.readiness(workspace_id, book_id=book_id)
@@ -217,6 +219,7 @@ class WorkbenchService:
                 None,
                 (),
                 None,
+                empty_cases,
                 empty_cases,
             )
         try:
@@ -246,6 +249,7 @@ class WorkbenchService:
                     raise WorkbenchUnavailable from error
         run_items = tuple(self._run_item(item, scope.current_run_id) for item in runs)
         current_cases = empty_cases
+        selected_run_cases = empty_cases
         if scope.current_run_id is not None:
             try:
                 current_cases = CaseQueryService(
@@ -264,6 +268,21 @@ class WorkbenchService:
                 )
             except ReviewQueryUnavailable as error:
                 raise WorkbenchUnavailable from error
+        if selected_model is not None and selected_model.id != scope.current_run_id:
+            try:
+                selected_run_cases = CaseQueryService(
+                    clock=self.clock,
+                    lifecycle_service=self.lifecycle_service,
+                ).list_run_cases(
+                    workspace_id,
+                    book_id=book_id,
+                    scope_id=scope.id,
+                    run_id=selected_model.id,
+                    cursor=selected_case_cursor,
+                    page_size=page_size,
+                )
+            except ReviewQueryUnavailable as error:
+                raise WorkbenchUnavailable from error
         return WorkbenchSnapshot(
             book_id=book.id,
             book_name=book.name,
@@ -279,6 +298,7 @@ class WorkbenchService:
             runs=run_items,
             latest_attempt=run_items[0] if run_items else None,
             current_cases=current_cases,
+            selected_run_cases=selected_run_cases,
         )
 
     def _book(self, workspace_id: WorkspaceId, book_id: BookId) -> ReconciliationBook:
