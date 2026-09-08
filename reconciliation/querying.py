@@ -28,6 +28,10 @@ class ReviewPageSizeError(ValueError):
     """A requested page size is outside the documented bounded range."""
 
 
+class ReviewFilterError(ValueError):
+    """A review search, filter, or sort value is unsupported."""
+
+
 ItemT = TypeVar("ItemT")
 
 
@@ -35,6 +39,7 @@ ItemT = TypeVar("ItemT")
 class ReviewPage(Generic[ItemT]):
     items: tuple[ItemT, ...]
     next_cursor: str | None
+    total: int = 0
 
 
 @dataclass(frozen=True, slots=True)

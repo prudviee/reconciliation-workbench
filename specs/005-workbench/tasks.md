@@ -33,8 +33,9 @@
 
 ## Post-submission showcase tasks
 
-- [ ] **UX-T06 — Add complete server-side discovery and safe exports** (`UX-003`, `UX-017`, `UX-018`; `UX-A13`–`UX-A15`)
+- [x] **UX-T06 — Add complete server-side discovery and safe exports** (`UX-003`, `UX-017`, `UX-018`; `UX-A13`–`UX-A15`)
   - Change: combined search/filter/sort, complete totals, and formula-safe historical/current CSV and JSON exports.
+  - Evidence: [UX-T06 acceptance](./evidence/UX-T06.md) and [runtime record](./evidence/UX-T06-runtime.json).
 
 - [ ] **UX-T07 — Add enhanced allocation explanation and async states** (`UX-005`, `UX-008`, `UX-014`, `UX-016`, `UX-018`; `UX-A03`, `UX-A05`, `UX-A07`, `UX-A17`)
   - Change: complete candidate table, optional bounded graph, persisted progress stages/counts, and production failure/retry presentation.

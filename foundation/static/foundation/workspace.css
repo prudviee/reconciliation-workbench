@@ -481,13 +481,26 @@ details summary { color: var(--blue); font-weight: 750; cursor: pointer; }
 .run-command p { margin: 0; color: #b8c4d5; }
 .run-command .section-kicker { color: #8faeff; }
 .workbench-empty { margin-bottom: 40px; }
+.discovery-panel { margin-bottom: 24px; }
+.discovery-panel h2 { margin: 3px 0 16px; }
+.discovery-form { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(135px, 1fr)) auto auto; gap: 12px; align-items: end; }
+.discovery-form .field-group { margin: 0; }
+.discovery-form input, .discovery-form select { width: 100%; }
+.discovery-form > a { align-self: center; color: var(--blue); font-weight: 700; }
+.export-panel { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr); gap: 28px; margin-top: 24px; }
+.export-panel h2 { margin: 3px 0 8px; }
+.export-panel p { margin: 0; color: var(--muted); }
+.export-groups { display: grid; gap: 10px; }
+.export-groups > div { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.export-groups strong { margin-right: auto; }
 .workbench-table { width: 100%; min-width: 760px; border-collapse: collapse; background: white; }
 .workbench-table th, .workbench-table td { padding: 16px 18px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 .workbench-table thead th { background: #f1f4f8; color: #506078; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
 .workbench-table td strong, .workbench-table td small { display: block; }
 .workbench-table td small { margin-top: 4px; color: var(--muted); }
 .workbench-table code { font-variant-numeric: tabular-nums; }
-@media (max-width: 620px) { .run-command { align-items: stretch; flex-direction: column; } }
+@media (max-width: 900px) { .discovery-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .export-panel { grid-template-columns: 1fr; } .export-groups > div { justify-content: flex-start; } }
+@media (max-width: 620px) { .run-command { align-items: stretch; flex-direction: column; } .discovery-form { grid-template-columns: 1fr; } }
 
 .record-grid,
 .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }

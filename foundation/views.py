@@ -1,13 +1,17 @@
-from django.db import connection
+from urllib.parse import urlencode
+
 from django.conf import settings
+from django.core.paginator import Paginator
+from django.db import connection
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
-from django.core.paginator import Paginator
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from books.repositories import BookUnavailable, WorkspaceBookRepository
+from cases.exports import CaseExportService
+from cases.queries import CaseQueryService
 from foundation.forms import MappingForm, UploadForm
 from ingestion.activation import AttemptNotReady, FullSnapshotActivationService, StalePreview
 from ingestion.artifacts import ArtifactIntakeError
@@ -27,8 +31,12 @@ from reconciliation.domain import (
     QuotaExceeded,
     QuotaResource,
 )
-from reconciliation.querying import ReviewCursorError, ReviewPageSizeError, ReviewQueryUnavailable
-from cases.queries import CaseQueryService
+from reconciliation.querying import (
+    ReviewCursorError,
+    ReviewFilterError,
+    ReviewPageSizeError,
+    ReviewQueryUnavailable,
+)
 from reconciliation.services import ReconciliationRunService, RunUnavailable
 from resolutions.services import (
     DecisionCommandService,
@@ -483,23 +491,47 @@ def workspace_unavailable(request: HttpRequest) -> HttpResponse:
 def reconciliation_workbench(request: HttpRequest, book_id: object) -> HttpResponse:
     access = workspace_access(request)
     book = _owned_book(request, book_id)
+    filters = {
+        "q": request.GET.get("q", "").strip(),
+        "kind": request.GET.get("kind", "").strip().upper(),
+        "review": request.GET.get("review", "").strip().upper(),
+        "sort": request.GET.get("sort", "oldest").strip().lower(),
+    }
     try:
         snapshot = WorkbenchService().snapshot(
             access.workspace_id,
             book_id=BookId(book.id),
             selected_run_id=request.GET.get("run"),
             case_cursor=request.GET.get("cursor"),
+            case_search=filters["q"],
+            case_kind=filters["kind"],
+            case_review=filters["review"],
+            case_sort=filters["sort"],
         )
     except WorkbenchUnavailable:
         raise Http404 from None
-    except (ReviewCursorError, ReviewPageSizeError):
+    except (ReviewCursorError, ReviewFilterError, ReviewPageSizeError):
         return HttpResponse("Invalid workbench page request", status=400)
+    retained_params = {key: value for key, value in filters.items() if value}
+    if snapshot.selected_run is not None:
+        retained_params["run"] = str(snapshot.selected_run.run_id)
+    current_export_params = {"view": "current_review", **filters}
+    current_export_params = {
+        key: value for key, value in current_export_params.items() if value
+    }
+    run_export_params = {"view": "run_facts"}
+    if snapshot.selected_run is not None:
+        run_export_params["run"] = str(snapshot.selected_run.run_id)
     return render(
         request,
         "foundation/workbench.html",
         {
             "book": book,
             "snapshot": snapshot,
+            "filters": filters,
+            "next_query": urlencode(retained_params),
+            "current_export_query": urlencode(current_export_params),
+            "run_export_query": urlencode(run_export_params),
             "message": (
                 "Reconciliation completed. The immutable result is now available."
                 if request.GET.get("completed")
@@ -507,6 +539,55 @@ def reconciliation_workbench(request: HttpRequest, book_id: object) -> HttpRespo
             ),
         },
     )
+
+
+@workspace_required
+@require_GET
+def reconciliation_case_export(
+    request: HttpRequest,
+    book_id: object,
+    file_format: str,
+) -> HttpResponse:
+    if file_format not in {"csv", "json"}:
+        raise Http404
+    access = workspace_access(request)
+    book = _owned_book(request, book_id)
+    readiness_state = WorkbenchService().readiness(
+        access.workspace_id,
+        book_id=BookId(book.id),
+    )
+    if readiness_state.scope_id is None:
+        raise Http404
+    try:
+        document = CaseExportService().build(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness_state.scope_id,
+            view=request.GET.get("view", ""),
+            run_id=request.GET.get("run"),
+            search=request.GET.get("q"),
+            kind=request.GET.get("kind"),
+            review=request.GET.get("review"),
+            sort=request.GET.get("sort", "oldest"),
+        )
+    except (ReviewFilterError, ReviewQueryUnavailable):
+        raise Http404 from None
+    label = "current-review" if document.view == "current_review" else "run-facts"
+    filename = f"reconciliation-{label}-{document.run_id[:8]}.{file_format}"
+    if file_format == "json":
+        response = JsonResponse(
+            document.json_payload(),
+            json_dumps_params={"ensure_ascii": False},
+        )
+    else:
+        response = HttpResponse(
+            document.csv_text(),
+            content_type="text/csv; charset=utf-8",
+        )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @workspace_required

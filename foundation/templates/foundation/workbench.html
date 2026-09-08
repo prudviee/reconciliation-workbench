@@ -31,13 +31,34 @@
         <article><small>Run state</small><strong>{{ snapshot.selected_run.freshness|lower }} · {{ snapshot.selected_run.lifecycle|lower }}</strong></article>
       </section>
 
+      <section class="panel discovery-panel" aria-labelledby="discovery-heading">
+        <div><p class="section-kicker">Find cases</p><h2 id="discovery-heading">Search the complete review queue</h2></div>
+        <form method="get" class="discovery-form">
+          {% if snapshot.selected_run %}<input type="hidden" name="run" value="{{ snapshot.selected_run.run_id }}">{% endif %}
+          <div class="field-group discovery-search"><label for="case-search">Reference or case</label><input id="case-search" type="search" name="q" value="{{ filters.q }}" maxlength="120" placeholder="e.g. TX-1003"></div>
+          <div class="field-group"><label for="case-kind">Outcome</label><select id="case-kind" name="kind"><option value="">All outcomes</option><option value="PAIR" {% if filters.kind == "PAIR" %}selected{% endif %}>Pairs</option><option value="UNPAIRED" {% if filters.kind == "UNPAIRED" %}selected{% endif %}>Unmatched</option><option value="AMBIGUITY" {% if filters.kind == "AMBIGUITY" %}selected{% endif %}>Ambiguities</option></select></div>
+          <div class="field-group"><label for="case-review">Review state</label><select id="case-review" name="review"><option value="">All review states</option><option value="UNREVIEWED" {% if filters.review == "UNREVIEWED" %}selected{% endif %}>No saved decision</option><option value="UNCHANGED" {% if filters.review == "UNCHANGED" %}selected{% endif %}>Unchanged</option><option value="EVIDENCE_CHANGED" {% if filters.review == "EVIDENCE_CHANGED" %}selected{% endif %}>Evidence changed</option><option value="PARTNER_UNAVAILABLE" {% if filters.review == "PARTNER_UNAVAILABLE" %}selected{% endif %}>Partner unavailable</option><option value="NEW_CANDIDATE" {% if filters.review == "NEW_CANDIDATE" %}selected{% endif %}>New candidate</option></select></div>
+          <div class="field-group"><label for="case-sort">Order</label><select id="case-sort" name="sort"><option value="oldest" {% if filters.sort == "oldest" %}selected{% endif %}>Oldest first</option><option value="newest" {% if filters.sort == "newest" %}selected{% endif %}>Newest first</option></select></div>
+          <button class="button button-secondary" type="submit">Apply</button>
+          <a href="{% url 'foundation:workbench' book.id %}{% if snapshot.selected_run %}?run={{ snapshot.selected_run.run_id }}{% endif %}">Clear</a>
+        </form>
+      </section>
+
       <section class="table-section" aria-labelledby="cases-heading">
-        <div class="section-heading"><div><p class="section-kicker">Current review</p><h2 id="cases-heading">Cases from the latest successful run</h2></div><span class="count-pill">{{ snapshot.current_cases.items|length }} shown</span></div>
+        <div class="section-heading"><div><p class="section-kicker">Current review</p><h2 id="cases-heading">Cases from the latest successful run</h2></div><span class="count-pill">{{ snapshot.current_cases.items|length }} of {{ snapshot.current_cases.total }}</span></div>
         <div class="table-scroll"><table class="workbench-table"><thead><tr><th>Case</th><th>Outcome</th><th>Review health</th><th>Run</th></tr></thead><tbody>
           {% for case in snapshot.current_cases.items %}<tr><th scope="row"><a href="{% url 'foundation:case-detail' book.id case.case_id %}" aria-label="{{ case.display_label }} case"><strong>{{ case.display_label }}</strong><small><code>{{ case.case_id|stringformat:"s"|slice:":8"|upper }}</code></small></a></th><td><strong>{{ case.kind|lower }}</strong><small>{{ case.result_kind|lower }}</small></td><td>{{ case.review_health|default:"No saved decision"|lower }}{% if case.attention %}<small>{{ case.attention|join:", "|lower }}</small>{% endif %}</td><td><code>{{ case.run_id|stringformat:"s"|slice:":8"|upper }}</code></td></tr>
           {% empty %}<tr><td colspan="4">This run produced no investigation cases.</td></tr>{% endfor %}
         </tbody></table></div>
-        {% if snapshot.current_cases.next_cursor %}<nav class="pagination" aria-label="Case pages"><a href="?cursor={{ snapshot.current_cases.next_cursor|urlencode }}{% if snapshot.selected_run %}&amp;run={{ snapshot.selected_run.run_id }}{% endif %}">Next cases →</a></nav>{% endif %}
+        {% if snapshot.current_cases.next_cursor %}<nav class="pagination" aria-label="Case pages"><a href="?{% if next_query %}{{ next_query }}&amp;{% endif %}cursor={{ snapshot.current_cases.next_cursor|urlencode }}">Next cases →</a></nav>{% endif %}
+      </section>
+
+      <section class="panel export-panel" aria-labelledby="export-heading">
+        <div><p class="section-kicker">Portable evidence</p><h2 id="export-heading">Download explicit views</h2><p>Current-review exports follow the active filters. Selected-run exports contain immutable facts from the run shown above. Decimal values remain strings and every timestamp is labelled UTC.</p></div>
+        <div class="export-groups">
+          <div><strong>Filtered current review</strong><a class="button button-secondary button-link" href="{% url 'foundation:case-export' book.id 'csv' %}?{{ current_export_query }}">CSV</a><a class="button button-secondary button-link" href="{% url 'foundation:case-export' book.id 'json' %}?{{ current_export_query }}">JSON</a></div>
+          <div><strong>Complete selected run facts</strong><a class="button button-secondary button-link" href="{% url 'foundation:case-export' book.id 'csv' %}?{{ run_export_query }}">CSV</a><a class="button button-secondary button-link" href="{% url 'foundation:case-export' book.id 'json' %}?{{ run_export_query }}">JSON</a></div>
+        </div>
       </section>
     {% else %}
       <section class="empty-state workbench-empty"><h2>No runs yet</h2><p>Start reconciliation to create the first immutable result.</p></section>

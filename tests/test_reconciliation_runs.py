@@ -41,7 +41,11 @@ from reconciliation.domain import (
     WorkspaceId,
     policy_revision_digest,
 )
-from reconciliation.querying import ReviewPageSizeError, ReviewQueryUnavailable
+from reconciliation.querying import (
+    ReviewCursorError,
+    ReviewPageSizeError,
+    ReviewQueryUnavailable,
+)
 from reconciliation.models import (
     FieldComparison,
     CurrentDecisionHealth,
@@ -991,7 +995,7 @@ def test_case_query_pages_are_stable_complete_and_bounded(
     runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), frozen.run_id)
 
     query = CaseQueryService(clock=lambda: NOW)
-    with django_assert_num_queries(4):
+    with django_assert_num_queries(5):
         first = query.list_cases(
             WorkspaceId(graph.workspace.id),
             book_id=BookId(graph.book.id),
@@ -999,6 +1003,7 @@ def test_case_query_pages_are_stable_complete_and_bounded(
             page_size=1,
         )
     assert first.next_cursor is not None
+    assert first.total == 2
     second = query.list_cases(
         WorkspaceId(graph.workspace.id),
         book_id=BookId(graph.book.id),
@@ -1007,6 +1012,7 @@ def test_case_query_pages_are_stable_complete_and_bounded(
         page_size=1,
     )
     assert second.next_cursor is None
+    assert second.total == 2
 
     seen = first.items + second.items
     expected = list(
@@ -1016,6 +1022,48 @@ def test_case_query_pages_are_stable_complete_and_bounded(
     )
     assert [item.case_id for item in seen] == [item.case_id for item in expected]
     assert len({item.case_id for item in seen}) == 2
+    newest = query.list_cases(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        scope_id=graph.scope.id,
+        page_size=1,
+        kind="unpaired",
+        review="unreviewed",
+        sort="newest",
+    )
+    assert newest.total == 2
+    assert newest.next_cursor is not None
+    newest_second = query.list_cases(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        scope_id=graph.scope.id,
+        cursor=newest.next_cursor,
+        page_size=1,
+        kind="unpaired",
+        review="unreviewed",
+        sort="newest",
+    )
+    assert [item.case_id for item in newest.items + newest_second.items] == [
+        item.case_id for item in reversed(expected)
+    ]
+    searched = query.list_cases(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        scope_id=graph.scope.id,
+        search=graph.left.source_record_key,
+    )
+    assert searched.total == 1
+    assert searched.items[0].display_label.startswith(graph.left.source_record_key)
+    with pytest.raises(ReviewCursorError):
+        query.list_cases(
+            WorkspaceId(graph.workspace.id),
+            book_id=BookId(graph.book.id),
+            scope_id=graph.scope.id,
+            cursor=newest.next_cursor,
+            kind="pair",
+            review="unreviewed",
+            sort="newest",
+        )
     with pytest.raises(ReviewPageSizeError):
         query.list_cases(
             WorkspaceId(graph.workspace.id),

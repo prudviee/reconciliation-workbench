@@ -20,6 +20,11 @@ urlpatterns = [
         name="run-start",
     ),
     path(
+        "books/<uuid:book_id>/exports/cases.<str:file_format>",
+        views.reconciliation_case_export,
+        name="case-export",
+    ),
+    path(
         "books/<uuid:book_id>/cases/<uuid:case_id>",
         views.reconciliation_case_detail,
         name="case-detail",

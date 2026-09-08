@@ -1,0 +1,31 @@
+{
+  "task": "UX-T06",
+  "verified_at": "2026-09-08",
+  "branch": "codex/005-submission-workbench",
+  "tests": {
+    "full_suite": {"passed": 468, "failed": 0},
+    "django_check": "passed",
+    "migration_drift": "none",
+    "diff_check": "passed"
+  },
+  "runtime": {
+    "health_url": "http://localhost:8010/health/ready",
+    "http_status": 200,
+    "database": "ready",
+    "browser_acceptance": "passed"
+  },
+  "discovery": {
+    "search": "server_side",
+    "filters": ["case_kind", "review_health"],
+    "sorts": ["oldest", "newest"],
+    "complete_totals": true,
+    "cursor_bound_to_filters": true
+  },
+  "exports": {
+    "formats": ["csv", "json"],
+    "views": ["current_review", "run_facts"],
+    "formula_safe_csv": true,
+    "decimal_strings": true,
+    "timezone": "UTC (+00:00)"
+  }
+}

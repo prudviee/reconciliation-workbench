@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable
@@ -13,6 +15,7 @@ from django.utils import timezone
 from books.models import ReconciliationBook, ReconciliationScope
 from reconciliation.domain import BookId, WorkspaceId
 from reconciliation.querying import (
+    ReviewFilterError,
     ReviewPage,
     ReviewQueryUnavailable,
     bounded_page_size,
@@ -33,6 +36,11 @@ from reconciliation.models import CandidateEvidence
 
 
 _CASE_CURSOR = "review-cases-v1"
+_CASE_KINDS = frozenset({"PAIR", "UNPAIRED", "AMBIGUITY"})
+_REVIEW_HEALTH = frozenset(
+    {"UNCHANGED", "EVIDENCE_CHANGED", "PARTNER_UNAVAILABLE", "NEW_CANDIDATE"}
+)
+_CASE_SORTS = frozenset({"oldest", "newest"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,9 +167,22 @@ class CaseQueryService:
         scope_id: UUID | str,
         cursor: str | None = None,
         page_size: int = 50,
+        search: str | None = None,
+        kind: str | None = None,
+        review: str | None = None,
+        sort: str = "oldest",
     ) -> ReviewPage[CaseListItem]:
         size = bounded_page_size(page_size)
-        position = decode_review_cursor(_CASE_CURSOR, cursor)
+        search_value, kind_value, review_value, sort_value = self._case_filters(
+            search=search,
+            kind=kind,
+            review=review,
+            sort=sort,
+        )
+        cursor_namespace = self._cursor_namespace(
+            search_value, kind_value, review_value, sort_value
+        )
+        position = decode_review_cursor(cursor_namespace, cursor)
         _book, scope = self._context(workspace_id, book_id, scope_id)
         queryset = (
             CaseScopeProjection.objects.owned_by(workspace_id)
@@ -174,16 +195,43 @@ class CaseQueryService:
                 "current_occurrence",
                 "run",
             )
-            .order_by("case__created_at", "case_id")
+        )
+        if search_value:
+            queryset = queryset.filter(
+                Q(case__stable_key__icontains=search_value)
+                | Q(case__left_logical__source_record_key__icontains=search_value)
+                | Q(case__right_logical__source_record_key__icontains=search_value)
+                | Q(case__record_logical__source_record_key__icontains=search_value)
+            )
+        if kind_value:
+            queryset = queryset.filter(case__kind=kind_value)
+        if review_value == "UNREVIEWED":
+            queryset = queryset.filter(review_health__isnull=True)
+        elif review_value:
+            queryset = queryset.filter(review_health=review_value)
+        total = queryset.count()
+        descending = sort_value == "newest"
+        queryset = queryset.order_by(
+            "-case__created_at" if descending else "case__created_at",
+            "-case_id" if descending else "case_id",
         )
         if position is not None:
-            queryset = queryset.filter(
-                Q(case__created_at__gt=position.created_at)
-                | Q(
-                    case__created_at=position.created_at,
-                    case_id__gt=position.public_id,
+            if descending:
+                queryset = queryset.filter(
+                    Q(case__created_at__lt=position.created_at)
+                    | Q(
+                        case__created_at=position.created_at,
+                        case_id__lt=position.public_id,
+                    )
                 )
-            )
+            else:
+                queryset = queryset.filter(
+                    Q(case__created_at__gt=position.created_at)
+                    | Q(
+                        case__created_at=position.created_at,
+                        case_id__gt=position.public_id,
+                    )
+                )
         rows = list(queryset[: size + 1])
         page_rows = rows[:size]
         items = tuple(
@@ -206,11 +254,44 @@ class CaseQueryService:
         if len(rows) > size and page_rows:
             last = page_rows[-1].case
             next_cursor = encode_review_cursor(
-                _CASE_CURSOR,
+                cursor_namespace,
                 created_at=last.created_at,
                 public_id=last.id,
             )
-        return ReviewPage(items=items, next_cursor=next_cursor)
+        return ReviewPage(items=items, next_cursor=next_cursor, total=total)
+
+    @staticmethod
+    def _case_filters(
+        *,
+        search: str | None,
+        kind: str | None,
+        review: str | None,
+        sort: str,
+    ) -> tuple[str, str, str, str]:
+        search_value = (search or "").strip()
+        kind_value = (kind or "").strip().upper()
+        review_value = (review or "").strip().upper()
+        sort_value = (sort or "oldest").strip().lower()
+        if len(search_value) > 120:
+            raise ReviewFilterError("search must be at most 120 characters")
+        if kind_value and kind_value not in _CASE_KINDS:
+            raise ReviewFilterError("case kind is unsupported")
+        if review_value and review_value not in _REVIEW_HEALTH | {"UNREVIEWED"}:
+            raise ReviewFilterError("review status is unsupported")
+        if sort_value not in _CASE_SORTS:
+            raise ReviewFilterError("case sort is unsupported")
+        return search_value, kind_value, review_value, sort_value
+
+    @staticmethod
+    def _cursor_namespace(search: str, kind: str, review: str, sort: str) -> str:
+        payload = json.dumps(
+            {"q": search, "kind": kind, "review": review, "sort": sort},
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+        digest = hashlib.sha256(payload).hexdigest()[:16]
+        return f"{_CASE_CURSOR}:{digest}"
 
     def get_case_history(
         self,

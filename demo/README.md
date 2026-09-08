@@ -17,5 +17,6 @@ Use [atlas-ledger.csv](./atlas-ledger.csv) for the left **Internal ledger** sour
 5. Open the `TX-1002` pair to show the field-level discrepancy and tolerance explanation.
 6. Open the `TX-1003` unpaired case, choose the retained candidate, enter `Confirmed against settlement statement`, and save the manual link.
 7. Return to the workbench, run again, and show the new manual pair plus the preserved historical run.
+8. Search for `TX-1003`, filter to pairs, and download both the filtered current-review view and the complete selected-run facts.
 
 The fixtures contain synthetic data and are safe to publish with the repository.

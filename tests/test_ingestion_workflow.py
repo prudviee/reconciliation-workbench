@@ -465,3 +465,110 @@ def test_curated_atlas_demo_completes_the_submission_journey(tmp_path) -> None:
         assert latest is not None and latest.id != first_run.id
         assert RunPair.objects.filter(run=latest, origin="MANUAL").exists()
         assert "Historical run" in second_page.content.decode()
+
+
+@override_settings(DEBUG=False)
+def test_workbench_combines_search_filters_sort_and_complete_totals(tmp_path) -> None:
+    ledger = (DEMO_ROOT / "atlas-ledger.csv").read_text(encoding="utf-8")
+    counterparty = (DEMO_ROOT / "atlas-counterparty.csv").read_text(encoding="utf-8")
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        client = Client()
+        book = create_book(client)
+        left = upload(client, f"/books/{book.id}/sources/left/upload", ledger)
+        client.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        right = upload(
+            client,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        client.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+        client.post(f"/books/{book.id}/runs")
+
+        page = client.get(
+            f"/books/{book.id}/workbench",
+            {
+                "q": "TX-1003",
+                "kind": "unpaired",
+                "review": "unreviewed",
+                "sort": "newest",
+            },
+        )
+        content = page.content.decode()
+        assert page.status_code == 200
+        assert "1 of 1" in content
+        assert "TX-1003 · left" in content
+        assert "CP-9003 · right" not in content
+        assert 'value="TX-1003"' in content
+        assert 'value="UNPAIRED" selected' in content
+        assert 'value="newest" selected' in content
+
+        invalid = client.get(f"/books/{book.id}/workbench", {"kind": "foreign"})
+        assert invalid.status_code == 400
+
+
+@override_settings(DEBUG=False)
+def test_case_exports_are_explicit_precise_formula_safe_and_isolated(tmp_path) -> None:
+    ledger = (
+        "trade_id,traded_at,instrument,side,quantity,price,gross_amount,state\n"
+        "=2+2,2026-09-01T09:15:00Z,BTC-USD,BUY,0.5,62000,31000,SETTLED\n"
+    )
+    counterparty = (
+        "reference,executed_at,symbol,direction,qty,unit_price,total,status\n"
+        "=2+2,2026-09-01 09:15:00,BTC-USD,B,0.5,62000,31000.00,SETTLED\n"
+    )
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        owner = Client()
+        book = create_book(owner)
+        left = upload(owner, f"/books/{book.id}/sources/left/upload", ledger)
+        owner.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        right = upload(
+            owner,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        owner.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+        owner.post(f"/books/{book.id}/runs")
+        run = ReconciliationRun.objects.get(scope__book=book)
+
+        current_csv = owner.get(
+            f"/books/{book.id}/exports/cases.csv",
+            {"view": "current_review", "q": "=2+2"},
+        )
+        csv_text = current_csv.content.decode()
+        assert current_csv.status_code == 200
+        assert "reconciliation-current-review" in current_csv["Content-Disposition"]
+        assert "current_review" in csv_text
+        assert "'=2+2" in csv_text
+        assert "0.500000000000" in csv_text
+        assert "+00:00" in csv_text
+
+        current_json = owner.get(
+            f"/books/{book.id}/exports/cases.json",
+            {"view": "current_review", "q": "=2+2"},
+        ).json()
+        assert current_json["view"] == "current_review"
+        assert current_json["timezone"] == "UTC (+00:00)"
+        assert current_json["decimal_encoding"] == "canonical decimal strings"
+        assert current_json["total"] == 1
+        assert current_json["rows"][0]["left_reference"] == "=2+2"
+        assert current_json["rows"][0]["left_quantity"] == "0.500000000000"
+        assert current_json["rows"][0]["review_health"] == "UNREVIEWED"
+
+        facts = owner.get(
+            f"/books/{book.id}/exports/cases.json",
+            {"view": "run_facts", "run": str(run.id)},
+        ).json()
+        assert facts["view"] == "run_facts"
+        assert facts["run_id"] == str(run.id)
+        assert facts["rows"][0]["review_health"] == ""
+        assert facts["rows"][0]["run_id"] == str(run.id)
+
+        outsider = Client()
+        create_book(outsider)
+        foreign = outsider.get(
+            f"/books/{book.id}/exports/cases.json",
+            {"view": "run_facts", "run": str(run.id)},
+        )
+        assert foreign.status_code == 404

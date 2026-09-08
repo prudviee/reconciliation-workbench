@@ -48,4 +48,10 @@ The manual-link page is the preview surface: it shows both the retained source r
 
 ## Deferred showcase work
 
-Complete server-side multi-column search/sort, CSV/JSON exports, optional SVG allocation graph, asynchronous progress polling, and production failure/retry presentation remain planned after the required submission journey. They stay governed by the existing UX requirements and specification 006.
+Optional SVG allocation graph, asynchronous progress polling, and production failure/retry presentation remain planned after the required submission journey. They stay governed by the existing UX requirements and specification 006.
+
+## Completed showcase extension: UX-T06
+
+The workbench now applies combined reference search, outcome and review filters, oldest/newest ordering, complete filtered totals, and cursor pagination in the authorized database query. Cursor namespaces bind the active filter set so a cursor cannot be replayed under different discovery criteria.
+
+`GET /books/{book}/exports/cases.{csv|json}` provides two explicit views: filtered current-review state and complete selected-run facts. Both authorize the book, scope, and run through the active workspace. CSV output neutralizes formula-leading cells; JSON retains original text. Both formats preserve canonical decimals as strings and timestamps as labelled UTC offsets.

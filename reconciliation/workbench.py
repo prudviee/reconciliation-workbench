@@ -194,6 +194,10 @@ class WorkbenchService:
         selected_run_id: UUID | str | None = None,
         case_cursor: str | None = None,
         page_size: int = 50,
+        case_search: str | None = None,
+        case_kind: str | None = None,
+        case_review: str | None = None,
+        case_sort: str = "oldest",
     ) -> WorkbenchSnapshot:
         book = self._book(workspace_id, book_id)
         state = self.readiness(workspace_id, book_id=book_id)
@@ -248,6 +252,10 @@ class WorkbenchService:
                     scope_id=scope.id,
                     cursor=case_cursor,
                     page_size=page_size,
+                    search=case_search,
+                    kind=case_kind,
+                    review=case_review,
+                    sort=case_sort,
                 )
             except ReviewQueryUnavailable as error:
                 raise WorkbenchUnavailable from error
