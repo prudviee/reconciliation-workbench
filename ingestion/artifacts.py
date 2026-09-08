@@ -110,6 +110,8 @@ class StorageAdapter(Protocol):
 
     def resolve(self, storage_key: str) -> Path: ...
 
+    def delete_published(self, storage_key: str) -> None: ...
+
 
 class PrivateArtifactStore:
     def __init__(self, root: Path) -> None:
@@ -170,6 +172,9 @@ class PrivateArtifactStore:
 
     def resolve(self, storage_key: str) -> Path:
         return self._resolve_key(storage_key)
+
+    def delete_published(self, storage_key: str) -> None:
+        self._resolve_key(storage_key).unlink(missing_ok=True)
 
     def _resolve_key(self, storage_key: str) -> Path:
         candidate = (self.root / storage_key).resolve()

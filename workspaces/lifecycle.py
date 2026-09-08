@@ -7,7 +7,9 @@ from datetime import UTC, datetime
 
 from django.db import transaction
 
-from reconciliation.domain import ExpiryPolicy, WorkspaceId, WorkspaceState
+from django.conf import settings
+
+from reconciliation.domain import ExpiryPolicy, JobKind, WorkspaceId, WorkspaceState
 
 from .models import CleanupReason, Workspace, WorkspaceCleanupRequest
 from .repositories import WorkspaceUnavailable
@@ -87,4 +89,18 @@ class WorkspaceLifecycleService:
             if not created and reason == CleanupReason.DELETED:
                 cleanup.reason = reason
                 cleanup.save(update_fields=["reason"])
+
+            from jobs.models import WorkItem
+
+            WorkItem.objects.get_or_create(
+                cleanup_request=cleanup,
+                defaults={
+                    "workspace_id": workspace_id.value,
+                    "kind": JobKind.WORKSPACE_CLEANUP,
+                    "max_attempts": settings.JOBS_CLEANUP_MAX_ATTEMPTS,
+                    "available_at": revoked_at,
+                    "created_at": revoked_at,
+                    "updated_at": revoked_at,
+                },
+            )
             return workspace

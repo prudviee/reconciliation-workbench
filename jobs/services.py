@@ -237,6 +237,12 @@ def claim_and_execute(
     `TransientJobFailure` for a retryable failure and let any other exception
     propagate for a permanent one; both are recorded through `mark_failed`
     using `retry_policy` before the exception (if any) is re-raised.
+
+    A successful `WORKSPACE_CLEANUP` executor deletes the workspace, which
+    cascades away its own `WorkItem`/`JobAttempt` rows before this function's
+    own `mark_succeeded` call can reach them; that `WorkItemUnavailable` is
+    swallowed rather than reported as failure, since the executor's own
+    success (no exception) already proves the outcome.
     """
     if work_item_id is not None:
         one = claim_one(work_item_id, now=now, lease_duration=lease_duration)
@@ -265,6 +271,9 @@ def claim_and_execute(
             records.append(ExecutionRecord(work.work_item, succeeded=False))
             raise
         else:
-            mark_succeeded(work.token, now=now)
+            try:
+                mark_succeeded(work.token, now=now)
+            except WorkItemUnavailable:
+                pass
             records.append(ExecutionRecord(work.work_item, succeeded=True))
     return records
