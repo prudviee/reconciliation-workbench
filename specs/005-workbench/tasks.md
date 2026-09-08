@@ -37,8 +37,9 @@
   - Change: combined search/filter/sort, complete totals, and formula-safe historical/current CSV and JSON exports.
   - Evidence: [UX-T06 acceptance](./evidence/UX-T06.md) and [runtime record](./evidence/UX-T06-runtime.json).
 
-- [ ] **UX-T07 — Add enhanced allocation explanation and async states** (`UX-005`, `UX-008`, `UX-014`, `UX-016`, `UX-018`; `UX-A03`, `UX-A05`, `UX-A07`, `UX-A17`)
+- [x] **UX-T07 — Add enhanced allocation explanation and async states** (`UX-005`, `UX-008`, `UX-014`, `UX-016`, `UX-018`; `UX-A03`, `UX-A05`, `UX-A07`, `UX-A17`)
   - Change: complete candidate table, optional bounded graph, persisted progress stages/counts, and production failure/retry presentation.
+  - Evidence: [UX-T07 acceptance](./evidence/UX-T07.md) and [runtime record](./evidence/UX-T07-runtime.json).
 
 - [ ] **UX-T08 — Close the complete showcase specification** (`UX-001`–`UX-018`; `UX-A01`–`UX-A17`)
   - Change: complete remaining accessibility, responsive, performance, export, async, visual, and deployment-connected acceptance evidence.

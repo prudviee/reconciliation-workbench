@@ -56,6 +56,7 @@ from .models import (
     RunFreshness,
     RunInput,
     RunLifecycle,
+    RunProgressStage,
     RunPair,
     RunUnpaired,
 )
@@ -184,6 +185,11 @@ class ReconciliationRunService:
                 scope_generation=scope.generation,
                 engine_version=matching_policy.engine_version,
                 solver_version=matching_policy.solver_version,
+                progress_stage=RunProgressStage.QUEUED,
+                progress_counts={
+                    "inputs": len(left_members) + len(right_members),
+                    "decisions": len(decisions),
+                },
                 created_at=created_at,
             )
             RunInput.objects.bulk_create(
@@ -219,6 +225,12 @@ class ReconciliationRunService:
             started_at=now,
             completed_at=None,
             failure_code=None,
+            progress_stage=RunProgressStage.LOADING_INPUTS,
+            progress_counts={
+                "inputs": len(run.manifest["left_inputs"])
+                + len(run.manifest["right_inputs"]),
+                "decisions": len(run.manifest["decision_revision_ids"]),
+            },
         )
         try:
             result = self.compute_run(workspace_id, run.id)
@@ -227,6 +239,7 @@ class ReconciliationRunService:
             ReconciliationRun.objects.owned_by(workspace_id).filter(id=run.id, lifecycle=RunLifecycle.RUNNING).update(
                 lifecycle=RunLifecycle.FAILED,
                 failure_code=type(error).__name__[:80],
+                progress_stage=RunProgressStage.FAILED,
             )
             raise
 
@@ -258,6 +271,16 @@ class ReconciliationRunService:
             .order_by("decision_revision_id")
         )
         decisions = self._decision_inputs(inputs, decision_rows)
+        ReconciliationRun.objects.owned_by(workspace_id).filter(
+            id=run.id,
+            lifecycle=RunLifecycle.RUNNING,
+        ).update(
+            progress_stage=RunProgressStage.MATCHING,
+            progress_counts={
+                "inputs loaded": len(inputs),
+                "decisions loaded": len(decision_rows),
+            },
+        )
         matching = matching_policy_from_payload(run.policy_revision.matching_policy)
         comparison = comparison_policy_from_payload(run.policy_revision.comparison_policy)
         solver = ScipyAssignmentSolver()
@@ -267,6 +290,20 @@ class ReconciliationRunService:
 
     def publish_run(self, workspace_id: WorkspaceId, run_id: UUID, result: EngineResult) -> PublishedRun:
         completed_at = self.clock()
+        publishing_counts = {
+            "pairs computed": len(result.pairs),
+            "unpaired computed": len(result.unpaired),
+            "candidates computed": len(result.candidates),
+            "components computed": len(result.components),
+            "diagnostics computed": len(result.diagnostics),
+        }
+        ReconciliationRun.objects.owned_by(workspace_id).filter(
+            id=run_id,
+            lifecycle=RunLifecycle.RUNNING,
+        ).update(
+            progress_stage=RunProgressStage.PUBLISHING,
+            progress_counts=publishing_counts,
+        )
         with transaction.atomic():
             self._require_active_workspace(workspace_id, completed_at, lock=True)
             try:
@@ -359,6 +396,8 @@ class ReconciliationRunService:
                 result_counts=counts,
                 completed_at=completed_at,
                 failure_code=None,
+                progress_stage=RunProgressStage.COMPLETED,
+                progress_counts=counts,
             )
             if fresh:
                 ReconciliationScope.objects.filter(id=scope.id).update(current_run=run, is_dirty=False)

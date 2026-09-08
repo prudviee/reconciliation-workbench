@@ -1,0 +1,37 @@
+{
+  "task": "UX-T07",
+  "verified_at": "2026-09-08",
+  "branch": "codex/005-submission-workbench",
+  "tests": {
+    "full_suite": {"passed": 469, "failed": 0},
+    "django_check": "passed",
+    "migration_drift": "none",
+    "diff_check": "passed"
+  },
+  "runtime": {
+    "health_url": "http://localhost:8010/health/ready",
+    "http_status": 200,
+    "database": "ready",
+    "migration_applied": "reconciliation.0004_reconciliationrun_progress"
+  },
+  "allocation_explanation": {
+    "complete_candidate_table": true,
+    "feature_contributions": true,
+    "counterfactual_global_gap": true,
+    "graph_required": false
+  },
+  "progress": {
+    "stages": [
+      "QUEUED",
+      "LOADING_INPUTS",
+      "MATCHING",
+      "PUBLISHING",
+      "COMPLETED",
+      "FAILED"
+    ],
+    "measured_counts_only": true,
+    "invented_percentage": false,
+    "last_success_preserved": true,
+    "retry_presented": true
+  }
+}

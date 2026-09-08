@@ -59,6 +59,9 @@ class WorkbenchRunItem:
     created_at: datetime
     completed_at: datetime | None
     is_current: bool
+    progress_stage: str
+    progress_counts: dict
+    failure_code: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +74,7 @@ class WorkbenchSnapshot:
     current_run_id: UUID | None
     selected_run: WorkbenchRunItem | None
     runs: tuple[WorkbenchRunItem, ...]
+    latest_attempt: WorkbenchRunItem | None
     current_cases: ReviewPage[CaseListItem]
 
 
@@ -212,6 +216,7 @@ class WorkbenchService:
                 None,
                 None,
                 (),
+                None,
                 empty_cases,
             )
         try:
@@ -272,6 +277,7 @@ class WorkbenchService:
                 else None
             ),
             runs=run_items,
+            latest_attempt=run_items[0] if run_items else None,
             current_cases=current_cases,
         )
 
@@ -325,4 +331,7 @@ class WorkbenchService:
             created_at=run.created_at,
             completed_at=run.completed_at,
             is_current=run.id == current_run_id,
+            progress_stage=run.progress_stage,
+            progress_counts=dict(run.progress_counts or {}),
+            failure_code=run.failure_code,
         )

@@ -69,6 +69,7 @@ class CaseEvidenceDetail:
     comparisons: tuple[dict, ...]
     candidates: tuple[dict, ...]
     link_options: tuple[dict, ...]
+    allocation: dict | None
     run_metadata: dict
 
     @property
@@ -507,6 +508,10 @@ class CaseQueryService:
                 }
                 for item in options
             )
+        allocation = self._allocation_evidence(
+            workspace_id,
+            current_occurrence,
+        )
         policy = current_occurrence.run.policy_revision
         return CaseEvidenceDetail(
             case_id=case.id,
@@ -521,6 +526,7 @@ class CaseQueryService:
             comparisons=comparisons,
             candidates=candidates,
             link_options=link_options,
+            allocation=allocation,
             run_metadata={
                 "run_id": current_occurrence.run_id,
                 "created_at": current_occurrence.run.created_at,
@@ -533,6 +539,120 @@ class CaseQueryService:
                 "comparison_policy_version": policy.comparison_policy.get("policy_version"),
             },
         )
+
+    @staticmethod
+    def _allocation_evidence(
+        workspace_id: WorkspaceId,
+        occurrence: CaseOccurrence,
+    ) -> dict | None:
+        component_id = occurrence.component_id
+        if component_id is None:
+            related = CandidateEvidence.objects.owned_by(workspace_id).filter(
+                run=occurrence.run,
+                component__isnull=False,
+            )
+            if occurrence.pair_id:
+                related = related.filter(
+                    left_observation_id=occurrence.pair.left_observation_id,
+                    right_observation_id=occurrence.pair.right_observation_id,
+                )
+            elif occurrence.unpaired_id:
+                observation_id = occurrence.unpaired.observation_id
+                related = related.filter(
+                    Q(left_observation_id=observation_id)
+                    | Q(right_observation_id=observation_id)
+                )
+            component_id = related.values_list("component_id", flat=True).first()
+        if component_id is None:
+            return None
+        candidates = tuple(
+            CandidateEvidence.objects.owned_by(workspace_id)
+            .filter(run=occurrence.run, component_id=component_id)
+            .select_related(
+                "component",
+                "left_observation__logical_transaction",
+                "right_observation__logical_transaction",
+            )
+            .order_by("-score_bp", "left_observation_id", "right_observation_id")
+        )
+        if not candidates:
+            return None
+        component = candidates[0].component
+        proposals = {
+            (item["left_id"], item["right_id"]): item
+            for item in component.proposals or ()
+        }
+        rows = []
+        for candidate in candidates:
+            proposal = proposals.get(
+                (str(candidate.left_observation_id), str(candidate.right_observation_id))
+            )
+            rows.append(
+                {
+                    "left_reference": candidate.left_observation.logical_transaction.source_record_key,
+                    "right_reference": candidate.right_observation.logical_transaction.source_record_key,
+                    "score_bp": candidate.score_bp,
+                    "score_label": candidate.score_label,
+                    "blocking_reasons": tuple(candidate.blocking_reasons),
+                    "features": tuple(
+                        {
+                            "name": item["feature"].replace("_", " ").title(),
+                            "left_value": CaseQueryService._semantic_label(
+                                item.get("left_value")
+                            ),
+                            "right_value": CaseQueryService._semantic_label(
+                                item.get("right_value")
+                            ),
+                            "difference": CaseQueryService._semantic_label(
+                                item.get("difference")
+                            ),
+                            "similarity_bp": item["similarity_bp"],
+                            "weight_bp": item["weight_bp"],
+                            "contribution_bp": item["contribution_bp"],
+                            "rule": item["rule"],
+                        }
+                        for item in candidate.features
+                    ),
+                    "contradictions": tuple(candidate.contradictions),
+                    "coverage_failures": tuple(candidate.coverage_failures),
+                    "selected": proposal is not None,
+                    "accepted": proposal["accepted"] if proposal is not None else False,
+                    "counterfactual_objective_bp": (
+                        proposal["counterfactual_objective_bp"]
+                        if proposal is not None
+                        else None
+                    ),
+                    "global_gap_bp": (
+                        proposal["global_gap_bp"] if proposal is not None else None
+                    ),
+                    "gate_reasons": (
+                        tuple(proposal["gate_reasons"])
+                        if proposal is not None
+                        else ()
+                    ),
+                }
+            )
+        return {
+            "component_id": component.id,
+            "candidate_count": component.candidate_count,
+            "optimal_utility_bp": component.optimal_utility_bp,
+            "complete": component.complete,
+            "limit_reason": component.limit_reason,
+            "graph_digest": component.graph_digest,
+            "solver_version": component.solver_version,
+            "candidates": tuple(rows),
+        }
+
+    @staticmethod
+    def _semantic_label(value: object) -> str:
+        if value is None:
+            return "—"
+        if isinstance(value, dict) and len(value) == 1:
+            key, payload = next(iter(value.items()))
+            if key == "timedelta_microseconds":
+                return f"{payload} µs"
+            return str(payload)
+        return str(value)
 
     def get_case_lineage(
         self,

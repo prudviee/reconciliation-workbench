@@ -95,6 +95,15 @@ class RunFreshness(models.TextChoices):
     STALE = "STALE", "Stale"
 
 
+class RunProgressStage(models.TextChoices):
+    QUEUED = "QUEUED", "Queued"
+    LOADING_INPUTS = "LOADING_INPUTS", "Loading inputs"
+    MATCHING = "MATCHING", "Matching"
+    PUBLISHING = "PUBLISHING", "Publishing"
+    COMPLETED = "COMPLETED", "Completed"
+    FAILED = "FAILED", "Failed"
+
+
 class ReconciliationRun(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     workspace = models.ForeignKey("workspaces.Workspace", on_delete=models.CASCADE, related_name="reconciliation_runs")
@@ -114,6 +123,12 @@ class ReconciliationRun(models.Model):
     result_digest = models.CharField(max_length=64, null=True, blank=True)
     result_counts = models.JSONField(null=True, blank=True)
     failure_code = models.CharField(max_length=80, null=True, blank=True)
+    progress_stage = models.CharField(
+        max_length=20,
+        choices=RunProgressStage.choices,
+        default=RunProgressStage.QUEUED,
+    )
+    progress_counts = models.JSONField(default=dict)
     created_at = models.DateTimeField()
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -126,6 +141,7 @@ class ReconciliationRun(models.Model):
             models.UniqueConstraint(fields=["scope", "manifest_hash"], name="run_scope_manifest_unique"),
             models.CheckConstraint(condition=models.Q(lifecycle__in=RunLifecycle.values), name="run_lifecycle_valid"),
             models.CheckConstraint(condition=models.Q(freshness__in=RunFreshness.values), name="run_freshness_valid"),
+            models.CheckConstraint(condition=models.Q(progress_stage__in=RunProgressStage.values), name="run_progress_stage_valid"),
             models.CheckConstraint(condition=~models.Q(left_revision=models.F("right_revision")), name="run_revisions_distinct"),
             models.CheckConstraint(
                 condition=(

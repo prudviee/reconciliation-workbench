@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -48,6 +49,9 @@ from sources.adapters import counterparty_contract, ledger_contract
 from sources.models import BookSource, SourceContractRevision, SourceRole
 from workspaces.middleware import workspace_access, workspace_record, workspace_required
 from workspaces.lifecycle import WorkspaceLifecycleService
+
+
+logger = logging.getLogger("reconciliation.runs")
 
 
 @workspace_required
@@ -537,6 +541,11 @@ def reconciliation_workbench(request: HttpRequest, book_id: object) -> HttpRespo
                 if request.GET.get("completed")
                 else None
             ),
+            "error": (
+                "The latest run failed. The previous successful result remains available, and the failed run can be retried."
+                if request.GET.get("failed")
+                else None
+            ),
         },
     )
 
@@ -603,7 +612,6 @@ def reconciliation_run_start(request: HttpRequest, book_id: object) -> HttpRespo
         )
         runner = ReconciliationRunService()
         frozen = runner.create_run_manifest(access.workspace_id, scope.id)
-        runner.execute_and_publish_run(access.workspace_id, frozen.run_id)
     except WorkbenchNotReady:
         snapshot = workbench.snapshot(access.workspace_id, book_id=BookId(book.id))
         return render(
@@ -618,6 +626,18 @@ def reconciliation_run_start(request: HttpRequest, book_id: object) -> HttpRespo
         )
     except (WorkbenchUnavailable, RunUnavailable):
         raise Http404 from None
+    try:
+        runner.execute_and_publish_run(access.workspace_id, frozen.run_id)
+    except Exception:
+        logger.exception(
+            "reconciliation_run_failed",
+            extra={"run_id": str(frozen.run_id)},
+        )
+        scope.refresh_from_db(fields=["current_run"])
+        query = "?failed=1"
+        if scope.current_run_id is not None:
+            query = f"?run={scope.current_run_id}&failed=1"
+        return redirect(f"/books/{book.id}/workbench{query}")
     return redirect(f"/books/{book.id}/workbench?run={frozen.run_id}&completed=1")
 
 

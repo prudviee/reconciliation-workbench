@@ -55,6 +55,7 @@ from reconciliation.models import (
     RunFreshness,
     RunInput,
     RunLifecycle,
+    RunProgressStage,
 )
 from reconciliation.policies import comparison_policy_to_payload, matching_policy_to_payload
 from reconciliation.services import ReconciliationRunService, RunUnavailable
@@ -438,6 +439,14 @@ def test_publication_failure_rolls_back_every_fact_and_marks_failed() -> None:
     graph.scope.refresh_from_db()
     assert run.lifecycle == RunLifecycle.FAILED
     assert run.failure_code == "RuntimeError"
+    assert run.progress_stage == RunProgressStage.FAILED
+    assert run.progress_counts == {
+        "pairs computed": 1,
+        "unpaired computed": 0,
+        "candidates computed": 1,
+        "components computed": 1,
+        "diagnostics computed": 0,
+    }
     assert run.pairs.count() == 0
     assert run.unpaired.count() == 0
     assert run.candidates.count() == 0
@@ -482,7 +491,16 @@ def test_health_projection_rolls_back_with_failed_publication() -> None:
 
 @pytest.mark.django_db
 def test_weighted_run_persists_candidates_components_and_comparisons() -> None:
+    from django.test import Client
+
+    from workspaces.sessions import digest_session_key
+
     graph = create_graph("weighted", left_reference=None, right_reference=None)
+    Dataset.objects.filter(
+        id__in=(graph.scope.left_dataset_id, graph.scope.right_dataset_id)
+    ).update(coverage_key="default")
+    ReconciliationScope.objects.filter(id=graph.scope.id).update(coverage_key="default")
+    graph.scope.refresh_from_db()
     service = ReconciliationRunService(clock=lambda: NOW)
     frozen = service.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
     service.execute_and_publish_run(WorkspaceId(graph.workspace.id), frozen.run_id)
@@ -495,6 +513,130 @@ def test_weighted_run_persists_candidates_components_and_comparisons() -> None:
     assert run.components.count() == 1
     assert run.candidates.get().component_id == run.components.get().id
     assert pair.comparisons.count() > 0
+    assert run.progress_stage == RunProgressStage.COMPLETED
+    assert run.progress_counts == run.result_counts
+
+    case_id = CaseOccurrence.objects.get(run=run, result_kind="PAIR").case_id
+    evidence = CaseQueryService(clock=lambda: NOW).get_case_evidence(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        scope_id=graph.scope.id,
+        case_id=case_id,
+    )
+    assert evidence.allocation is not None
+    assert evidence.allocation["complete"] is True
+    assert evidence.allocation["candidate_count"] == 1
+    candidate = evidence.allocation["candidates"][0]
+    assert candidate["selected"] is True
+    assert candidate["accepted"] is True
+    assert candidate["global_gap_bp"] == 3_000
+    assert len(candidate["features"]) == 4
+    assert sum(item["contribution_bp"] for item in candidate["features"]) == 10_000
+
+    client = Client()
+    session = client.session
+    session.save()
+    Workspace.objects.filter(id=graph.workspace.id).update(
+        session_digest=digest_session_key(session.session_key)
+    )
+    page = client.get(f"/books/{graph.book.id}/cases/{case_id}")
+    content = page.content.decode()
+    assert page.status_code == 200
+    assert "Allocation explanation" in content
+    assert "Selected globally" in content
+    assert "Global gap 3000 bp" in content
+    assert "All gates passed" in content
+    assert "Quantity: 3500/3500 bp" in content
+
+
+@pytest.mark.django_db
+def test_workbench_keeps_current_result_during_running_and_failed_rerun(
+    monkeypatch,
+) -> None:
+    from django.test import Client
+
+    from reconciliation.workbench import WorkbenchService
+    from workspaces.sessions import digest_session_key
+
+    graph = create_graph("progress-state")
+    Dataset.objects.filter(
+        id__in=(graph.scope.left_dataset_id, graph.scope.right_dataset_id)
+    ).update(coverage_key="default")
+    ReconciliationScope.objects.filter(id=graph.scope.id).update(coverage_key="default")
+    graph.scope.refresh_from_db()
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    replace_side_snapshot(graph, SourceRole.RIGHT, gross_amount=Decimal("100.10"))
+    later_runner = ReconciliationRunService(clock=lambda: NOW + timedelta(minutes=2))
+    second = later_runner.create_run_manifest(
+        WorkspaceId(graph.workspace.id), graph.scope.id
+    )
+    ReconciliationRun.objects.filter(id=second.run_id).update(
+        lifecycle=RunLifecycle.RUNNING,
+        progress_stage=RunProgressStage.MATCHING,
+        progress_counts={"inputs loaded": 2, "decisions loaded": 0},
+    )
+
+    workbench = WorkbenchService(clock=lambda: NOW)
+    running = workbench.snapshot(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+    )
+    assert running.current_run_id == first.run_id
+    assert running.selected_run is not None
+    assert running.selected_run.run_id == first.run_id
+    assert running.latest_attempt is not None
+    assert running.latest_attempt.run_id == second.run_id
+    assert running.latest_attempt.progress_stage == RunProgressStage.MATCHING
+    assert running.latest_attempt.progress_counts["inputs loaded"] == 2
+
+    client = Client()
+    session = client.session
+    session.save()
+    Workspace.objects.filter(id=graph.workspace.id).update(
+        session_digest=digest_session_key(session.session_key)
+    )
+    running_page = client.get(f"/books/{graph.book.id}/workbench")
+    running_content = running_page.content.decode()
+    assert running_page.status_code == 200
+    assert "Reconciliation is matching" in running_content
+    assert "inputs loaded: 2" in running_content
+    assert "The latest successful result remains available below" in running_content
+
+    ReconciliationRun.objects.filter(id=second.run_id).update(
+        lifecycle=RunLifecycle.FAILED,
+        progress_stage=RunProgressStage.FAILED,
+        failure_code="RunResultMismatch",
+    )
+    failed = workbench.snapshot(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+    )
+    assert failed.current_run_id == first.run_id
+    assert failed.latest_attempt is not None
+    assert failed.latest_attempt.lifecycle == RunLifecycle.FAILED
+    assert failed.latest_attempt.failure_code == "RunResultMismatch"
+    failed_page = client.get(f"/books/{graph.book.id}/workbench")
+    failed_content = failed_page.content.decode()
+    assert failed_page.status_code == 200
+    assert "Latest run failed" in failed_content
+    assert "Failure code: RunResultMismatch" in failed_content
+    assert "Retry reconciliation" in failed_content
+
+    def fail_retry(_service, _workspace_id, _run_id):
+        raise RuntimeError("retry failed")
+
+    monkeypatch.setattr(
+        ReconciliationRunService,
+        "execute_and_publish_run",
+        fail_retry,
+    )
+    retry = client.post(f"/books/{graph.book.id}/runs", follow=True)
+    retry_content = retry.content.decode()
+    assert retry.status_code == 200
+    assert "The latest run failed" in retry_content
+    assert "previous successful result remains available" in retry_content
 
 
 @pytest.mark.django_db

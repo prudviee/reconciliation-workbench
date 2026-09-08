@@ -22,6 +22,13 @@
       <form method="post" action="{% url 'foundation:run-start' book.id %}">{% csrf_token %}<button class="button button-primary" type="submit">{% if snapshot.current_run_id %}Run again{% else %}Start reconciliation{% endif %}</button></form>
     </section>
 
+    {% if snapshot.latest_attempt and snapshot.latest_attempt.lifecycle != "COMPLETED" %}
+      <section class="notice run-status" aria-labelledby="run-status-heading" {% if snapshot.latest_attempt.lifecycle != "FAILED" %}aria-live="polite"{% else %}role="alert"{% endif %}>
+        <div><strong id="run-status-heading">{% if snapshot.latest_attempt.lifecycle == "FAILED" %}Latest run failed{% else %}Reconciliation is {{ snapshot.latest_attempt.progress_stage|lower }}{% endif %}</strong><span>Run <code>{{ snapshot.latest_attempt.run_id }}</code></span>{% if snapshot.latest_attempt.failure_code %}<span>Failure code: {{ snapshot.latest_attempt.failure_code }}</span>{% endif %}<ul>{% for key, value in snapshot.latest_attempt.progress_counts.items %}<li>{{ key }}: {{ value }}</li>{% empty %}<li>No stage counts are available yet.</li>{% endfor %}</ul><p>The latest successful result remains available below.</p></div>
+        {% if snapshot.latest_attempt.lifecycle == "FAILED" %}<form method="post" action="{% url 'foundation:run-start' book.id %}">{% csrf_token %}<button class="button button-primary" type="submit">Retry reconciliation</button></form>{% endif %}
+      </section>
+    {% endif %}
+
     {% if snapshot.selected_run %}
       {% if not snapshot.selected_run.is_current %}<div class="notice" role="status"><strong>Historical run.</strong> The counts below belong to this run. The case table remains clearly labelled as the current review queue.</div>{% endif %}
       <section class="evidence-metrics" aria-label="Selected run summary">
@@ -64,6 +71,6 @@
       <section class="empty-state workbench-empty"><h2>No runs yet</h2><p>Start reconciliation to create the first immutable result.</p></section>
     {% endif %}
 
-    {% if snapshot.runs %}<section class="history-section" aria-labelledby="runs-heading"><div class="section-heading"><div><p class="section-kicker">Immutable history</p><h2 id="runs-heading">Runs</h2></div></div><ol class="history-list">{% for run in snapshot.runs %}<li><span><strong>{% if run.is_current %}Current{% else %}Historical{% endif %} run</strong><br><code>{{ run.run_id }}</code></span><span>{{ run.created_at|date:"d M Y, H:i:s" }} UTC</span><a href="?run={{ run.run_id }}">Inspect</a></li>{% endfor %}</ol></section>{% endif %}
+    {% if snapshot.runs %}<section class="history-section" aria-labelledby="runs-heading"><div class="section-heading"><div><p class="section-kicker">Immutable history</p><h2 id="runs-heading">Runs</h2></div></div><ol class="history-list">{% for run in snapshot.runs %}<li><span><strong>{% if run.is_current %}Current{% elif run.lifecycle == "COMPLETED" %}Historical{% else %}{{ run.lifecycle|title }}{% endif %} run</strong><br><code>{{ run.run_id }}</code></span><span>{{ run.created_at|date:"d M Y, H:i:s" }} UTC<br>{{ run.progress_stage|lower }}</span>{% if run.lifecycle == "COMPLETED" %}<a href="?run={{ run.run_id }}">Inspect</a>{% else %}<span>{{ run.failure_code|default:"In progress" }}</span>{% endif %}</li>{% endfor %}</ol></section>{% endif %}
   {% endif %}
 {% endblock %}

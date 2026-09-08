@@ -48,10 +48,16 @@ The manual-link page is the preview surface: it shows both the retained source r
 
 ## Deferred showcase work
 
-Optional SVG allocation graph, asynchronous progress polling, and production failure/retry presentation remain planned after the required submission journey. They stay governed by the existing UX requirements and specification 006.
+Asynchronous job dispatch and optional SVG allocation visualization remain planned after the required submission journey. The complete candidate table, persisted truthful stages/counts, and failure/retry presentation are now delivered; durable background execution remains governed by specification 006.
 
 ## Completed showcase extension: UX-T06
 
 The workbench now applies combined reference search, outcome and review filters, oldest/newest ordering, complete filtered totals, and cursor pagination in the authorized database query. Cursor namespaces bind the active filter set so a cursor cannot be replayed under different discovery criteria.
 
 `GET /books/{book}/exports/cases.{csv|json}` provides two explicit views: filtered current-review state and complete selected-run facts. Both authorize the book, scope, and run through the active workspace. CSV output neutralizes formula-leading cells; JSON retains original text. Both formats preserve canonical decimals as strings and timestamps as labelled UTC offsets.
+
+## Completed showcase extension: UX-T07
+
+Weighted cases now resolve their retained assignment component and render every candidate edge, source identity, rule score, feature value/difference/similarity/weight/contribution, selection outcome, counterfactual objective, global gap, acceptance gate, contradiction, and coverage failure in an accessible table. This table remains the complete explanation without a graph.
+
+Runs now persist `QUEUED`, `LOADING_INPUTS`, `MATCHING`, `PUBLISHING`, `COMPLETED`, or `FAILED` with only measured counts available at that stage. The workbench presents running and failed attempts separately while keeping the last successful result selected and usable. Failed runs include a retry action. The local submission request still executes synchronously; specification 006 will move the same persisted states behind durable background dispatch.
