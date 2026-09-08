@@ -1,6 +1,6 @@
 # 006 Jobs, Operations, and Deployment — Implementation Plan
 
-- **Status:** Draft
+- **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Target branch:** `codex/006-operations`
 - **Last updated:** 8 September 2026

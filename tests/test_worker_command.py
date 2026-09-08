@@ -11,6 +11,7 @@ from django.core.management import call_command
 
 from books.models import BookKind, PolicyRevision, ReconciliationBook
 from books.scopes import WorkspaceScopeRepository
+from ingestion.artifacts import IntakeLimits
 from ingestion.models import (
     AttemptState,
     Dataset,
@@ -22,20 +23,29 @@ from ingestion.models import (
     RawRow,
     TransactionObservation,
 )
-from jobs.models import WorkerHeartbeat
+from ingestion.preview import PreviewService
+from ingestion.repositories import WorkspaceIngestionRepository
+from ingestion.services import ArtifactIntakeService, configured_artifact_store
+from jobs.models import WorkerHeartbeat, WorkItem
+from jobs.services import enqueue
 from reconciliation.domain import (
     BookId,
     ComparisonPolicy,
     DatasetMode,
+    JobKind,
     MatchingPolicy,
     ReferenceSemantics,
     WorkspaceId,
+    mapping_revision_digest,
     policy_revision_digest,
+    source_contract_digest,
 )
 from reconciliation.models import ReconciliationRun, RunLifecycle
 from reconciliation.policies import comparison_policy_to_payload, matching_policy_to_payload
 from reconciliation.services import ReconciliationRunService
+from sources.adapters import contract_to_payload, ledger_contract
 from sources.models import BookSource, MappingRevision, SourceContractRevision, SourceRole, SourceSystem
+from sources.repositories import WorkspaceSourceRepository
 from workspaces.lifecycle import WorkspaceLifecycleService
 from workspaces.models import Workspace
 
@@ -227,3 +237,125 @@ def test_worker_once_writes_a_database_backed_heartbeat(monkeypatch, tmp_path: P
 
     heartbeat = WorkerHeartbeat.objects.get(worker_id="test-worker")
     assert heartbeat.updated_at.tzinfo is not None
+
+
+def _create_import_shell(tmp_path: Path, label: str) -> tuple[Workspace, IngestionAttempt]:
+    workspace = Workspace.objects.create(
+        session_digest=_digest(f"session-{label}-{uuid4()}"),
+        created_at=NOW,
+        expires_at=NOW + timedelta(days=7),
+    )
+    book = ReconciliationBook.objects.create(
+        workspace=workspace, name=f"{label} book", kind=BookKind.USER, created_at=NOW
+    )
+    source_repository = WorkspaceSourceRepository(WorkspaceId(workspace.id))
+    ingestion_repository = WorkspaceIngestionRepository(WorkspaceId(workspace.id))
+    contract = ledger_contract()
+    source = source_repository.create_source(
+        name=f"{label} source", adapter_key=contract.adapter_key, created_at=NOW
+    )
+    book_source = source_repository.assign_book_source(
+        book_id=BookId(book.id),
+        source_id=source.id,
+        role=SourceRole.LEFT,
+        identity_namespace=contract.identity_namespace,
+        created_at=NOW,
+    )
+    contract_payload = contract_to_payload(contract)
+    mapping = source_repository.create_mapping_revision(
+        source_id=source.id,
+        revision=1,
+        mapping={"bindings": contract_payload["bindings"]},
+        parser_version=contract.parser_version,
+        digest=mapping_revision_digest({"bindings": contract_payload["bindings"]}),
+        created_at=NOW,
+    )
+    contract_revision = source_repository.create_contract_revision(
+        source_id=source.id,
+        mapping_revision_id=mapping.id,
+        revision=1,
+        mode=contract.mode,
+        timezone_name=contract.timezone_name,
+        identity_namespace=contract.identity_namespace,
+        reference_semantics=contract.reference_semantics,
+        contract=contract_payload,
+        digest=source_contract_digest(contract_payload),
+        created_at=NOW,
+    )
+    dataset = ingestion_repository.create_dataset(
+        book_source_id=book_source.id, coverage_key="2026-09", created_at=NOW
+    )
+    intake = ArtifactIntakeService(
+        limits=IntakeLimits(10_000, 100, 20, 1_000), clock=lambda: NOW
+    )
+    artifact = intake.ingest(
+        WorkspaceId(workspace.id),
+        original_filename=f"{label}.csv",
+        content_type="text/csv",
+        delimiter=",",
+        chunks=[
+            (
+                "trade_id,traded_at,instrument,side,quantity,price,gross_amount,state\n"
+                f"T-{label}-1,2026-09-01T09:15:00Z,BTC-USD,BUY,0.5,62000,31000,SETTLED\n"
+            ).encode()
+        ],
+    )
+    shell = PreviewService(configured_artifact_store(), IntakeLimits(10_000, 100, 20, 1_000)).create_shell(
+        WorkspaceId(workspace.id),
+        artifact_id=artifact.id,
+        dataset_id=dataset.id,
+        contract_revision_id=contract_revision.id,
+        delimiter=",",
+    )
+    return workspace, shell
+
+
+def test_worker_once_drains_a_run_an_import_and_a_cleanup_together(
+    settings, tmp_path: Path
+) -> None:
+    """OPS-T10 capstone: all three job kinds coexist in a single poll cycle."""
+    settings.INGESTION_PRIVATE_ROOT = tmp_path
+
+    run_workspace, run_scope = _create_run_graph("capstone-run")
+    frozen = ReconciliationRunService(clock=lambda: NOW).create_run_manifest(
+        WorkspaceId(run_workspace.id), run_scope.id
+    )
+
+    import_workspace, shell = _create_import_shell(tmp_path, "capstone-import")
+    import_work_item = enqueue(
+        WorkspaceId(import_workspace.id),
+        JobKind.IMPORT_VALIDATION,
+        max_attempts=3,
+        now=NOW,
+        import_attempt=shell,
+    )
+
+    cleanup_workspace = Workspace.objects.create(
+        session_digest=_digest(f"session-capstone-cleanup-{uuid4()}"),
+        created_at=NOW,
+        expires_at=NOW + timedelta(days=7),
+    )
+    WorkspaceLifecycleService().delete(WorkspaceId(cleanup_workspace.id), now=NOW)
+
+    output = StringIO()
+
+    call_command("worker", once=True, stdout=output)
+
+    run = ReconciliationRun.objects.get(id=frozen.run_id)
+    assert run.lifecycle == RunLifecycle.COMPLETED
+
+    completed_attempt = IngestionAttempt.objects.get(id=shell.id)
+    assert completed_attempt.state == AttemptState.READY
+    assert not WorkItem.objects.filter(id=import_work_item.id, lease_until__isnull=False).exists()
+
+    assert not Workspace.objects.filter(id=cleanup_workspace.id).exists()
+
+    log_output = output.getvalue()
+    assert "RECONCILIATION_RUN: claimed 1, succeeded 1" in log_output
+    assert "IMPORT_VALIDATION: claimed 1, succeeded 1" in log_output
+    assert "WORKSPACE_CLEANUP: claimed 1, succeeded 1" in log_output
+
+    run_workspace.refresh_from_db()
+    import_workspace.refresh_from_db()
+    assert run_workspace.active_job_count == 0
+    assert import_workspace.active_job_count == 0

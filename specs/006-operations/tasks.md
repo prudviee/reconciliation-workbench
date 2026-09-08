@@ -1,6 +1,6 @@
 # 006 Jobs, Operations, and Deployment — Tasks
 
-- **Status:** Draft
+- **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Plan:** [plan.md](./plan.md)
 
@@ -65,32 +65,32 @@
   - Verify: HTTPS/secure-cookie/HSTS/secret/database-URL enforcement under `DJANGO_ENV=production` — already covered by specification 001's `test_workspace_sessions.py`, re-confirmed here; storage-backend selection (local vs. S3-compatible, including a non-AWS `endpoint_url`) proven by new tests; the capacity report cites the actual measured workload/environment, including the 11.01s-vs-10s miss on the 10,000-row reconciliation target, rather than an unmeasured or rounded claim. No live cloud account exists in this environment, so nothing was actually deployed — this is documented as a stated limit, not implied away.
   - Evidence: `specs/006-operations/evidence/OPS-T09.md`, `OPS-T09-ingestion-capacity.json`, `OPS-T09-reconciliation-capacity.json`.
 
-- [ ] **OPS-T10 — Close jobs, operations, and deployment acceptance** (`OPS-001`–`OPS-017`; `OPS-A01`–`OPS-A16`)
-  - Change: end-to-end corpus exercising all three job kinds together (a run and an import in flight while a cleanup drains), final traceability, README/roadmap status update, verification record, and any defect found by the complete review.
-  - Verify: all sixteen acceptance scenarios, the PostgreSQL concurrency probes, the adversarial cross-workspace/ownership matrix, the expiry/cleanup matrix, the deployment rehearsal, the capacity measurement, the full regression suite, migration consistency, domain-boundary check, and clean Compose startup, all at one commit.
-  - Evidence: acceptance matrix, concurrency/capacity measurements, deployment rehearsal record, clean-runtime record, limitations, and final verified commit.
+- [x] **OPS-T10 — Close jobs, operations, and deployment acceptance** (`OPS-001`–`OPS-017`; `OPS-A01`–`OPS-A16`)
+  - Change: `tests/test_worker_command.py::test_worker_once_drains_a_run_an_import_and_a_cleanup_together` — a capstone integration test exercising all three job kinds together (a run and an import in flight while a cleanup drains) in one `worker --once` poll cycle; final traceability table below; `tasks.md`/`plan.md`/`spec.md`/`roadmap.md` status updates; this evidence record.
+  - Verify: all sixteen acceptance scenarios, the PostgreSQL concurrency probe (`test_claim_batch_never_claims_the_same_row_twice_concurrently`), the adversarial cross-workspace/ownership matrix, the expiry/cleanup matrix, the deployment documentation (no live cloud account available, disclosed in `OPS-T09.md`), the capacity measurement (one target already disclosed as missed), the full regression suite (540 passed), migration consistency (`makemigrations --check`: no changes), domain-boundary check, and a clean Compose startup rehearsed as an isolated second project so the running demo stack's data was never touched.
+  - Evidence: `specs/006-operations/evidence/OPS-T10.md`.
 
 ## Final traceability
 
 | Requirement | Task IDs | Acceptance/evidence | Complete |
 |---|---|---|---|
-| OPS-001 | OPS-T02, OPS-T04, OPS-T06, OPS-T10 | OPS-A10 | No |
-| OPS-002 | OPS-T02, OPS-T04, OPS-T06, OPS-T10 | OPS-A09 | No |
-| OPS-003 | OPS-T01, OPS-T02, OPS-T03, OPS-T08, OPS-T10 | OPS-A01 | No |
-| OPS-004 | OPS-T03, OPS-T10 | OPS-A01, OPS-A02, OPS-A04, OPS-A10 | No |
-| OPS-005 | OPS-T03, OPS-T10 | OPS-A03 | No |
-| OPS-006 | OPS-T03, OPS-T10 | OPS-A02, OPS-A04, OPS-A10 | No |
-| OPS-007 | OPS-T01, OPS-T04, OPS-T06, OPS-T10 | OPS-A11 | No |
-| OPS-008 | OPS-T04, OPS-T06, OPS-T10 | OPS-A12 | No |
-| OPS-009 | OPS-T07, OPS-T10 | OPS-A05, OPS-A07 | No |
-| OPS-010 | OPS-T05, OPS-T08, OPS-T09, OPS-T10 | OPS-A13 | No |
-| OPS-011 | OPS-T08, OPS-T10 | OPS-A14 | No |
-| OPS-012 | OPS-T09, OPS-T10 | OPS-A06 | No |
-| OPS-013 | OPS-T05, OPS-T09, OPS-T10 | OPS-A13 | No |
-| OPS-014 | OPS-T08, OPS-T10 | OPS-A08, OPS-A13 | No |
-| OPS-015 | OPS-T07, OPS-T10 | OPS-A05, OPS-A07 | No |
-| OPS-016 | OPS-T07, OPS-T09, OPS-T10 | OPS-A15 | No |
-| OPS-017 | OPS-T01, OPS-T02, OPS-T04, OPS-T06, OPS-T10 | OPS-A16 | No |
+| OPS-001 | OPS-T02, OPS-T04, OPS-T06, OPS-T10 | OPS-A10 | Yes: OPS-T10 |
+| OPS-002 | OPS-T02, OPS-T04, OPS-T06, OPS-T10 | OPS-A09 | Yes: OPS-T10 |
+| OPS-003 | OPS-T01, OPS-T02, OPS-T03, OPS-T08, OPS-T10 | OPS-A01 | Yes: OPS-T10 |
+| OPS-004 | OPS-T03, OPS-T10 | OPS-A01, OPS-A02, OPS-A04, OPS-A10 | Yes: OPS-T10 |
+| OPS-005 | OPS-T03, OPS-T10 | OPS-A03 | Yes: OPS-T10 |
+| OPS-006 | OPS-T03, OPS-T10 | OPS-A02, OPS-A04, OPS-A10 | Yes: OPS-T10 |
+| OPS-007 | OPS-T01, OPS-T04, OPS-T06, OPS-T10 | OPS-A11 | Yes: OPS-T10 |
+| OPS-008 | OPS-T04, OPS-T06, OPS-T10 | OPS-A12 | Yes: OPS-T10 |
+| OPS-009 | OPS-T07, OPS-T10 | OPS-A05, OPS-A07 | Yes: OPS-T10 |
+| OPS-010 | OPS-T05, OPS-T08, OPS-T09, OPS-T10 | OPS-A13 | Yes: OPS-T10 |
+| OPS-011 | OPS-T08, OPS-T10 | OPS-A14 | Yes: OPS-T10 |
+| OPS-012 | OPS-T09, OPS-T10 | OPS-A06 | Yes: OPS-T10 |
+| OPS-013 | OPS-T05, OPS-T09, OPS-T10 | OPS-A13 | Yes: OPS-T10 |
+| OPS-014 | OPS-T08, OPS-T10 | OPS-A08, OPS-A13 | Yes: OPS-T10 |
+| OPS-015 | OPS-T07, OPS-T10 | OPS-A05, OPS-A07 | Yes: OPS-T10 |
+| OPS-016 | OPS-T07, OPS-T09, OPS-T10 | OPS-A15 | Yes: OPS-T10 |
+| OPS-017 | OPS-T01, OPS-T02, OPS-T04, OPS-T06, OPS-T10 | OPS-A16 | Yes: OPS-T10 |
 
 ## Deferred work
 
