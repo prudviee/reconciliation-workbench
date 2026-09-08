@@ -1,9 +1,9 @@
 # 005 Workbench and Run History — Implementation Plan
 
-- **Status:** Approved
+- **Status:** Complete
 - **Specification:** [spec.md](./spec.md)
 - **Target branch:** `codex/005-submission-workbench`
-- **Last updated:** 7 September 2026
+- **Last updated:** 8 September 2026
 
 ## Summary
 
@@ -25,9 +25,10 @@ The implementation stays synchronous for the local submission. It uses progressi
 |---|---|
 | `GET /books/{book}/workbench` | Readiness, latest/selected run, summary, paginated current cases, run history |
 | `POST /books/{book}/runs` | Freeze, execute, and publish one scoped run; redirect to workbench |
-| `GET /books/{book}/scopes/{scope}/cases/{case}` | Current/historical evidence, comparisons, raw/canonical rows, decisions, occurrences, lineage |
-| `POST /books/{book}/scopes/{scope}/cases/{case}/link/preview` | Validate proposed opposite-side unmatched record and show both records plus affected authority |
-| `POST /books/{book}/scopes/{scope}/cases/{case}/link` | Commit the exact reviewed link with reason and expected generation; redirect to pending workbench |
+| `GET /books/{book}/cases/{case}` | Current/historical evidence, comparisons, raw/canonical rows, decisions, occurrences, lineage |
+| `POST /books/{book}/cases/{case}/link` | Validate the retained candidate, commit the exact reviewed link with reason and expected generation, and redirect to pending case evidence |
+
+The manual-link page is the preview surface: it shows both the retained source record and candidate metadata before the reviewer submits the reasoned action. A dedicated JavaScript preview endpoint is deliberately deferred because the submission flow is server-rendered and no-JavaScript complete.
 
 ## Security and failure behavior
 

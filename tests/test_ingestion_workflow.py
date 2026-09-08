@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import re
+
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, override_settings
 import pytest
 
 from books.models import ReconciliationBook
 from ingestion.models import AttemptState, DatasetMembership, IngestionAttempt
+from reconciliation.models import ReconciliationRun, RunPair
 from workspaces.models import Workspace
 from workspaces.sessions import digest_session_key
 
@@ -263,3 +266,146 @@ def test_workbench_context_waits_for_both_sources_and_is_idempotent(tmp_path) ->
         assert first.id == second.id
         assert ReconciliationScope.objects.filter(book=book).count() == 1
         assert PolicyRevision.objects.filter(book=book).count() == 1
+
+
+@override_settings(DEBUG=False)
+def test_no_javascript_workbench_starts_run_and_shows_results(tmp_path) -> None:
+    counterparty = (
+        "reference,executed_at,symbol,direction,qty,unit_price,total,status\n"
+        "T-1001,2025-07-01 09:15:00,BTC-USD,B,0.5,62000,31000.20,SETTLED\n"
+    )
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        client = Client()
+        book = create_book(client)
+        left = upload(client, f"/books/{book.id}/sources/left/upload", LEDGER)
+        client.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        right = upload(
+            client,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        client.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+
+        ready = client.get(f"/books/{book.id}/workbench")
+        assert ready.status_code == 200
+        assert "Sources are ready to reconcile" in ready.content.decode()
+        assert "Start reconciliation" in ready.content.decode()
+        assert "<script" not in ready.content.decode()
+
+        started = client.post(f"/books/{book.id}/runs", follow=True)
+        content = started.content.decode()
+        assert started.status_code == 200
+        assert "Reconciliation completed" in content
+        assert "Pairs" in content
+        assert "Current review" in content
+        assert "Current run" in content
+        assert "Run again" in content
+
+
+@override_settings(DEBUG=False)
+def test_workbench_routes_hide_foreign_and_absent_books() -> None:
+    owner = Client()
+    book = create_book(owner)
+    outsider = Client()
+    create_book(outsider)
+    foreign = outsider.get(f"/books/{book.id}/workbench")
+    absent = outsider.get("/books/00000000-0000-0000-0000-000000000001/workbench")
+    assert foreign.status_code == absent.status_code == 404
+    assert foreign.content == absent.content
+
+
+def test_run_start_requires_csrf() -> None:
+    setup = Client()
+    book = create_book(setup)
+    client = Client(enforce_csrf_checks=True)
+    client.cookies = setup.cookies
+    response = client.post(f"/books/{book.id}/runs")
+    assert response.status_code == 403
+
+
+@override_settings(DEBUG=False)
+def test_case_detail_exposes_side_by_side_evidence_and_history(tmp_path) -> None:
+    counterparty = (
+        "reference,executed_at,symbol,direction,qty,unit_price,total,status\n"
+        "T-1001,2025-07-01 09:15:00,BTC-USD,B,0.5,62000,31000.20,SETTLED\n"
+    )
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        client = Client()
+        book = create_book(client)
+        left = upload(client, f"/books/{book.id}/sources/left/upload", LEDGER)
+        client.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        right = upload(
+            client,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        client.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+
+        result = client.post(f"/books/{book.id}/runs", follow=True)
+        match = re.search(r"/cases/([0-9a-f-]{36})", result.content.decode())
+        assert match is not None
+
+        detail = client.get(f"/books/{book.id}/cases/{match.group(1)}")
+        content = detail.content.decode()
+        assert detail.status_code == 200
+        assert "Raw and canonical values" in content
+        assert "Field differences and tolerances" in content
+        assert "Occurrence history" in content
+        assert "Policy digest" in content
+        assert "T-1001" in content
+        assert "<script" not in content
+
+
+@override_settings(DEBUG=False)
+def test_case_detail_manual_link_requires_reason_and_marks_rerun_pending(tmp_path) -> None:
+    counterparty = (
+        "reference,executed_at,symbol,direction,qty,unit_price,total,status\n"
+        "T-2001,2025-07-01 09:15:00,BTC-USD,B,100,10,1000,SETTLED\n"
+    )
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        client = Client()
+        book = create_book(client)
+        left = upload(client, f"/books/{book.id}/sources/left/upload", LEDGER)
+        client.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        right = upload(
+            client,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        client.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+
+        result = client.post(f"/books/{book.id}/runs", follow=True)
+        match = re.search(r"/cases/([0-9a-f-]{36})", result.content.decode())
+        assert match is not None
+        detail = client.get(f"/books/{book.id}/cases/{match.group(1)}")
+        content = detail.content.decode()
+        option = re.search(r'<option value="([^"]+)">', content)
+        assert option is not None, content
+
+        rejected = client.post(
+            f"/books/{book.id}/cases/{match.group(1)}/link",
+            {"partner_logical_id": option.group(1)},
+        )
+        assert rejected.status_code == 400
+        assert "provide a reason" in rejected.content.decode()
+
+        linked = client.post(
+            f"/books/{book.id}/cases/{match.group(1)}/link",
+            {"partner_logical_id": option.group(1), "reason": "Confirmed by settlement ledger."},
+            follow=True,
+        )
+        assert linked.status_code == 200
+        assert "Manual link saved" in linked.content.decode()
+        pending = client.get(f"/books/{book.id}/workbench")
+        assert "Changes are waiting for a rerun" in pending.content.decode()
+        assert ReconciliationRun.objects.filter(scope__book=book).count() == 1
+        rerun = client.post(f"/books/{book.id}/runs", follow=True)
+        assert rerun.status_code == 200
+        latest = ReconciliationRun.objects.filter(scope__book=book).order_by("-created_at").first()
+        assert latest is not None
+        assert RunPair.objects.filter(run=latest, origin="MANUAL").exists()
+        history = client.get(f"/books/{book.id}/workbench")
+        assert "Historical run" in history.content.decode()

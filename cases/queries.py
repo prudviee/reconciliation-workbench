@@ -29,9 +29,43 @@ from .models import (
     CaseScopeProjection,
     InvestigationCase,
 )
+from reconciliation.models import CandidateEvidence
 
 
 _CASE_CURSOR = "review-cases-v1"
+
+
+@dataclass(frozen=True, slots=True)
+class CaseEvidenceRecord:
+    side: str
+    observation_id: UUID
+    logical_transaction_id: UUID
+    source_record_key: str
+    row_number: int
+    raw_values: tuple[dict, ...]
+    canonical_values: dict
+    provenance: tuple[dict, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CaseEvidenceDetail:
+    case_id: UUID
+    kind: str
+    stable_key: str
+    occurrence: CaseOccurrenceItem
+    current_review: CurrentCaseReview | None
+    history: CaseHistory
+    lineage: CaseLineageDetail
+    left: CaseEvidenceRecord | None
+    right: CaseEvidenceRecord | None
+    comparisons: tuple[dict, ...]
+    candidates: tuple[dict, ...]
+    link_options: tuple[dict, ...]
+    run_metadata: dict
+
+    @property
+    def records(self) -> tuple[CaseEvidenceRecord, ...]:
+        return tuple(item for item in (self.left, self.right) if item is not None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +276,151 @@ class CaseQueryService:
             updated_at=projection.updated_at,
         )
 
+    def get_case_evidence(
+        self,
+        workspace_id: WorkspaceId,
+        *,
+        book_id: BookId,
+        scope_id: UUID | str,
+        case_id: UUID | str,
+    ) -> CaseEvidenceDetail:
+        book, scope = self._context(workspace_id, book_id, scope_id)
+        case = self._case(workspace_id, book, scope, case_id)
+        projection = (
+            CaseScopeProjection.objects.owned_by(workspace_id)
+            .filter(scope=scope, case=case)
+            .select_related("current_occurrence__run")
+            .first()
+        )
+        if projection is None:
+            raise ReviewQueryUnavailable
+        occurrence = self._occurrence_with_evidence(
+            workspace_id, book, scope, projection.current_occurrence_id
+        )
+        history = self.get_case_history(
+            workspace_id, book_id=book_id, scope_id=scope.id, case_id=case.id
+        )
+        lineage = self.get_case_lineage(
+            workspace_id, book_id=book_id, scope_id=scope.id, case_id=case.id
+        )
+        current_review = self.get_current_review(
+            workspace_id, book_id=book_id, scope_id=scope.id, case_id=case.id
+        )
+        current_occurrence = (
+            CaseOccurrence.objects.owned_by(workspace_id)
+            .filter(id=projection.current_occurrence_id)
+            .select_related(
+                "run__policy_revision",
+                "pair__left_observation__logical_transaction",
+                "pair__right_observation__logical_transaction",
+                "pair__left_observation__raw_row",
+                "pair__right_observation__raw_row",
+                "unpaired__observation__logical_transaction",
+                "unpaired__observation__raw_row",
+                "component",
+            )
+            .get()
+        )
+        left = right = None
+        comparisons: tuple[dict, ...] = ()
+        candidates: tuple[dict, ...] = ()
+        if current_occurrence.pair_id:
+            pair = current_occurrence.pair
+            left = self._record("LEFT", pair.left_observation)
+            right = self._record("RIGHT", pair.right_observation)
+            comparisons = tuple(
+                {
+                    "field": item.field,
+                    "status": item.status,
+                    "left_value": item.left_value,
+                    "right_value": item.right_value,
+                    "signed_difference": item.signed_difference,
+                    "allowed_difference": item.allowed_difference,
+                    "explanation": item.explanation,
+                }
+                for item in pair.comparisons.all().order_by("field")
+            )
+        elif current_occurrence.unpaired_id:
+            item = current_occurrence.unpaired
+            record = self._record(item.side, item.observation)
+            if item.side == "LEFT":
+                left = record
+            else:
+                right = record
+        elif current_occurrence.component_id:
+            candidates = tuple(
+                {
+                    "score_bp": item.score_bp,
+                    "score_label": item.score_label,
+                    "blocking_reasons": tuple(item.blocking_reasons),
+                    "contradictions": tuple(item.contradictions),
+                    "coverage_failures": tuple(item.coverage_failures),
+                    "complete_computation": item.complete_computation,
+                    "left_observation_id": item.left_observation_id,
+                    "right_observation_id": item.right_observation_id,
+                }
+                for item in CandidateEvidence.objects.owned_by(workspace_id)
+                .filter(component_id=current_occurrence.component_id)
+                .order_by("-score_bp", "id")
+            )
+        link_options: tuple[dict, ...] = ()
+        if (left is None) != (right is None):
+            own_observation_id = (left or right).observation_id
+            options = CandidateEvidence.objects.owned_by(workspace_id).filter(
+                run=current_occurrence.run
+            ).filter(
+                Q(left_observation_id=own_observation_id)
+                | Q(right_observation_id=own_observation_id)
+            ).select_related(
+                "left_observation", "right_observation"
+            ).order_by("-score_bp", "id")
+            link_options = tuple(
+                {
+                    "partner_observation_id": (
+                        item.right_observation_id
+                        if item.left_observation_id == own_observation_id
+                        else item.left_observation_id
+                    ),
+                    "left_observation_id": item.left_observation_id,
+                    "right_observation_id": item.right_observation_id,
+                    "partner_logical_id": (
+                        item.right_observation.logical_transaction_id
+                        if item.left_observation_id == own_observation_id
+                        else item.left_observation.logical_transaction_id
+                    ),
+                    "score_bp": item.score_bp,
+                    "score_label": item.score_label,
+                    "blocking_reasons": tuple(item.blocking_reasons),
+                }
+                for item in options
+            )
+        policy = current_occurrence.run.policy_revision
+        return CaseEvidenceDetail(
+            case_id=case.id,
+            kind=case.kind,
+            stable_key=case.stable_key,
+            occurrence=occurrence,
+            current_review=current_review,
+            history=history,
+            lineage=lineage,
+            left=left,
+            right=right,
+            comparisons=comparisons,
+            candidates=candidates,
+            link_options=link_options,
+            run_metadata={
+                "run_id": current_occurrence.run_id,
+                "created_at": current_occurrence.run.created_at,
+                "data_generation": current_occurrence.run.data_generation,
+                "resolution_generation": current_occurrence.run.resolution_generation,
+                "engine_version": current_occurrence.run.engine_version,
+                "solver_version": current_occurrence.run.solver_version,
+                "policy_digest": policy.digest,
+                "matching_policy_version": policy.matching_policy.get("policy_version"),
+                "comparison_policy_version": policy.comparison_policy.get("policy_version"),
+            },
+        )
+
     def get_case_lineage(
         self,
         workspace_id: WorkspaceId,
@@ -328,6 +507,45 @@ class CaseQueryService:
             created_at=occurrence.created_at,
             timeline_label="CURRENT" if occurrence.is_current else "HISTORICAL",
         )
+
+    @staticmethod
+    def _record(side: str, observation) -> CaseEvidenceRecord:
+        canonical = {
+            "business_reference": observation.business_reference,
+            "executed_at_utc": observation.executed_at_utc.isoformat(),
+            "instrument": observation.instrument,
+            "side": observation.side,
+            "quantity": str(observation.quantity),
+            "unit_price": str(observation.unit_price),
+            "gross_amount": str(observation.gross_amount),
+            "currency": observation.currency,
+            "state": observation.state,
+        }
+        return CaseEvidenceRecord(
+            side=side,
+            observation_id=observation.id,
+            logical_transaction_id=observation.logical_transaction_id,
+            source_record_key=observation.logical_transaction.source_record_key,
+            row_number=observation.raw_row.row_number,
+            raw_values=tuple(observation.raw_row.raw_values or ()),
+            canonical_values=canonical,
+            provenance=tuple(observation.provenance or ()),
+        )
+
+    def _occurrence_with_evidence(self, workspace_id, book, scope, occurrence_id):
+        current = CaseScopeProjection.objects.owned_by(workspace_id).filter(
+            scope=scope, current_occurrence_id=OuterRef("pk")
+        )
+        try:
+            return (
+                CaseOccurrence.objects.owned_by(workspace_id)
+                .filter(case__book=book, run__scope=scope)
+                .select_related("run")
+                .annotate(is_current=Exists(current))
+                .get(id=occurrence_id)
+            )
+        except CaseOccurrence.DoesNotExist as error:
+            raise ReviewQueryUnavailable from error
 
     @staticmethod
     def _lineage_item(

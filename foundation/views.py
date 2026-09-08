@@ -19,7 +19,23 @@ from ingestion.repositories import (
 )
 from ingestion.services import ArtifactIntakeService, configured_artifact_store
 from ingestion.workflow import SourcePreparationService
-from reconciliation.domain import BookId, QuotaExceeded, QuotaResource
+from reconciliation.domain import (
+    BookId,
+    DecisionAction,
+    DecisionAuthority,
+    DecisionCommand,
+    QuotaExceeded,
+    QuotaResource,
+)
+from reconciliation.querying import ReviewCursorError, ReviewPageSizeError, ReviewQueryUnavailable
+from cases.queries import CaseQueryService
+from reconciliation.services import ReconciliationRunService, RunUnavailable
+from resolutions.services import (
+    DecisionCommandService,
+    DecisionMutationConflict,
+    DecisionMutationUnavailable,
+)
+from reconciliation.workbench import WorkbenchNotReady, WorkbenchService, WorkbenchUnavailable
 from sources.adapters import counterparty_contract, ledger_contract
 from sources.models import BookSource, SourceContractRevision, SourceRole
 from workspaces.middleware import workspace_access, workspace_record, workspace_required
@@ -462,3 +478,169 @@ def workspace_unavailable(request: HttpRequest) -> HttpResponse:
         },
         status=410,
     )
+@workspace_required
+@require_GET
+def reconciliation_workbench(request: HttpRequest, book_id: object) -> HttpResponse:
+    access = workspace_access(request)
+    book = _owned_book(request, book_id)
+    try:
+        snapshot = WorkbenchService().snapshot(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            selected_run_id=request.GET.get("run"),
+            case_cursor=request.GET.get("cursor"),
+        )
+    except WorkbenchUnavailable:
+        raise Http404 from None
+    except (ReviewCursorError, ReviewPageSizeError):
+        return HttpResponse("Invalid workbench page request", status=400)
+    return render(
+        request,
+        "foundation/workbench.html",
+        {
+            "book": book,
+            "snapshot": snapshot,
+            "message": (
+                "Reconciliation completed. The immutable result is now available."
+                if request.GET.get("completed")
+                else None
+            ),
+        },
+    )
+
+
+@workspace_required
+@require_POST
+def reconciliation_run_start(request: HttpRequest, book_id: object) -> HttpResponse:
+    access = workspace_access(request)
+    book = _owned_book(request, book_id)
+    workbench = WorkbenchService()
+    try:
+        scope = workbench.ensure_run_context(
+            access.workspace_id,
+            book_id=BookId(book.id),
+        )
+        runner = ReconciliationRunService()
+        frozen = runner.create_run_manifest(access.workspace_id, scope.id)
+        runner.execute_and_publish_run(access.workspace_id, frozen.run_id)
+    except WorkbenchNotReady:
+        snapshot = workbench.snapshot(access.workspace_id, book_id=BookId(book.id))
+        return render(
+            request,
+            "foundation/workbench.html",
+            {
+                "book": book,
+                "snapshot": snapshot,
+                "error": "Activate both source datasets before starting reconciliation.",
+            },
+            status=409,
+        )
+    except (WorkbenchUnavailable, RunUnavailable):
+        raise Http404 from None
+    return redirect(f"/books/{book.id}/workbench?run={frozen.run_id}&completed=1")
+
+
+@workspace_required
+@require_GET
+def reconciliation_case_detail(request: HttpRequest, book_id: object, case_id: object) -> HttpResponse:
+    access = workspace_access(request)
+    book = _owned_book(request, book_id)
+    readiness = WorkbenchService().readiness(
+        access.workspace_id, book_id=BookId(book.id)
+    )
+    if readiness.scope_id is None:
+        raise Http404
+    try:
+        evidence = CaseQueryService().get_case_evidence(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            case_id=case_id,
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
+    return render(
+        request,
+        "foundation/case_detail.html",
+        {
+            "book": book,
+            "evidence": evidence,
+            "message": (
+                "Manual link saved. Run reconciliation again to publish it into a new immutable result."
+                if request.GET.get("linked")
+                else None
+            ),
+        },
+    )
+
+
+@workspace_required
+@require_POST
+def reconciliation_case_link(request: HttpRequest, book_id: object, case_id: object) -> HttpResponse:
+    access = workspace_access(request)
+    book = _owned_book(request, book_id)
+    readiness = WorkbenchService().readiness(
+        access.workspace_id, book_id=BookId(book.id)
+    )
+    if readiness.scope_id is None:
+        raise Http404
+    try:
+        evidence = CaseQueryService().get_case_evidence(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            case_id=case_id,
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
+    reason = str(request.POST.get("reason", "")).strip()
+    partner_logical_id = str(request.POST.get("partner_logical_id", "")).strip()
+    option = next(
+        (item for item in evidence.link_options if str(item["partner_logical_id"]) == partner_logical_id),
+        None,
+    )
+    own = evidence.left or evidence.right
+    if own is None or option is None or not reason:
+        return render(
+            request,
+            "foundation/case_detail.html",
+            {"book": book, "evidence": evidence, "error": "Choose an available counterpart and provide a reason."},
+            status=400,
+        )
+    if evidence.left is not None:
+        authority = DecisionAuthority.link(
+            str(evidence.left.logical_transaction_id), partner_logical_id
+        )
+    else:
+        authority = DecisionAuthority.link(
+            partner_logical_id, str(evidence.right.logical_transaction_id)
+        )
+    expected_generation = (
+        evidence.current_review.applied_resolution_generation
+        if evidence.current_review is not None
+        else book.resolution_generation
+    )
+    command = DecisionCommand(
+        action=DecisionAction.LINK,
+        reason=reason,
+        actor="showcase-reviewer",
+        expected_resolution_generation=expected_generation,
+        authority=authority,
+        reviewed_observation_ids=(
+            str(own.observation_id), str(option["partner_observation_id"])
+        ),
+    )
+    try:
+        DecisionCommandService().commit_initial(
+            access.workspace_id, book_id=BookId(book.id), command=command
+        )
+    except DecisionMutationConflict as error:
+        return render(
+            request,
+            "foundation/case_detail.html",
+            {"book": book, "evidence": evidence, "error": str(error)},
+            status=409,
+        )
+    except (DecisionMutationUnavailable, ValueError):
+        raise Http404 from None
+    return redirect(f"/books/{book.id}/cases/{case_id}?linked=1")

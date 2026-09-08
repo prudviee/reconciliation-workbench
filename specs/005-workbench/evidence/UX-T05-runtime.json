@@ -1,0 +1,19 @@
+{
+  "task": "UX-T05",
+  "verified_at": "2026-09-08",
+  "branch": "codex/005-submission-workbench",
+  "journey": "upload -> activate -> run -> inspect evidence -> manual link -> rerun -> history",
+  "tests": {
+    "full_suite": {"passed": 465, "failed": 0},
+    "django_check": "passed",
+    "migration_drift": "none",
+    "diff_check": "passed"
+  },
+  "runtime": {
+    "health_url": "http://localhost:8010/health/ready",
+    "http_status": 200,
+    "database": "ready"
+  },
+  "javascript_required": false,
+  "sign_in_required": false
+}

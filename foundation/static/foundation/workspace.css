@@ -473,3 +473,35 @@ details summary { color: var(--blue); font-weight: 750; cursor: pointer; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: 0.01ms !important; }
 }
+
+/* Reconciliation workbench */
+.workbench-heading { margin-bottom: 28px; }
+.run-command { margin-bottom: 30px; padding: 26px 28px; border-radius: 14px; background: var(--ink); color: white; display: flex; align-items: center; justify-content: space-between; gap: 30px; }
+.run-command h2 { margin: 3px 0 6px; font-size: 24px; }
+.run-command p { margin: 0; color: #b8c4d5; }
+.run-command .section-kicker { color: #8faeff; }
+.workbench-empty { margin-bottom: 40px; }
+.workbench-table { width: 100%; min-width: 760px; border-collapse: collapse; background: white; }
+.workbench-table th, .workbench-table td { padding: 16px 18px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.workbench-table thead th { background: #f1f4f8; color: #506078; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
+.workbench-table td strong, .workbench-table td small { display: block; }
+.workbench-table td small { margin-top: 4px; color: var(--muted); }
+.workbench-table code { font-variant-numeric: tabular-nums; }
+@media (max-width: 620px) { .run-command { align-items: stretch; flex-direction: column; } }
+
+.record-grid,
+.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.record-card,
+.panel { border: 1px solid var(--line); border-radius: 12px; background: white; padding: 18px; }
+.record-card h3, .record-card h4 { margin-top: 0; }
+.record-card h4 { margin-bottom: 6px; color: var(--muted); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
+.record-card dl, .metadata-list { display: grid; gap: 4px; margin: 0 0 16px; }
+.record-card dl div, .metadata-list div { display: grid; grid-template-columns: minmax(110px, .8fr) minmax(0, 1.2fr); gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.record-card dt, .metadata-list dt { color: var(--muted); font-size: 12px; }
+.record-card dd, .metadata-list dd { margin: 0; overflow-wrap: anywhere; }
+.timeline-list, .lineage-list { display: grid; gap: 10px; margin: 0; padding-left: 20px; }
+.timeline-list li, .lineage-list li { display: grid; gap: 3px; }
+.manual-link-panel { margin-bottom: 24px; }
+.manual-link-panel form { display: grid; gap: 16px; max-width: 720px; }
+.manual-link-panel textarea { width: 100%; padding: 10px 12px; border: 1px solid #bbc7d6; border-radius: 8px; font: inherit; resize: vertical; }
+@media (max-width: 760px) { .record-grid, .detail-grid { grid-template-columns: 1fr; } .record-card dl div, .metadata-list div { grid-template-columns: 1fr; gap: 2px; } }

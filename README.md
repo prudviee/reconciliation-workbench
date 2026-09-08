@@ -12,7 +12,18 @@ The supported CSV boundary is UTF-8 or UTF-8 with BOM, comma/semicolon/tab delim
 
 The application layer now persists frozen run manifests and complete immutable results, publishes current or stale runs atomically, and preserves append-only manual links, accepted-unmatched decisions, rejected candidates, reaffirmations, revocations, and replacements. Corrections update decision health without weakening authority. Stable pair, unpaired, and ambiguity cases retain immutable occurrences and explicit merge/split lineage. Workspace-scoped query services expose paginated decisions and cases, labelled history, current review, replacement previews, and lineage for the browser workbench.
 
-The browser currently covers workspace creation and source preparation. Specification 005 adds the reconciliation workbench and manual-review pages over the verified application services. The local runner remains synchronous; specification 006 adds durable background work and production deployment.
+The browser now covers workspace creation, source preparation, synchronous reconciliation runs, selected-run history, side-by-side case evidence, and reasoned manual linking with rerun persistence. The complete submission journey requires no JavaScript and keeps historical run facts separate from the current review queue. The local runner remains synchronous; specification 006 adds durable background work and production deployment.
+
+## Atlas submission walkthrough
+
+1. Open the local workbench and create the anonymous demo book.
+2. Upload the internal-ledger CSV on the left and the counterparty CSV on the right. Review raw values, canonical values, validation, and field lineage before activating each source.
+3. Open the reconciliation workbench, start a run, and inspect the selected-run counts and current review cases.
+4. Open a case to compare retained source evidence, canonical fields, tolerances, matching reason, policy versions, occurrence history, and lineage.
+5. For an unpaired record, select a retained candidate, provide a reason, and save the manual link. The earlier run remains immutable while the workbench labels the review state as awaiting rerun.
+6. Run again and open history to show the new manual pair alongside the preserved earlier run.
+
+The acceptance journey is recorded in [UX-T05 evidence](./specs/005-workbench/evidence/UX-T05.md). The current required slice is server-rendered and does not require developer tools or sign-in.
 
 ## Start here
 

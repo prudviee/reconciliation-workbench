@@ -1,6 +1,6 @@
 # 005 Workbench and Run History — Specification
 
-- **Status:** Ready
+- **Status:** Verified
 - **Prefix:** `UX`
 - **Depends on:** 001–004
 - **Reviewed:** 5 September 2026

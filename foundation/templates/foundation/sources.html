@@ -29,4 +29,5 @@
     {% endfor %}
   </section>
   <aside class="explain-card"><strong>Nothing is matched during preparation.</strong> Activation only selects immutable source observations. Matching and reviewer decisions happen in later stages.</aside>
+  <div class="form-actions"><a class="button button-primary button-link" href="{% url 'foundation:workbench' book.id %}">Open reconciliation workbench</a></div>
 {% endblock %}

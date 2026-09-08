@@ -10,6 +10,26 @@ urlpatterns = [
     path("books/<uuid:book_id>", views.book_detail, name="book-detail"),
     path("books/<uuid:book_id>/sources", views.book_sources, name="book-sources"),
     path(
+        "books/<uuid:book_id>/workbench",
+        views.reconciliation_workbench,
+        name="workbench",
+    ),
+    path(
+        "books/<uuid:book_id>/runs",
+        views.reconciliation_run_start,
+        name="run-start",
+    ),
+    path(
+        "books/<uuid:book_id>/cases/<uuid:case_id>",
+        views.reconciliation_case_detail,
+        name="case-detail",
+    ),
+    path(
+        "books/<uuid:book_id>/cases/<uuid:case_id>/link",
+        views.reconciliation_case_link,
+        name="case-link",
+    ),
+    path(
         "books/<uuid:book_id>/sources/<str:side>/upload",
         views.source_upload,
         name="source-upload",
