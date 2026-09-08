@@ -102,7 +102,11 @@ def test_configured_artifact_store_defaults_to_local(settings) -> None:
     assert isinstance(configured_artifact_store(), PrivateArtifactStore)
 
 
-def test_configured_artifact_store_selects_s3_when_configured(settings, tmp_path: Path) -> None:
+def test_configured_artifact_store_selects_s3_when_configured(
+    settings,
+    tmp_path: Path,
+    isolated_aws_credentials,
+) -> None:
     from ingestion.s3_artifacts import S3ArtifactStore
 
     settings.INGESTION_STORAGE_BACKEND = "s3"

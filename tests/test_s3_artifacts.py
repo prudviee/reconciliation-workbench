@@ -20,7 +20,10 @@ from workspaces.models import Workspace
 from workspaces.quotas import WorkspaceQuotaService
 
 
-pytestmark = pytest.mark.django_db
+pytestmark = [
+    pytest.mark.django_db,
+    pytest.mark.usefixtures("isolated_aws_credentials"),
+]
 NOW = datetime(2026, 9, 8, tzinfo=UTC)
 CSV_BYTES = b"trade_id,amount\nTX-1,100\n"
 
