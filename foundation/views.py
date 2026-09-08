@@ -35,6 +35,7 @@ from reconciliation.domain import (
     JobKind,
     QuotaExceeded,
     QuotaResource,
+    RecordSide,
     RetryPolicy,
 )
 from reconciliation.querying import (
@@ -730,10 +731,19 @@ def reconciliation_case_detail(request: HttpRequest, book_id: object, case_id: o
         {
             "book": book,
             "evidence": evidence,
+            "pending_changes": (
+                evidence.current_review is not None
+                and book.resolution_generation
+                != evidence.current_review.applied_resolution_generation
+            ),
             "message": (
                 "Manual link saved. Run reconciliation again to publish it into a new immutable result."
                 if request.GET.get("linked")
-                else None
+                else (
+                    "Unmatched decision saved. Run reconciliation again to publish it into a new immutable result."
+                    if request.GET.get("accepted")
+                    else None
+                )
             ),
         },
     )
@@ -809,3 +819,74 @@ def reconciliation_case_link(request: HttpRequest, book_id: object, case_id: obj
     except (DecisionMutationUnavailable, ValueError):
         raise Http404 from None
     return redirect(f"/books/{book.id}/cases/{case_id}?linked=1")
+
+
+@workspace_required
+@require_POST
+def reconciliation_case_accept_unmatched(
+    request: HttpRequest, book_id: object, case_id: object
+) -> HttpResponse:
+    access = workspace_access(request)
+    book = _owned_book(request, book_id)
+    readiness = WorkbenchService().readiness(
+        access.workspace_id, book_id=BookId(book.id)
+    )
+    if readiness.scope_id is None:
+        raise Http404
+    try:
+        evidence = CaseQueryService().get_case_evidence(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            case_id=case_id,
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
+    reason = str(request.POST.get("reason", "")).strip()
+    own = evidence.left or evidence.right
+    can_accept = (
+        own is not None
+        and evidence.occurrence.result_kind == "UNPAIRED"
+        and own.canonical_values.get("state") != "CANCELLED"
+    )
+    if not can_accept or not reason:
+        return render(
+            request,
+            "foundation/case_detail.html",
+            {
+                "book": book,
+                "evidence": evidence,
+                "error": "Provide a reason before accepting this record as genuinely unmatched.",
+            },
+            status=400,
+        )
+    side = RecordSide.LEFT if evidence.left is not None else RecordSide.RIGHT
+    expected_generation = (
+        evidence.current_review.applied_resolution_generation
+        if evidence.current_review is not None
+        else book.resolution_generation
+    )
+    command = DecisionCommand(
+        action=DecisionAction.ACCEPT_UNMATCHED,
+        reason=reason,
+        actor="showcase-reviewer",
+        expected_resolution_generation=expected_generation,
+        authority=DecisionAuthority.accept_unmatched(
+            str(own.logical_transaction_id), side
+        ),
+        reviewed_observation_ids=(str(own.observation_id),),
+    )
+    try:
+        DecisionCommandService().commit_initial(
+            access.workspace_id, book_id=BookId(book.id), command=command
+        )
+    except DecisionMutationConflict as error:
+        return render(
+            request,
+            "foundation/case_detail.html",
+            {"book": book, "evidence": evidence, "error": str(error)},
+            status=409,
+        )
+    except (DecisionMutationUnavailable, ValueError):
+        raise Http404 from None
+    return redirect(f"/books/{book.id}/cases/{case_id}?accepted=1")

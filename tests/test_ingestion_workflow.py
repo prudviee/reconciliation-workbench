@@ -9,7 +9,7 @@ import pytest
 
 from books.models import ReconciliationBook
 from ingestion.models import AttemptState, DatasetMembership, IngestionAttempt
-from reconciliation.models import ReconciliationRun, RunPair
+from reconciliation.models import ReconciliationRun, RunPair, RunUnpaired
 from workspaces.models import Workspace
 from workspaces.sessions import digest_session_key
 
@@ -401,6 +401,8 @@ def test_case_detail_manual_link_requires_reason_and_marks_rerun_pending(tmp_pat
         )
         assert linked.status_code == 200
         assert "Manual link saved" in linked.content.decode()
+        assert "Save manual link" not in linked.content.decode()
+        assert "Accept unmatched record" not in linked.content.decode()
         pending = client.get(f"/books/{book.id}/workbench")
         assert "Changes are waiting for a rerun" in pending.content.decode()
         assert ReconciliationRun.objects.filter(scope__book=book).count() == 1
@@ -411,6 +413,73 @@ def test_case_detail_manual_link_requires_reason_and_marks_rerun_pending(tmp_pat
         assert RunPair.objects.filter(run=latest, origin="MANUAL").exists()
         history = client.get(f"/books/{book.id}/workbench")
         assert "Historical run" in history.content.decode()
+
+
+@override_settings(DEBUG=False)
+def test_case_detail_accepts_genuinely_unmatched_with_reason_and_rerun(tmp_path) -> None:
+    ledger = (DEMO_ROOT / "atlas-ledger.csv").read_text(encoding="utf-8")
+    counterparty = (DEMO_ROOT / "atlas-counterparty.csv").read_text(
+        encoding="utf-8"
+    )
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        client = Client()
+        book = create_book(client)
+        left = upload(client, f"/books/{book.id}/sources/left/upload", ledger)
+        client.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        right = upload(
+            client,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        client.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+
+        first_page = client.post(f"/books/{book.id}/runs", follow=True)
+        unmatched_case = None
+        for case_id in re.findall(
+            r"/cases/([0-9a-f-]{36})", first_page.content.decode()
+        ):
+            detail = client.get(f"/books/{book.id}/cases/{case_id}")
+            if "TX-1003 · left" in detail.content.decode():
+                unmatched_case = case_id
+                assert "Accept as genuinely unmatched" in detail.content.decode()
+                break
+        assert unmatched_case is not None
+
+        missing_reason = client.post(
+            f"/books/{book.id}/cases/{unmatched_case}/accept-unmatched"
+        )
+        assert missing_reason.status_code == 400
+        assert "Provide a reason" in missing_reason.content.decode()
+
+        accepted = client.post(
+            f"/books/{book.id}/cases/{unmatched_case}/accept-unmatched",
+            {"reason": "Confirmed as an internal-only transaction."},
+            follow=True,
+        )
+        assert accepted.status_code == 200
+        assert "Unmatched decision saved" in accepted.content.decode()
+        assert "Accept as genuinely unmatched" not in accepted.content.decode()
+        assert "Save manual link" not in accepted.content.decode()
+        pending = client.get(f"/books/{book.id}/workbench")
+        assert "Changes are waiting for a rerun" in pending.content.decode()
+
+        rerun = client.post(f"/books/{book.id}/runs", follow=True)
+        assert rerun.status_code == 200
+        latest = (
+            ReconciliationRun.objects.filter(scope__book=book)
+            .order_by("-created_at")
+            .first()
+        )
+        assert latest is not None
+        assert RunUnpaired.objects.filter(
+            run=latest, reason="ACCEPTED_UNMATCHED"
+        ).exists()
+        current_detail = client.get(
+            f"/books/{book.id}/cases/{unmatched_case}"
+        ).content.decode()
+        assert "unchanged" in current_detail
+        assert "Accept as genuinely unmatched" not in current_detail
 
 
 @override_settings(DEBUG=False)

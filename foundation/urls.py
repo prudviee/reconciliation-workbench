@@ -35,6 +35,11 @@ urlpatterns = [
         name="case-link",
     ),
     path(
+        "books/<uuid:book_id>/cases/<uuid:case_id>/accept-unmatched",
+        views.reconciliation_case_accept_unmatched,
+        name="case-accept-unmatched",
+    ),
+    path(
         "books/<uuid:book_id>/sources/<str:side>/upload",
         views.source_upload,
         name="source-upload",
