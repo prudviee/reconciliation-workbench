@@ -16,6 +16,8 @@ The browser now covers workspace creation, source preparation, synchronous recon
 
 ## Atlas submission walkthrough
 
+The ready-to-use synthetic files and presenter script are in [demo/](./demo/README.md).
+
 1. Open the local workbench and create the anonymous demo book.
 2. Upload the internal-ledger CSV on the left and the counterparty CSV on the right. Review raw values, canonical values, validation, and field lineage before activating each source.
 3. Open the reconciliation workbench, start a run, and inspect the selected-run counts and current review cases.

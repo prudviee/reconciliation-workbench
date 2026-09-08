@@ -4,7 +4,7 @@
   "branch": "codex/005-submission-workbench",
   "journey": "upload -> activate -> run -> inspect evidence -> manual link -> rerun -> history",
   "tests": {
-    "full_suite": {"passed": 465, "failed": 0},
+    "full_suite": {"passed": 466, "failed": 0},
     "django_check": "passed",
     "migration_drift": "none",
     "diff_check": "passed"
@@ -12,7 +12,10 @@
   "runtime": {
     "health_url": "http://localhost:8010/health/ready",
     "http_status": 200,
-    "database": "ready"
+    "database": "ready",
+    "browser_acceptance": "passed",
+    "final_counts": {"pairs": 3, "unpaired": 0},
+    "history_preserved": true
   },
   "javascript_required": false,
   "sign_in_required": false

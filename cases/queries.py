@@ -67,12 +67,22 @@ class CaseEvidenceDetail:
     def records(self) -> tuple[CaseEvidenceRecord, ...]:
         return tuple(item for item in (self.left, self.right) if item is not None)
 
+    @property
+    def display_label(self) -> str:
+        if self.left is not None and self.right is not None:
+            return f"{self.left.source_record_key} ↔ {self.right.source_record_key}"
+        record = self.left or self.right
+        if record is not None:
+            return f"{record.source_record_key} · {record.side.lower()}"
+        return "Ambiguous candidate set"
+
 
 @dataclass(frozen=True, slots=True)
 class CaseListItem:
     case_id: UUID
     kind: str
     stable_key: str
+    display_label: str
     occurrence_id: UUID
     run_id: UUID
     result_kind: str
@@ -156,7 +166,14 @@ class CaseQueryService:
         queryset = (
             CaseScopeProjection.objects.owned_by(workspace_id)
             .filter(scope=scope)
-            .select_related("case", "current_occurrence", "run")
+            .select_related(
+                "case",
+                "case__left_logical",
+                "case__right_logical",
+                "case__record_logical",
+                "current_occurrence",
+                "run",
+            )
             .order_by("case__created_at", "case_id")
         )
         if position is not None:
@@ -174,6 +191,7 @@ class CaseQueryService:
                 case_id=row.case_id,
                 kind=row.case.kind,
                 stable_key=row.case.stable_key,
+                display_label=self._case_label(row.case),
                 occurrence_id=row.current_occurrence_id,
                 run_id=row.run_id,
                 result_kind=row.current_occurrence.result_kind,
@@ -372,7 +390,10 @@ class CaseQueryService:
                 Q(left_observation_id=own_observation_id)
                 | Q(right_observation_id=own_observation_id)
             ).select_related(
-                "left_observation", "right_observation"
+                "left_observation__logical_transaction",
+                "right_observation__logical_transaction",
+                "left_observation__raw_row",
+                "right_observation__raw_row",
             ).order_by("-score_bp", "id")
             link_options = tuple(
                 {
@@ -387,6 +408,17 @@ class CaseQueryService:
                         item.right_observation.logical_transaction_id
                         if item.left_observation_id == own_observation_id
                         else item.left_observation.logical_transaction_id
+                    ),
+                    "partner_source_record_key": (
+                        item.right_observation.logical_transaction.source_record_key
+                        if item.left_observation_id == own_observation_id
+                        else item.left_observation.logical_transaction.source_record_key
+                    ),
+                    "partner_record": self._record(
+                        "RIGHT" if item.left_observation_id == own_observation_id else "LEFT",
+                        item.right_observation
+                        if item.left_observation_id == own_observation_id
+                        else item.left_observation,
                     ),
                     "score_bp": item.score_bp,
                     "score_label": item.score_label,
@@ -537,15 +569,29 @@ class CaseQueryService:
             scope=scope, current_occurrence_id=OuterRef("pk")
         )
         try:
-            return (
+            occurrence = (
                 CaseOccurrence.objects.owned_by(workspace_id)
                 .filter(case__book=book, run__scope=scope)
                 .select_related("run")
                 .annotate(is_current=Exists(current))
                 .get(id=occurrence_id)
             )
+            return self._occurrence_item(occurrence)
         except CaseOccurrence.DoesNotExist as error:
             raise ReviewQueryUnavailable from error
+
+    @staticmethod
+    def _case_label(case: InvestigationCase) -> str:
+        if case.kind == "PAIR":
+            return (
+                f"{case.left_logical.source_record_key} ↔ "
+                f"{case.right_logical.source_record_key}"
+            )
+        if case.kind == "UNPAIRED":
+            return f"{case.record_logical.source_record_key} · {case.record_side.lower()}"
+        left_count = len(case.ambiguity_left_logical_ids or ())
+        right_count = len(case.ambiguity_right_logical_ids or ())
+        return f"Ambiguous set · {left_count} left / {right_count} right"
 
     @staticmethod
     def _lineage_item(

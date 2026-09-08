@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, override_settings
@@ -18,6 +19,7 @@ LEDGER = (
     "trade_id,traded_at,instrument,side,quantity,price,gross_amount,state\n"
     "T-1001,2025-07-01T09:15:00Z,BTC-USD,BUY,0.5,62000,31000,SETTLED\n"
 )
+DEMO_ROOT = Path(__file__).resolve().parents[1] / "demo"
 
 
 def workspace_for(client: Client) -> Workspace:
@@ -382,7 +384,7 @@ def test_case_detail_manual_link_requires_reason_and_marks_rerun_pending(tmp_pat
         assert match is not None
         detail = client.get(f"/books/{book.id}/cases/{match.group(1)}")
         content = detail.content.decode()
-        option = re.search(r'<option value="([^"]+)">', content)
+        option = re.search(r'name="partner_logical_id" value="([^"]+)"', content)
         assert option is not None, content
 
         rejected = client.post(
@@ -409,3 +411,57 @@ def test_case_detail_manual_link_requires_reason_and_marks_rerun_pending(tmp_pat
         assert RunPair.objects.filter(run=latest, origin="MANUAL").exists()
         history = client.get(f"/books/{book.id}/workbench")
         assert "Historical run" in history.content.decode()
+
+
+@override_settings(DEBUG=False)
+def test_curated_atlas_demo_completes_the_submission_journey(tmp_path) -> None:
+    ledger = (DEMO_ROOT / "atlas-ledger.csv").read_text(encoding="utf-8")
+    counterparty = (DEMO_ROOT / "atlas-counterparty.csv").read_text(encoding="utf-8")
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        client = Client()
+        book = create_book(client)
+        left = upload(client, f"/books/{book.id}/sources/left/upload", ledger)
+        client.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        right = upload(
+            client,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        client.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+
+        first_page = client.post(f"/books/{book.id}/runs", follow=True)
+        first_run = ReconciliationRun.objects.get(scope__book=book)
+        assert first_run.result_counts["pairs"] == 2
+        assert first_run.result_counts["unpaired"] == 2
+
+        manual_case = None
+        partner_logical_id = None
+        for case_id in re.findall(r"/cases/([0-9a-f-]{36})", first_page.content.decode()):
+            detail = client.get(f"/books/{book.id}/cases/{case_id}")
+            option = re.search(
+                r'name="partner_logical_id" value="([^"]+)"',
+                detail.content.decode(),
+            )
+            if option is not None:
+                manual_case = case_id
+                partner_logical_id = option.group(1)
+                break
+        assert manual_case is not None
+        assert partner_logical_id is not None
+
+        linked = client.post(
+            f"/books/{book.id}/cases/{manual_case}/link",
+            {
+                "partner_logical_id": partner_logical_id,
+                "reason": "Confirmed against settlement statement.",
+            },
+            follow=True,
+        )
+        assert "Manual link saved" in linked.content.decode()
+
+        second_page = client.post(f"/books/{book.id}/runs", follow=True)
+        latest = ReconciliationRun.objects.filter(scope__book=book).order_by("-created_at").first()
+        assert latest is not None and latest.id != first_run.id
+        assert RunPair.objects.filter(run=latest, origin="MANUAL").exists()
+        assert "Historical run" in second_page.content.decode()

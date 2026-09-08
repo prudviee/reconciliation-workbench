@@ -18,7 +18,7 @@
     </section>
   {% else %}
     <section class="run-command" aria-labelledby="run-heading">
-      <div><p class="section-kicker">Current inputs</p><h2 id="run-heading">{% if snapshot.current_run_id %}{% if snapshot.scope_is_dirty %}Changes are waiting for a rerun{% else %}Latest result is current{% endif %}{% else %}Sources are ready to reconcile{% endif %}</h2><p>{% if snapshot.scope_is_dirty %}Saved data or decisions changed. Earlier runs remain immutable.{% else %}Each run freezes its datasets, policy and reviewer decisions before matching.{% endif %}</p></div>
+      <div><p class="section-kicker">Current inputs</p><h2 id="run-heading">{% if snapshot.current_run_id %}{% if snapshot.scope_is_dirty %}Changes are waiting for a rerun{% else %}Latest result is current{% endif %}{% else %}Sources are ready to reconcile{% endif %}</h2><p>{% if snapshot.current_run_id and snapshot.scope_is_dirty %}Saved data or decisions changed. Earlier runs remain immutable.{% else %}Each run freezes its datasets, policy and reviewer decisions before matching.{% endif %}</p></div>
       <form method="post" action="{% url 'foundation:run-start' book.id %}">{% csrf_token %}<button class="button button-primary" type="submit">{% if snapshot.current_run_id %}Run again{% else %}Start reconciliation{% endif %}</button></form>
     </section>
 
@@ -34,7 +34,7 @@
       <section class="table-section" aria-labelledby="cases-heading">
         <div class="section-heading"><div><p class="section-kicker">Current review</p><h2 id="cases-heading">Cases from the latest successful run</h2></div><span class="count-pill">{{ snapshot.current_cases.items|length }} shown</span></div>
         <div class="table-scroll"><table class="workbench-table"><thead><tr><th>Case</th><th>Outcome</th><th>Review health</th><th>Run</th></tr></thead><tbody>
-          {% for case in snapshot.current_cases.items %}<tr><th scope="row"><a href="{% url 'foundation:case-detail' book.id case.case_id %}"><code>{{ case.case_id|stringformat:"s"|slice:":8"|upper }}</code></a></th><td><strong>{{ case.kind|lower }}</strong><small>{{ case.result_kind|lower }}</small></td><td>{{ case.review_health|default:"No saved decision"|lower }}{% if case.attention %}<small>{{ case.attention|join:", "|lower }}</small>{% endif %}</td><td><code>{{ case.run_id|stringformat:"s"|slice:":8"|upper }}</code></td></tr>
+          {% for case in snapshot.current_cases.items %}<tr><th scope="row"><a href="{% url 'foundation:case-detail' book.id case.case_id %}" aria-label="{{ case.display_label }} case"><strong>{{ case.display_label }}</strong><small><code>{{ case.case_id|stringformat:"s"|slice:":8"|upper }}</code></small></a></th><td><strong>{{ case.kind|lower }}</strong><small>{{ case.result_kind|lower }}</small></td><td>{{ case.review_health|default:"No saved decision"|lower }}{% if case.attention %}<small>{{ case.attention|join:", "|lower }}</small>{% endif %}</td><td><code>{{ case.run_id|stringformat:"s"|slice:":8"|upper }}</code></td></tr>
           {% empty %}<tr><td colspan="4">This run produced no investigation cases.</td></tr>{% endfor %}
         </tbody></table></div>
         {% if snapshot.current_cases.next_cursor %}<nav class="pagination" aria-label="Case pages"><a href="?cursor={{ snapshot.current_cases.next_cursor|urlencode }}{% if snapshot.selected_run %}&amp;run={{ snapshot.selected_run.run_id }}{% endif %}">Next cases →</a></nav>{% endif %}

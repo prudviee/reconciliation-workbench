@@ -504,4 +504,11 @@ details summary { color: var(--blue); font-weight: 750; cursor: pointer; }
 .manual-link-panel { margin-bottom: 24px; }
 .manual-link-panel form { display: grid; gap: 16px; max-width: 720px; }
 .manual-link-panel textarea { width: 100%; padding: 10px 12px; border: 1px solid #bbc7d6; border-radius: 8px; font: inherit; resize: vertical; }
+.candidate-options { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+.candidate-options legend { margin-bottom: 8px; font-weight: 600; }
+.candidate-option { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; cursor: pointer; }
+.candidate-option input { margin-top: 16px; }
+.candidate-preview { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid #c5d5f5; border-left: 3px solid var(--blue); border-radius: 8px; background: var(--blue-soft); font-size: 13px; }
+.candidate-option input:checked + .candidate-preview { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(41, 98, 255, .12); }
+.candidate-preview span { color: var(--muted); font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) { .record-grid, .detail-grid { grid-template-columns: 1fr; } .record-card dl div, .metadata-list div { grid-template-columns: 1fr; gap: 2px; } }

@@ -5,6 +5,7 @@
 | Journey step | Evidence | Result |
 |---|---|---|
 | Create isolated book and upload both assignment sources | `test_no_javascript_workbench_starts_run_and_shows_results` | Pass |
+| Run the curated public-demo fixtures from upload through history | `test_curated_atlas_demo_completes_the_submission_journey` | Pass |
 | Activate both sources after reviewing retained evidence | Existing ingestion workflow suite | Pass |
 | Start a synchronous run without JavaScript | UX-T02 focused journey | Pass |
 | Inspect selected-run counts and current review queue | UX-T02 focused journey | Pass |
@@ -17,11 +18,12 @@
 
 ## Verification record
 
-- Full PostgreSQL regression: `465 passed`.
+- Full PostgreSQL regression: `466 passed`.
 - Django system checks: passed.
 - Migration drift check: passed (`No changes detected`).
 - `git diff --check`: passed.
 - Running stack readiness: `GET /health/ready` returned HTTP 200 with database ready.
+- Live browser acceptance: uploaded and activated both curated fixtures, inspected readable case evidence, saved a reasoned manual link, reran reconciliation, and verified `3` pairs, `0` unmatched records, and both current and historical runs.
 - The required journey is server-rendered and does not require sign-in, JavaScript, or developer tools.
 
 The only test warnings are pytest cache write warnings caused by a protected `.pytest_cache` directory in the Desktop checkout; they do not affect application verification.
