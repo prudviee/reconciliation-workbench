@@ -1124,29 +1124,79 @@ def reconciliation_decision_detail(
     current = next(
         item for item in history.revisions if item.revision_id == history.current_revision_id
     )
+    authority_ids = tuple(
+        item
+        for item in (
+            current.left_logical_id,
+            current.right_logical_id,
+            current.record_logical_id,
+        )
+        if item is not None
+    )
     try:
         replacement_records = query.list_replacement_records(
             access.workspace_id,
             book_id=BookId(book.id),
             scope_id=readiness.scope_id,
         )
+        current_authority_records = query.get_current_records(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            logical_ids=authority_ids,
+        )
     except ReviewQueryUnavailable:
         raise Http404 from None
     left_options = tuple(item for item in replacement_records if item.side == "LEFT")
     right_options = tuple(item for item in replacement_records if item.side == "RIGHT")
+    try:
+        related_decisions = query.list_for_records(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            record_ids=authority_ids,
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
+    decision_summary = next(
+        (item for item in related_decisions if item.decision_id == history.decision_id),
+        None,
+    )
+    records_by_logical_id = {
+        item.logical_id: item for item in current_authority_records
+    }
+    reaffirmation_records = tuple(
+        records_by_logical_id[item]
+        for item in authority_ids
+        if item in records_by_logical_id
+    )
+    can_reaffirm = (
+        current.authority_active
+        and decision_summary is not None
+        and decision_summary.review_health not in {None, "UNCHANGED"}
+        and not decision_summary.review_is_pending
+        and len(reaffirmation_records) == len(authority_ids)
+    )
     context = {
         "book": book,
         "history": history,
         "current": current,
         "left_options": left_options,
         "right_options": right_options,
+        "decision_summary": decision_summary,
+        "reaffirmation_records": reaffirmation_records,
+        "can_reaffirm": can_reaffirm,
         "message": (
-            "Decision revoked. Run reconciliation again to publish the change."
-            if request.GET.get("revoked")
+            "Decision reaffirmed. Run reconciliation again to publish the reviewed baseline."
+            if request.GET.get("reaffirmed")
             else (
-                "Decision replaced. Run reconciliation again to publish the change."
-                if request.GET.get("replaced")
-                else None
+                "Decision revoked. Run reconciliation again to publish the change."
+                if request.GET.get("revoked")
+                else (
+                    "Decision replaced. Run reconciliation again to publish the change."
+                    if request.GET.get("replaced")
+                    else None
+                )
             )
         ),
     }
@@ -1154,7 +1204,66 @@ def reconciliation_decision_detail(
     status = 200
     if request.method == "POST":
         action = str(request.POST.get("action", "revoke"))
-        if action == "revoke":
+        if action == "reaffirm":
+            reason = str(request.POST.get("reason", "")).strip()
+            if not reason:
+                error = "Provide a reason before reaffirming this decision."
+                status = 400
+            elif not can_reaffirm:
+                error = "This decision has no changed current evidence to reaffirm."
+                status = 409
+            else:
+                expected_observation_ids = tuple(
+                    sorted(str(item.observation_id) for item in reaffirmation_records)
+                )
+                submitted_observation_ids = tuple(
+                    sorted(request.POST.getlist("reviewed_observation_id"))
+                )
+                try:
+                    target = ExpectedDecisionRevision(
+                        str(history.decision_id),
+                        str(request.POST.get("target_revision_id", "")),
+                    )
+                    expected_generation = int(
+                        request.POST.get("expected_resolution_generation", "")
+                    )
+                except (TypeError, ValueError):
+                    error = "The reaffirmation preview is invalid. Refresh and review it again."
+                    status = 400
+                else:
+                    preview_is_current = (
+                        target.revision_id == str(history.current_revision_id)
+                        and expected_generation == history.resolution_generation
+                        and submitted_observation_ids == expected_observation_ids
+                    )
+                    if not preview_is_current:
+                        error = "The reviewed evidence changed. Refresh before reaffirming."
+                        status = 409
+                    else:
+                        command = DecisionCommand(
+                            action=DecisionAction.REAFFIRM,
+                            target=target,
+                            reason=reason,
+                            actor="showcase-reviewer",
+                            expected_resolution_generation=expected_generation,
+                            reviewed_observation_ids=expected_observation_ids,
+                        )
+                        try:
+                            DecisionCommandService().commit_change(
+                                access.workspace_id,
+                                book_id=BookId(book.id),
+                                command=command,
+                            )
+                        except DecisionMutationConflict as conflict:
+                            error = str(conflict)
+                            status = 409
+                        except DecisionMutationUnavailable:
+                            raise Http404 from None
+                        else:
+                            return redirect(
+                                f"/books/{book.id}/decisions/{decision_id}?reaffirmed=1"
+                            )
+        elif action == "revoke":
             reason = str(request.POST.get("reason", "")).strip()
             if not reason:
                 error = "Provide a reason before revoking this decision."

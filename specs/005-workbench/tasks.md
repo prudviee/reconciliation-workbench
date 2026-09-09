@@ -61,6 +61,9 @@
   - [x] **UX-T08F — Expose reasoned candidate rejection** (`UX-004`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A04`, `UX-A10`)
     - Change: open a rejection preview from retained allocation evidence, show both exact identities and every active decision involving them, require a reason, reject only the reviewed current-run relationship, preserve both records for other matches, and mark reconciliation pending.
     - Evidence: [UX-T08F acceptance](./evidence/UX-T08F.md).
+  - [x] **UX-T08G — Expose changed-evidence reaffirmation** (`UX-004`, `UX-006`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A04`, `UX-A10`)
+    - Change: identify a changed active decision, compare its prior reviewed observation baseline with every current authority endpoint, require a reason, commit only the exact displayed revision/generation/observations, preserve history, and reset health after rerun.
+    - Evidence: [UX-T08G acceptance](./evidence/UX-T08G.md).
 
 ## Scope decision
 

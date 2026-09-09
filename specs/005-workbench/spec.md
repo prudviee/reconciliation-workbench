@@ -105,3 +105,4 @@ Native mobile applications, free-form dashboard builders, real-time multi-user c
 | 9 September 2026 | Added browser management for saved reviewer authorities | Showcase closure audit found the implemented revocation lifecycle was not reachable from the interface |
 | 9 September 2026 | Added a two-step decision replacement workflow | Showcase closure audit found the conflict-complete replacement service had no reviewer-facing preview or commit path |
 | 9 September 2026 | Added candidate rejection to the reviewer workflow | The approved product design and demo script promised this domain capability, but it was not reachable from retained allocation evidence |
+| 9 September 2026 | Added changed-evidence reaffirmation to saved-decision review | The approved product design promised this lifecycle action, but the fresh observation baseline could only be recorded through internal services |

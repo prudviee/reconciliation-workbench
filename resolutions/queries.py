@@ -332,6 +332,45 @@ class DecisionQueryService:
             for item in rows
         )
 
+    def get_current_records(
+        self,
+        workspace_id: WorkspaceId,
+        *,
+        book_id: BookId,
+        scope_id: UUID | str,
+        logical_ids: tuple[UUID, ...],
+    ) -> tuple[DecisionRecordOption, ...]:
+        if not logical_ids:
+            return ()
+        book, scope = self._context(workspace_id, book_id, scope_id)
+        if scope.current_run_id is None:
+            return ()
+        rows = (
+            RunInput.objects.owned_by(workspace_id)
+            .filter(
+                run_id=scope.current_run_id,
+                run__scope=scope,
+                run__scope__book=book,
+                logical_transaction_id__in=logical_ids,
+            )
+            .select_related("logical_transaction", "observation")
+            .order_by("side", "logical_transaction__source_record_key", "id")
+        )
+        return tuple(
+            DecisionRecordOption(
+                logical_id=item.logical_transaction_id,
+                observation_id=item.observation_id,
+                side=item.side,
+                reference=item.logical_transaction.source_record_key,
+                executed_at_utc=item.observation.executed_at_utc,
+                instrument=item.observation.instrument,
+                quantity=str(item.observation.quantity),
+                gross_amount=str(item.observation.gross_amount),
+                currency=item.observation.currency,
+            )
+            for item in rows
+        )
+
     def preview_replacement(
         self,
         workspace_id: WorkspaceId,

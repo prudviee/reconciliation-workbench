@@ -894,6 +894,131 @@ def test_manual_correction_preserves_authority_flags_health_and_reaffirm_resets_
 
 
 @pytest.mark.django_db
+def test_changed_decision_can_be_reaffirmed_from_reviewed_browser_evidence() -> None:
+    from django.test import Client
+
+    from workspaces.sessions import digest_session_key
+
+    graph = create_graph("browser-reaffirm")
+    Dataset.objects.filter(
+        id__in=(graph.scope.left_dataset_id, graph.scope.right_dataset_id)
+    ).update(coverage_key="default")
+    ReconciliationScope.objects.filter(id=graph.scope.id).update(coverage_key="default")
+    graph.scope.refresh_from_db()
+    revision = DecisionCommandService(clock=lambda: NOW).commit_initial(
+        WorkspaceId(graph.workspace.id),
+        book_id=BookId(graph.book.id),
+        command=DecisionCommand(
+            action=DecisionAction.LINK,
+            authority=DecisionAuthority.link(str(graph.left.id), str(graph.right.id)),
+            reason="Reviewed original pair",
+            actor="reviewer",
+            expected_resolution_generation=0,
+            reviewed_observation_ids=(
+                str(graph.left_observation.id),
+                str(graph.right_observation.id),
+            ),
+        ),
+    )
+    runner = ReconciliationRunService(clock=lambda: NOW)
+    first = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), first.run_id)
+    corrected = replace_side_snapshot(
+        graph,
+        SourceRole.RIGHT,
+        gross_amount=Decimal("101"),
+    )
+    assert corrected is not None
+    second = runner.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    runner.execute_and_publish_run(WorkspaceId(graph.workspace.id), second.run_id)
+    assert DecisionHealthSnapshot.objects.get(run_id=second.run_id).health == "EVIDENCE_CHANGED"
+
+    client = Client()
+    session = client.session
+    session.save()
+    Workspace.objects.filter(id=graph.workspace.id).update(
+        session_digest=digest_session_key(session.session_key)
+    )
+    graph.book.refresh_from_db()
+    decision_url = f"/books/{graph.book.id}/decisions/{revision.decision_id}"
+    preview = client.get(decision_url)
+    preview_content = preview.content.decode()
+    assert preview.status_code == 200
+    assert "Reaffirm this decision against current evidence" in preview_content
+    assert "evidence_changed" in preview_content
+    assert "comparison_changed" in preview_content
+    assert str(graph.right_observation.id) in preview_content
+    assert str(corrected.id) in preview_content
+    assert "101.000000000000 USD" in preview_content
+
+    payload = {
+        "action": "reaffirm",
+        "target_revision_id": revision.id,
+        "expected_resolution_generation": graph.book.resolution_generation,
+        "reviewed_observation_id": (
+            str(graph.left_observation.id),
+            str(corrected.id),
+        ),
+    }
+    missing_reason = client.post(decision_url, payload)
+    assert missing_reason.status_code == 400
+    assert "Provide a reason before reaffirming" in missing_reason.content.decode()
+    assert Decision.objects.get(id=revision.decision_id).current_revision_id == revision.id
+
+    stale_baseline = client.post(
+        decision_url,
+        {
+            **payload,
+            "reviewed_observation_id": (
+                str(graph.left_observation.id),
+                str(graph.right_observation.id),
+            ),
+            "reason": "This stale browser preview must not be accepted.",
+        },
+    )
+    assert stale_baseline.status_code == 409
+    assert "reviewed evidence changed" in stale_baseline.content.decode()
+
+    csrf_client = Client(enforce_csrf_checks=True)
+    csrf_client.cookies = client.cookies
+    assert csrf_client.post(
+        decision_url,
+        {**payload, "reason": "A request without its CSRF token must fail."},
+    ).status_code == 403
+
+    reaffirmed = client.post(
+        decision_url,
+        {
+            **payload,
+            "reason": "Reviewed the corrected amount and confirmed the relationship.",
+        },
+        follow=True,
+    )
+    reaffirmed_content = reaffirmed.content.decode()
+    assert reaffirmed.status_code == 200
+    assert "Decision reaffirmed" in reaffirmed_content
+    assert "historical · link" in reaffirmed_content
+    assert "current · reaffirm" in reaffirmed_content
+    decision = Decision.objects.get(id=revision.decision_id)
+    assert decision.current_revision.action == DecisionAction.REAFFIRM
+    assert set(decision.current_revision.reviewed_observation_ids) == {
+        str(graph.left_observation.id),
+        str(corrected.id),
+    }
+    assert decision.current_revision.active_claims.count() == 2
+    assert "Changes are waiting for a rerun" in client.get(
+        f"/books/{graph.book.id}/workbench"
+    ).content.decode()
+
+    rerun = client.post(f"/books/{graph.book.id}/runs", follow=True)
+    assert rerun.status_code == 200
+    health = CurrentDecisionHealth.objects.get(decision=decision)
+    assert health.decision_revision_id == decision.current_revision_id
+    assert health.health == "UNCHANGED"
+    assert health.attention == []
+
+
+@pytest.mark.django_db
 def test_accepted_unmatched_stays_reserved_when_new_candidate_appears() -> None:
     graph = create_graph("accepted-health", right_instrument="ETH-USD")
     revision = DecisionCommandService(clock=lambda: NOW).commit_initial(
