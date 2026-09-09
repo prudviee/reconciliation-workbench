@@ -32,6 +32,7 @@ from reconciliation.domain import (
     DecisionAction,
     DecisionAuthority,
     DecisionCommand,
+    ExpectedDecisionRevision,
     JobKind,
     QuotaExceeded,
     QuotaResource,
@@ -50,6 +51,7 @@ from resolutions.services import (
     DecisionMutationConflict,
     DecisionMutationUnavailable,
 )
+from resolutions.queries import DecisionQueryService
 from reconciliation.workbench import WorkbenchNotReady, WorkbenchService, WorkbenchUnavailable
 from sources.adapters import counterparty_contract, ledger_contract
 from sources.models import BookSource, SourceContractRevision, SourceRole
@@ -733,12 +735,23 @@ def reconciliation_case_detail(request: HttpRequest, book_id: object, case_id: o
         )
     except ReviewQueryUnavailable:
         raise Http404 from None
+    record_ids = tuple(record.logical_transaction_id for record in evidence.records)
+    try:
+        decisions = DecisionQueryService().list_for_records(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            record_ids=record_ids,
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
     return render(
         request,
         "foundation/case_detail.html",
         {
             "book": book,
             "evidence": evidence,
+            "decisions": decisions,
             "pending_changes": (
                 evidence.current_review is not None
                 and evidence.occurrence.timeline_label == "CURRENT"
@@ -904,3 +917,81 @@ def reconciliation_case_accept_unmatched(
     except (DecisionMutationUnavailable, ValueError):
         raise Http404 from None
     return redirect(f"/books/{book.id}/cases/{case_id}?accepted=1")
+
+
+@workspace_required
+@require_http_methods(["GET", "POST"])
+def reconciliation_decision_detail(
+    request: HttpRequest, book_id: object, decision_id: object
+) -> HttpResponse:
+    access = workspace_access(request)
+    book = _owned_book(request, book_id)
+    readiness = WorkbenchService().readiness(
+        access.workspace_id, book_id=BookId(book.id)
+    )
+    if readiness.scope_id is None:
+        raise Http404
+    query = DecisionQueryService()
+    try:
+        history = query.get_decision_history(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            decision_id=decision_id,
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
+    current = next(
+        item for item in history.revisions if item.revision_id == history.current_revision_id
+    )
+    error = None
+    status = 200
+    if request.method == "POST":
+        reason = str(request.POST.get("reason", "")).strip()
+        if not reason:
+            error = "Provide a reason before revoking this decision."
+            status = 400
+        elif not current.authority_active:
+            error = "This decision no longer has an active authority to revoke."
+            status = 409
+        else:
+            command = DecisionCommand(
+                action=DecisionAction.REVOKE,
+                target=ExpectedDecisionRevision(
+                    str(history.decision_id), str(history.current_revision_id)
+                ),
+                reason=reason,
+                actor="showcase-reviewer",
+                expected_resolution_generation=history.resolution_generation,
+            )
+            try:
+                DecisionCommandService().commit_change(
+                    access.workspace_id,
+                    book_id=BookId(book.id),
+                    command=command,
+                )
+            except DecisionMutationConflict as conflict:
+                error = str(conflict)
+                status = 409
+            except (DecisionMutationUnavailable, ValueError):
+                raise Http404 from None
+            else:
+                return redirect(
+                    f"/books/{book.id}/decisions/{decision_id}?revoked=1"
+                )
+    return render(
+        request,
+        "foundation/decision_detail.html",
+        {
+            "book": book,
+            "history": history,
+            "current": current,
+            "error": error,
+            "message": (
+                "Decision revoked. Run reconciliation again to publish the change."
+                if request.GET.get("revoked")
+                else None
+            ),
+        },
+        status=status,
+    )

@@ -52,6 +52,9 @@
   - [x] **UX-T08C — Make selected historical occurrence evidence inspectable** (`UX-004`, `UX-006`; `UX-A06`)
     - Change: list the selected historical run's immutable cases separately from current review, link each result to its retained occurrence, identify historical evidence and current-review status independently, and disable reviewer actions on past evidence.
     - Evidence: [UX-T08C acceptance](./evidence/UX-T08C.md).
+  - [x] **UX-T08D — Expose saved-decision review and reasoned revocation** (`UX-004`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A10`, `UX-A11`)
+    - Change: show active reviewer authorities on relevant cases, open a complete identity/reason/history preview, require a new reason to revoke, release claims append-only, and mark the workbench pending until rerun.
+    - Evidence: [UX-T08D acceptance](./evidence/UX-T08D.md).
 
 ## Scope decision
 

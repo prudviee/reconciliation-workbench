@@ -40,6 +40,11 @@ urlpatterns = [
         name="case-accept-unmatched",
     ),
     path(
+        "books/<uuid:book_id>/decisions/<uuid:decision_id>",
+        views.reconciliation_decision_detail,
+        name="decision-detail",
+    ),
+    path(
         "books/<uuid:book_id>/sources/<str:side>/upload",
         views.source_upload,
         name="source-upload",

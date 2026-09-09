@@ -48,6 +48,9 @@ class DecisionListItem:
     right_logical_id: UUID | None
     record_logical_id: UUID | None
     record_side: str | None
+    left_reference: str | None
+    right_reference: str | None
+    record_reference: str | None
     reason: str
     actor: str
     created_at: datetime
@@ -56,6 +59,10 @@ class DecisionListItem:
     attention: tuple[str, ...]
     health_run_id: UUID | None
     review_is_pending: bool
+
+    @property
+    def action_label(self) -> str:
+        return self.action.replace("_", " ").lower()
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +75,9 @@ class DecisionRevisionItem:
     right_logical_id: UUID | None
     record_logical_id: UUID | None
     record_side: str | None
+    left_reference: str | None
+    right_reference: str | None
+    record_reference: str | None
     reason: str
     actor: str
     reviewed_observation_ids: tuple[str, ...]
@@ -75,6 +85,10 @@ class DecisionRevisionItem:
     created_at: datetime
     timeline_label: str
     authority_active: bool
+
+    @property
+    def action_label(self) -> str:
+        return self.action.replace("_", " ").lower()
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,7 +128,12 @@ class DecisionQueryService:
         queryset = (
             Decision.objects.owned_by(workspace_id)
             .filter(book=book, current_revision__isnull=False)
-            .select_related("current_revision")
+            .select_related(
+                "current_revision",
+                "current_revision__left_logical",
+                "current_revision__right_logical",
+                "current_revision__record_logical",
+            )
             .annotate(
                 current_is_superseded=Exists(superseded),
                 projected_health=Subquery(health.values("health")[:1]),
@@ -144,6 +163,54 @@ class DecisionQueryService:
             )
         return ReviewPage(items=items, next_cursor=next_cursor)
 
+    def list_for_records(
+        self,
+        workspace_id: WorkspaceId,
+        *,
+        book_id: BookId,
+        scope_id: UUID | str,
+        record_ids: tuple[UUID, ...],
+    ) -> tuple[DecisionListItem, ...]:
+        if not record_ids:
+            return ()
+        book, scope = self._context(workspace_id, book_id, scope_id)
+        health = CurrentDecisionHealth.objects.owned_by(workspace_id).filter(
+            scope=scope,
+            decision_id=OuterRef("pk"),
+        )
+        superseded = DecisionSupersession.objects.owned_by(workspace_id).filter(
+            superseded_revision_id=OuterRef("current_revision_id")
+        )
+        queryset = (
+            Decision.objects.owned_by(workspace_id)
+            .filter(
+                book=book,
+            )
+            .filter(
+                Q(revisions__left_logical_id__in=record_ids)
+                | Q(revisions__right_logical_id__in=record_ids)
+                | Q(revisions__record_logical_id__in=record_ids)
+            )
+            .select_related(
+                "current_revision",
+                "current_revision__left_logical",
+                "current_revision__right_logical",
+                "current_revision__record_logical",
+            )
+            .annotate(
+                current_is_superseded=Exists(superseded),
+                projected_health=Subquery(health.values("health")[:1]),
+                projected_attention=Subquery(health.values("attention")[:1]),
+                projected_run_id=Subquery(health.values("run_id")[:1]),
+                projected_resolution_generation=Subquery(
+                    health.values("applied_resolution_generation")[:1]
+                ),
+            )
+            .distinct()
+            .order_by("created_at", "id")
+        )
+        return tuple(self._list_item(item, book, scope) for item in queryset)
+
     def get_decision_history(
         self,
         workspace_id: WorkspaceId,
@@ -168,6 +235,7 @@ class DecisionQueryService:
         revisions = tuple(
             DecisionRevision.objects.owned_by(workspace_id)
             .filter(decision=decision)
+            .select_related("left_logical", "right_logical", "record_logical")
             .annotate(is_superseded=Exists(superseded))
             .order_by("revision", "id")
         )
@@ -185,6 +253,21 @@ class DecisionQueryService:
                     right_logical_id=item.right_logical_id,
                     record_logical_id=item.record_logical_id,
                     record_side=item.record_side,
+                    left_reference=(
+                        item.left_logical.source_record_key
+                        if item.left_logical is not None
+                        else None
+                    ),
+                    right_reference=(
+                        item.right_logical.source_record_key
+                        if item.right_logical is not None
+                        else None
+                    ),
+                    record_reference=(
+                        item.record_logical.source_record_key
+                        if item.record_logical is not None
+                        else None
+                    ),
                     reason=item.reason,
                     actor=item.actor,
                     reviewed_observation_ids=tuple(item.reviewed_observation_ids),
@@ -279,6 +362,21 @@ class DecisionQueryService:
             right_logical_id=revision.right_logical_id,
             record_logical_id=revision.record_logical_id,
             record_side=revision.record_side,
+            left_reference=(
+                revision.left_logical.source_record_key
+                if revision.left_logical is not None
+                else None
+            ),
+            right_reference=(
+                revision.right_logical.source_record_key
+                if revision.right_logical is not None
+                else None
+            ),
+            record_reference=(
+                revision.record_logical.source_record_key
+                if revision.record_logical is not None
+                else None
+            ),
             reason=revision.reason,
             actor=revision.actor,
             created_at=decision.created_at,

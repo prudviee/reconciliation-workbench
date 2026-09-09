@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from uuid import uuid4
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, override_settings
@@ -10,6 +11,7 @@ import pytest
 from books.models import ReconciliationBook
 from ingestion.models import AttemptState, DatasetMembership, IngestionAttempt
 from reconciliation.models import ReconciliationRun, RunPair, RunUnpaired
+from resolutions.models import Decision
 from workspaces.models import Workspace
 from workspaces.sessions import digest_session_key
 
@@ -484,7 +486,57 @@ def test_case_detail_accepts_genuinely_unmatched_with_reason_and_rerun(tmp_path)
             f"/books/{book.id}/cases/{unmatched_case}"
         ).content.decode()
         assert "unchanged" in current_detail
+        assert "Saved decisions" in current_detail
         assert "Accept as genuinely unmatched" not in current_detail
+
+        decision = Decision.objects.get(
+            book=book,
+            current_revision__authority_kind="ACCEPT_UNMATCHED",
+        )
+        decision_url = f"/books/{book.id}/decisions/{decision.id}"
+        decision_page = client.get(decision_url)
+        decision_content = decision_page.content.decode()
+        assert decision_page.status_code == 200
+        assert "Affected identities and current reason" in decision_content
+        assert "TX-1003" in decision_content
+        assert "Confirmed as an internal-only transaction" in decision_content
+        assert "Revoke decision" in decision_content
+
+        outsider = Client()
+        outsider.get("/")
+        foreign = outsider.get(decision_url)
+        absent = client.get(f"/books/{book.id}/decisions/{uuid4()}")
+        assert foreign.status_code == absent.status_code == 404
+        assert foreign.content == absent.content
+
+        missing_reason = client.post(decision_url)
+        assert missing_reason.status_code == 400
+        decision.refresh_from_db()
+        assert decision.current_revision.action == "ACCEPT_UNMATCHED"
+
+        revoked = client.post(
+            decision_url,
+            {"reason": "The source owner supplied a replacement settlement record."},
+            follow=True,
+        )
+        revoked_content = revoked.content.decode()
+        assert revoked.status_code == 200
+        assert "Decision revoked" in revoked_content
+        assert "inactive" in revoked_content
+        assert "Authority released" in revoked_content
+        assert "The source owner supplied a replacement settlement record" in revoked_content
+        assert "Revoke decision" not in revoked_content
+        decision.refresh_from_db()
+        assert decision.current_revision.action == "REVOKE"
+        assert not decision.current_revision.active_claims.exists()
+        revoked_case = client.get(
+            f"/books/{book.id}/cases/{unmatched_case}"
+        ).content.decode()
+        assert "revoke · revision 2 · inactive" in revoked_case
+        assert "Review decision history" in revoked_case
+        assert "Changes are waiting for a rerun" in client.get(
+            f"/books/{book.id}/workbench"
+        ).content.decode()
 
 
 @override_settings(DEBUG=False)
