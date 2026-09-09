@@ -1,6 +1,6 @@
 # Reconciliation Workbench — Design Documentation
 
-This directory is the canonical design package for the transaction-reconciliation showcase. It describes the product and system before implementation.
+This directory is the canonical design package for the implemented transaction-reconciliation showcase. It records the current architecture, the reasons behind it, and the verified operational limits.
 
 ## Reading order
 
@@ -30,13 +30,13 @@ The root [DESIGN.md](../DESIGN.md) is the earlier consolidated design. These foc
 |---|---|
 | Release | Advanced, polished showcase in the first release |
 | Access | Anonymous, isolated browser workspace; no sign-in |
-| Application | Django, PostgreSQL, server-rendered templates, HTMX |
+| Application | Django, PostgreSQL, full server-rendered pages, no JavaScript required |
 | Architecture | One repository and database; separate web and worker processes |
 | Matching | Trusted references plus weighted global one-to-one assignment and ambiguity gating |
 | History | Immutable files, observations, dataset revisions, and run snapshots |
-| Human review | Manual link, accept unmatched, reject candidate, reaffirm, revoke |
+| Human review | Manual link, accept unmatched, reject candidate, reaffirm, revoke, replace |
 | Scope | One-to-one reconciliation between two sources in a book |
 
 ## Document status
 
-Status: design approved as the implementation baseline. Numeric thresholds and performance limits are initial hypotheses that must be benchmarked. No application implementation is included in this documentation set.
+Status: implemented and verified. Evidence lives beside each specification under `specs/*/evidence/`. Numeric limits are labelled as measured results or planning targets; the known 10,000-row runtime miss remains disclosed rather than presented as a pass.

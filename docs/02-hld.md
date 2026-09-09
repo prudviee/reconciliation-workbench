@@ -6,7 +6,7 @@ I use an append-only modular monolith: one codebase and database with strong int
 
 ```mermaid
 flowchart LR
-    U[Browser] -->|HTML and HTMX| W[Django web process]
+    U[Browser] -->|HTML forms and full pages| W[Django web process]
     W --> A[Application services]
     A --> P[(PostgreSQL)]
     A --> O[(Private file storage)]
@@ -23,7 +23,7 @@ flowchart LR
 
 | Layer | Responsibility |
 |---|---|
-| Presentation | Full pages, HTMX fragments, forms, accessibility, exports |
+| Presentation | Full server-rendered pages, forms, accessibility, exports |
 | Application | Workflows, authorization, transactions, orchestration, publication |
 | Domain | Canonical values, matching, assignment, comparison, decision health |
 | Persistence | Django repositories, constraints, migrations, query projections |

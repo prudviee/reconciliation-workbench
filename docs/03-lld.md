@@ -204,31 +204,30 @@ Intermediate data is namespaced by attempt token. Rows from different attempts c
 | Method and route | Behavior |
 |---|---|
 | `GET /` | Resolve/create workspace; show books and demo entry |
-| `POST /books` | Create book and two source roles |
-| `POST /books/{id}/demo` | Create isolated curated data |
-| `POST /books/{id}/imports` | Stage an upload and validation job |
-| `GET /imports/{id}` | Show preview, duplicate status, errors, and changes |
+| `POST /books/demo` | Create an isolated demo book and its two source roles |
+| `GET /books/{id}/sources` | Show source readiness, history, and preparation actions |
+| `POST /books/{id}/sources/{side}/upload` | Stage an upload and execute its claimed validation item |
+| `GET /imports/{id}/preview` | Show raw/canonical preview, duplicate status, errors, and proposed changes |
 | `POST /imports/{id}/activate` | Publish valid membership against expected base |
-| `POST /imports/{id}/restore` | Reapply historical values as a new correction |
-| `POST /sources/{id}/mapping-revisions` | Create immutable mapping revision |
-| `POST /books/{id}/policy-revisions` | Create immutable rules and mark scopes dirty |
-| `POST /scopes/{id}/runs` | Freeze/enqueue current manifest or return equivalent run |
-| `GET /runs/{id}` | Show result or truthful processing stage |
-| `GET /runs/{id}/cases` | Search/filter/sort/paginate the complete result |
-| `GET /cases/{id}` | Show evidence, candidates, decisions, and history |
-| `POST /cases/{id}/decisions` | Append decision using expected generations |
-| `POST /decisions/{id}/revoke` | Append reversal with reason |
-| `GET /runs/{id}/export` | Export run facts or labelled current review projection |
+| `GET/POST /books/{id}/sources/{side}/mapping` | Inspect or append an immutable mapping revision |
+| `GET /books/{id}/workbench` | Show selected-run facts, truthful progress, current review, discovery, and history |
+| `POST /books/{id}/runs` | Freeze a manifest, enqueue/claim the run, and redirect to its result state |
+| `GET /books/{id}/cases/{case}` | Show current or selected-run evidence, candidates, decisions, and history |
+| `POST /books/{id}/cases/{case}/link` | Append a reasoned manual link using current evidence and expected generation |
+| `POST /books/{id}/cases/{case}/accept-unmatched` | Append a reasoned accepted-unmatched authority |
+| `POST /books/{id}/cases/{case}/reject-candidate` | Reject one exact retained candidate relationship |
+| `GET/POST /books/{id}/decisions/{decision}` | Inspect history; reaffirm, revoke, preview replacement, or commit replacement |
+| `GET /books/{id}/exports/cases.{csv\|json}` | Export labelled immutable run facts or filtered current review |
 | `GET /artifacts/{id}/download` | Workspace-authorized private download |
-| `POST /workspace/delete` | Invalidate access and schedule deletion |
+| `GET /workspace/delete` | Preview workspace expiry and deletion consequences |
+| `POST /workspace/delete/confirm` | Revoke access and enqueue idempotent deletion |
 
 Expected responses:
 
-- `202` for accepted asynchronous work.
+- Redirect-after-post for successfully accepted work and form mutations.
 - `409` for stale previews, generations, or revision conflicts.
-- `422` for structured field/row validation errors.
+- Rendered preview errors for structured field/row validation failures.
 - `404` for missing and out-of-workspace resources.
-- Redirect-after-post for successful ordinary form mutations.
 
 ## 11. Query and indexing plan
 

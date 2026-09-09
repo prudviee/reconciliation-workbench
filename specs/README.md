@@ -52,6 +52,7 @@ Requirement IDs use a stable feature prefix:
 | Decisions and stable cases | `REV` |
 | Workbench and history UI | `UX` |
 | Jobs, operations, and deployment | `OPS` |
+| Local-only storage simplification | `STO` |
 
 Examples:
 

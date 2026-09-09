@@ -28,7 +28,7 @@ A visitor can complete the entire reconciliation workflow through a polished, ac
 - **UX-015** Amounts MUST use tabular numerals, right alignment, and explicit currencies; status MUST remain understandable without color.
 - **UX-016** Async progress MUST show real stages and available counts without invented percentages or blocking access to the latest successful result.
 - **UX-017** CSV/JSON exports MUST identify whether they contain historical run facts or current review state, preserve decimal strings and timezone labels, and neutralize spreadsheet-formula execution from untrusted cells.
-- **UX-018** Every page, HTMX fragment, search, action preview, download, and export MUST authorize the requested resource through the active workspace before rendering content or counts.
+- **UX-018** Every page, search, action preview, mutation, download, and export MUST authorize the requested resource through the active workspace before rendering content or counts.
 
 ## Acceptance scenarios
 
@@ -55,8 +55,8 @@ A visitor can complete the entire reconciliation workflow through a polished, ac
 - The selected historical run controls run-fact values and pairings; current review is never blended into those facts. (`UX-006`)
 - Manual link, replacement, revocation, and acceptance previews show every affected identity and active decision before commit. (`UX-010`)
 - Search/filter counts represent the complete server-side query, not the visible page only. (`UX-003`)
-- Failed partial HTMX requests preserve the current page and provide a recoverable error message. (`UX-008`, `UX-011`)
-- Drawer focus is trapped while open and returns to the initiating row when closed. (`UX-011`)
+- Failed actions preserve the latest successful result and provide a recoverable error message or refresh path. (`UX-008`, `UX-011`)
+- Evidence and decision pages use semantic headings, breadcrumbs, labelled controls, and visible keyboard focus. (`UX-011`)
 - The latest successful result remains accessible throughout a new run and after failure. (`UX-008`, `UX-016`)
 
 ## Performance and capacity
@@ -106,3 +106,4 @@ Native mobile applications, free-form dashboard builders, real-time multi-user c
 | 9 September 2026 | Added a two-step decision replacement workflow | Showcase closure audit found the conflict-complete replacement service had no reviewer-facing preview or commit path |
 | 9 September 2026 | Added candidate rejection to the reviewer workflow | The approved product design and demo script promised this domain capability, but it was not reachable from retained allocation evidence |
 | 9 September 2026 | Added changed-evidence reaffirmation to saved-decision review | The approved product design promised this lifecycle action, but the fresh observation baseline could only be recorded through internal services |
+| 9 September 2026 | Aligned the verified UI contract with full server-rendered pages and closed consolidated showcase evidence | Final submission audit removed stale HTMX/drawer language and linked all acceptance evidence |

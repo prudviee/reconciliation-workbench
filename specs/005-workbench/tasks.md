@@ -41,8 +41,9 @@
   - Change: complete candidate table, optional bounded graph, persisted progress stages/counts, and production failure/retry presentation.
   - Evidence: [UX-T07 acceptance](./evidence/UX-T07.md) and [runtime record](./evidence/UX-T07-runtime.json).
 
-- [ ] **UX-T08 — Close the complete showcase specification** (`UX-001`–`UX-018`; `UX-A01`–`UX-A17`)
+- [x] **UX-T08 — Close the complete showcase specification** (`UX-001`–`UX-018`; `UX-A01`–`UX-A17`)
   - Change: complete remaining accessibility, responsive, performance, export, async, visual, and deployment-connected acceptance evidence.
+  - Evidence: [UX-T08 consolidated acceptance](./evidence/UX-T08.md) and [runtime measurement](./evidence/UX-T08-runtime.json).
   - [x] **UX-T08A — Expose accept-unmatched review in the browser** (`UX-004`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A04`, `UX-A10`, `UX-A11`)
     - Change: preview the retained unpaired record, require a reason, commit the reserved decision with optimistic concurrency, label the pending rerun, and hide the action for cancelled or already-reviewed evidence.
     - Evidence: [UX-T08A acceptance](./evidence/UX-T08A.md).

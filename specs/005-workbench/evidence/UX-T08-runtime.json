@@ -1,0 +1,26 @@
+{
+  "task": "UX-T08",
+  "verified_at": "2026-09-09",
+  "workbench_latency": {
+    "request_path": "Django production-mode request path against Docker PostgreSQL",
+    "fixture": "current curated book",
+    "case_count": 3,
+    "warmup_requests": 5,
+    "measured_requests": 60,
+    "median_ms": 43.994,
+    "p95_ms": 55.657,
+    "max_ms": 250.498,
+    "target_ms": 500,
+    "result": "pass_for_demonstrated_workload"
+  },
+  "environment": {
+    "platform": "Windows 11",
+    "python": "3.12.2",
+    "logical_cpu_count": 16,
+    "database": "Docker Compose PostgreSQL"
+  },
+  "limitations": [
+    "The sample is a warm-cache local measurement.",
+    "It is not a hosted-environment or 10,000-row review-queue claim."
+  ]
+}

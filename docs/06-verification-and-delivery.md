@@ -177,7 +177,7 @@ Manual pairs do not inflate automatic precision. Manually reserved endpoints are
 
 ## 6. Browser verification
 
-The primary Playwright journey is:
+The primary browser journey is exercised through Django's test client and repeated in the running application through browser-only inspection:
 
 1. Create an anonymous workspace.
 2. Load the curated sample book.
@@ -194,7 +194,7 @@ The primary Playwright journey is:
 13. Open the prior run and verify its original evidence.
 14. Export results.
 
-Accessibility checks cover keyboard-only operation, focus return after drawers, visible focus, labelled controls, status without color, announced errors, meaningful table headers, and reduced-motion behavior where relevant.
+Accessibility checks cover keyboard-only operation across ordinary page navigation, visible focus, labelled controls, status without color, announced errors, meaningful table headers, and reduced-motion behavior where relevant.
 
 ## 7. Performance and capacity targets
 
@@ -204,10 +204,11 @@ Initial targets to measure:
 - 25 MiB maximum file.
 - Complete reconciliation under 10 seconds on a documented two-vCPU/four-GiB environment, subject to component caps.
 - Typical paginated workbench responses below 500 ms p95 on that environment.
-- Immediate acknowledgement for asynchronous imports and runs.
 - 100 real nodes and 2,500 edges per solved component initially.
 - 250,000 candidate edges per run initially.
 - 200 enumerated candidates per record initially; reaching the cap withholds affected heuristic automation.
+
+Final local measurements are recorded separately from these planning targets. The 10,000-row reconciliation measurement took `11.01 s`, so the `10 s` target is a disclosed miss. A 60-request warm-cache measurement of the three-case curated workbench against Docker PostgreSQL produced `55.657 ms` p95 (`43.994 ms` median, `250.498 ms` maximum) on the development machine. This establishes the typical-page target for the demonstrated workload without implying the same result for a 10,000-row review queue or a hosted environment. Durable work is persisted before execution; the local request path may claim its exact import or run item inline, while the standalone worker handles queued, retried, and cleanup work.
 
 Tests report measurements rather than converting targets into claims. A missed target triggers profiling of parsing, candidate enumeration, solver sensitivity, persistence, or queries before changing architecture.
 
@@ -271,4 +272,4 @@ The release is ready when:
 - The demo completes reliably within five minutes.
 - README setup, assumptions, algorithm, measurements, known limits, and demo steps are complete.
 
-The future public repository and video are delivery artifacts. This design package does not publish or send either one.
+The public repository contains the implementation and verification evidence. The narrated video remains a separate assignment delivery artifact.

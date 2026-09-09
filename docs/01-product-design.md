@@ -2,7 +2,7 @@
 
 ## 1. Product statement
 
-I am building a transaction-reconciliation workbench for comparing records produced independently by two financial systems. It translates incompatible source formats into a canonical model, links records that describe the same transaction, identifies material differences, and lets a reviewer resolve uncertainty without losing history.
+Reconciliation Workbench compares records produced independently by two financial systems. It translates incompatible source formats into a canonical model, links records that describe the same transaction, identifies material differences, and lets a reviewer resolve uncertainty without losing history.
 
 The product should answer one question each morning:
 
@@ -111,13 +111,13 @@ The central interface contains:
 - A banner when saved changes require a rerun.
 - Server-side search, filters, stable sorting, and pagination.
 - A dense case table.
-- A side-by-side evidence drawer.
+- A dedicated side-by-side evidence page with a stable URL.
 
 The default view is **Needs review**. Additional views cover all cases, unmatched, ambiguous, discrepancies, accepted-unmatched, and excluded records.
 
 ### Case evidence
 
-Each case has a stable URL. On desktop it opens in a drawer; smaller screens use a dedicated page. It shows:
+Each case opens as a dedicated page with a stable URL. It shows:
 
 - Raw and canonical values from both sources.
 - Field differences and applied tolerances.
@@ -171,9 +171,9 @@ An old run opens with a clear historical banner. Values and pairings used in tha
 
 Use a restrained financial-operations style: light neutral background, dark navy text, one primary accent, tabular numerals, right-aligned amounts, explicit currencies, fixed table columns, and generous spacing in evidence views.
 
-Every state has text as well as color. Forms have visible labels and announced errors. Users can search, open a row, navigate tabs, perform a decision, close the drawer, and return focus by keyboard. Progress shows real stages and counts rather than invented percentages.
+Every state has text as well as color. Forms have visible labels and announced errors. Users can search, open a row, follow breadcrumbs, perform a decision, and navigate back by keyboard. Progress shows real stages and counts rather than invented percentages.
 
-Desktop supports the complete table-and-drawer workflow. Tablet uses a full-width evidence panel. Mobile supports summary, search, evidence, and basic decisions on dedicated pages; it does not compress the desktop table into unreadable cards.
+Desktop supports the complete workbench table and dedicated evidence pages. Tablet and mobile use the same evidence pages with single-column record and metadata layouts; wide tables remain inside horizontally scrollable regions.
 
 ## 10. Success criteria
 

@@ -9,7 +9,7 @@
 
 Expose the verified ingestion, reconciliation, decision, and case services through a server-rendered Django workflow. The submission slice must let a visitor prepare both sources, start a run, understand every outcome, inspect field-level evidence, manually link two unmatched records with a reason, rerun, and see that the decision and earlier run remain preserved.
 
-The implementation stays synchronous for the local submission. It uses progressive enhancement boundaries but requires no JavaScript. Every route resolves the active anonymous workspace before book, scope, run, case, occurrence, or transaction identifiers.
+The browser workflow uses full server-rendered pages and requires no JavaScript. Import and run requests enter the same PostgreSQL-backed work-claim boundary used by the standalone worker; the local request may claim its exact item immediately for a responsive demonstration. Every route resolves the active anonymous workspace before book, scope, run, case, occurrence, decision, or transaction identifiers.
 
 ## Required submission sequence
 
@@ -27,8 +27,12 @@ The implementation stays synchronous for the local submission. It uses progressi
 | `POST /books/{book}/runs` | Freeze, execute, and publish one scoped run; redirect to workbench |
 | `GET /books/{book}/cases/{case}` | Current/historical evidence, comparisons, raw/canonical rows, decisions, occurrences, lineage |
 | `POST /books/{book}/cases/{case}/link` | Validate the retained candidate, commit the exact reviewed link with reason and expected generation, and redirect to pending case evidence |
+| `POST /books/{book}/cases/{case}/accept-unmatched` | Reserve the reviewed record as genuinely unmatched with a reason |
+| `POST /books/{book}/cases/{case}/reject-candidate` | Reject the exact retained current-run relationship without reserving either endpoint |
+| `GET/POST /books/{book}/decisions/{decision}` | Inspect history; reaffirm, revoke, preview replacement, or commit an exact conflict-complete replacement |
+| `GET /books/{book}/exports/cases.{csv|json}` | Export filtered current review or immutable selected-run facts |
 
-The manual-link page is the preview surface: it shows both the retained source record and candidate metadata before the reviewer submits the reasoned action. A dedicated JavaScript preview endpoint is deliberately deferred because the submission flow is server-rendered and no-JavaScript complete.
+Each action uses its full-page preview surface to show exact evidence and affected authorities before a reasoned commit. No separate JavaScript preview endpoint is required.
 
 ## Security and failure behavior
 
@@ -46,9 +50,9 @@ The manual-link page is the preview surface: it shows both the retained source r
 - Keyboard structure, visible focus, narrow case layout, and no-JavaScript completion.
 - Full PostgreSQL regression, migration drift, compilation, clean Compose, and diff hygiene.
 
-## Deferred showcase work
+## Completed operational extension
 
-Asynchronous job dispatch and optional SVG allocation visualization remain planned after the required submission journey. The complete candidate table, persisted truthful stages/counts, and failure/retry presentation are now delivered; durable background execution remains governed by specification 006.
+Specification 006 delivered PostgreSQL work claims, leases, retries, attempt fencing, a standalone worker, truthful health/progress signals, and cleanup processing. The complete candidate table remains the authoritative allocation explanation; no graph is needed to understand a result.
 
 ## Completed showcase extension: UX-T06
 
@@ -60,4 +64,4 @@ The workbench now applies combined reference search, outcome and review filters,
 
 Weighted cases now resolve their retained assignment component and render every candidate edge, source identity, rule score, feature value/difference/similarity/weight/contribution, selection outcome, counterfactual objective, global gap, acceptance gate, contradiction, and coverage failure in an accessible table. This table remains the complete explanation without a graph.
 
-Runs now persist `QUEUED`, `LOADING_INPUTS`, `MATCHING`, `PUBLISHING`, `COMPLETED`, or `FAILED` with only measured counts available at that stage. The workbench presents running and failed attempts separately while keeping the last successful result selected and usable. Failed runs include a retry action. The local submission request still executes synchronously; specification 006 will move the same persisted states behind durable background dispatch.
+Runs persist `QUEUED`, `LOADING_INPUTS`, `MATCHING`, `PUBLISHING`, `COMPLETED`, or `FAILED` with only measured counts available at that stage. The workbench presents running and failed attempts separately while keeping the last successful result selected and usable. Failed runs include a retry action. Specification 006 routes execution through durable PostgreSQL-backed work claims shared by the request path and standalone worker.

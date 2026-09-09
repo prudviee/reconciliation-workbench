@@ -16,6 +16,7 @@ from urllib.request import urlopen
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SERVICES = {"db", "web", "worker"}
+COMPOSE_PROJECT = "reconciliation-workbench"
 
 
 class VerificationFailure(RuntimeError):
@@ -38,15 +39,25 @@ def run(*command: str, cwd: Path = PROJECT_ROOT) -> str:
     return completed.stdout.strip()
 
 
-def readiness() -> dict[str, str]:
+def readiness() -> dict[str, object]:
     with urlopen("http://127.0.0.1:8010/health/ready", timeout=5) as response:
         if response.status != 200:
             raise VerificationFailure(f"readiness returned HTTP {response.status}")
         payload = json.load(response)
-    expected = {"status": "ready", "database": "ready"}
-    if payload != expected:
+    expected = {
+        "status": "ready",
+        "database": "ready",
+        "worker_status": "healthy",
+    }
+    if any(payload.get(key) != value for key, value in expected.items()):
         raise VerificationFailure(f"unexpected readiness payload: {payload!r}")
+    if not isinstance(payload.get("worker_heartbeat_age_seconds"), (int, float)):
+        raise VerificationFailure(f"missing worker heartbeat age: {payload!r}")
     return payload
+
+
+def compose(*arguments: str, cwd: Path) -> str:
+    return run("docker", "compose", "-p", COMPOSE_PROJECT, *arguments, cwd=cwd)
 
 
 def verify_migration_owner() -> None:
@@ -80,18 +91,14 @@ def verify(timeout_seconds: int) -> dict[str, object]:
     verify_migration_owner()
     with staged_compose_project() as temporary:
         compose_root = Path(temporary) / "source"
-        run(
-            "docker",
-            "compose",
+        compose(
             "down",
             "--volumes",
             "--remove-orphans",
             cwd=compose_root,
         )
         started = monotonic()
-        run(
-            "docker",
-            "compose",
+        compose(
             "up",
             "--build",
             "--detach",
@@ -103,9 +110,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
         elapsed = round(monotonic() - started, 3)
 
         running = set(
-            run(
-                "docker",
-                "compose",
+            compose(
                 "ps",
                 "--status",
                 "running",
@@ -119,9 +124,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
             )
 
         ready = readiness()
-        database_probe = run(
-            "docker",
-            "compose",
+        database_probe = compose(
             "exec",
             "-T",
             "db",
@@ -132,9 +135,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
             "reconciliation",
             cwd=compose_root,
         )
-        run(
-            "docker",
-            "compose",
+        compose(
             "exec",
             "-T",
             "worker",
@@ -144,9 +145,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
             cwd=compose_root,
         )
         volume_probe = "shared-private-artifact-volume"
-        run(
-            "docker",
-            "compose",
+        compose(
             "exec",
             "-T",
             "web",
@@ -155,9 +154,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
             f"printf '%s' '{volume_probe}' > /var/lib/reconciliation/artifacts/.volume-probe",
             cwd=compose_root,
         )
-        observed_probe = run(
-            "docker",
-            "compose",
+        observed_probe = compose(
             "exec",
             "-T",
             "worker",
@@ -167,9 +164,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
         )
         if observed_probe != volume_probe:
             raise VerificationFailure("web and worker do not share the private artifact volume")
-        run(
-            "docker",
-            "compose",
+        compose(
             "exec",
             "-T",
             "web",
@@ -177,9 +172,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
             "/var/lib/reconciliation/artifacts/.volume-probe",
             cwd=compose_root,
         )
-        run(
-            "docker",
-            "compose",
+        compose(
             "exec",
             "-T",
             "web",
@@ -207,12 +200,8 @@ def verify(timeout_seconds: int) -> dict[str, object]:
                     "{{.Server.Version}}",
                     cwd=compose_root,
                 ),
-                "compose": run(
-                    "docker", "compose", "version", "--short", cwd=compose_root
-                ),
-                "python": run(
-                    "docker",
-                    "compose",
+                "compose": run("docker", "compose", "version", "--short"),
+                "python": compose(
                     "exec",
                     "-T",
                     "web",
@@ -220,9 +209,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
                     "--version",
                     cwd=compose_root,
                 ),
-                "django": run(
-                    "docker",
-                    "compose",
+                "django": compose(
                     "exec",
                     "-T",
                     "web",
@@ -231,9 +218,7 @@ def verify(timeout_seconds: int) -> dict[str, object]:
                     "import django; print(django.get_version())",
                     cwd=compose_root,
                 ),
-                "postgresql": run(
-                    "docker",
-                    "compose",
+                "postgresql": compose(
                     "exec",
                     "-T",
                     "db",
@@ -275,7 +260,7 @@ def main() -> int:
     except (OSError, VerificationFailure, ValueError) as error:
         print(f"clean-start verification failed: {error}", file=sys.stderr)
         try:
-            logs = run("docker", "compose", "logs", "--no-color", "--tail", "80")
+            logs = compose("logs", "--no-color", "--tail", "80", cwd=PROJECT_ROOT)
             if logs:
                 print(logs, file=sys.stderr)
         except (OSError, VerificationFailure):
@@ -284,7 +269,15 @@ def main() -> int:
     finally:
         if args.remove_volumes_after:
             subprocess.run(
-                ["docker", "compose", "down", "--volumes", "--remove-orphans"],
+                [
+                    "docker",
+                    "compose",
+                    "-p",
+                    COMPOSE_PROJECT,
+                    "down",
+                    "--volumes",
+                    "--remove-orphans",
+                ],
                 cwd=PROJECT_ROOT,
                 check=False,
             )

@@ -18,20 +18,20 @@ Each decision records the problem, chosen direction, why it fits, what was rejec
 
 **Consequences:** Modules require discipline because process boundaries do not enforce separation. The database can become a shared dependency, so ownership and repository interfaces must remain explicit.
 
-## ADR-002: Use Django, server-rendered templates, and HTMX
+## ADR-002: Use Django and full server-rendered pages
 
 **Status:** Accepted
 
-**Decision:** Build the application with Django, PostgreSQL, templates, HTMX, and small focused JavaScript components.
+**Decision:** Build the application with Django, PostgreSQL, and ordinary server-rendered templates and forms. The complete workflow works without JavaScript or a frontend build step.
 
-**Why:** Django provides forms, migrations, sessions, CSRF protection, and mature server-side conventions. The product is a workflow-heavy investigation tool; its key interactions can use HTML fragments without maintaining a separate API/frontend state model. This also follows the advanced design selected from the earlier conversation.
+**Why:** Django provides forms, migrations, sessions, CSRF protection, and mature server-side conventions. The product is a workflow-heavy investigation tool whose key interactions fit ordinary pages and redirect-after-post forms without maintaining a separate API or frontend state model.
 
 **Rejected:**
 
 - FastAPI plus React: technically strong and initially considered, but it adds a separate frontend toolchain and duplicated contract/state concerns that do not create the project's algorithmic value.
-- Django templates without progressive updates: functional, but case drawers, filters, and job-state refresh benefit from partial updates.
+- HTMX or focused JavaScript enhancements: useful if later evidence shows that partial refreshes materially improve the workflow, but unnecessary for the verified release.
 
-**Consequences:** The interface must still be deliberately designed and tested; server rendering does not create polish automatically. Rich graph evidence may need a small client-side visualization component.
+**Consequences:** The interface must still be deliberately designed and tested; server rendering does not create polish automatically. The complete candidate table carries all required allocation evidence, so an optional future graph cannot become the only explanation.
 
 ## ADR-003: Use anonymous isolated workspaces instead of sign-in
 

@@ -72,6 +72,16 @@ Exit evidence:
 - Deployed workspace retention matches the interface.
 - Release gate in `docs/06-verification-and-delivery.md` passes.
 
+## Milestone 7: zero-cost local storage
+
+Specification 007 removes the unused external-storage adapter and keeps private uploads in the persistent Docker volume shared by web and worker.
+
+Exit evidence:
+
+- Runtime and development dependencies contain no external storage SDK.
+- Upload, download, cleanup, and rebuild behavior remain verified.
+- Current design and deployment documents state the single-host limitation explicitly.
+
 ## Cross-specification rules
 
 - A feature may depend on a stable interface from an earlier spec before the earlier UI is complete.

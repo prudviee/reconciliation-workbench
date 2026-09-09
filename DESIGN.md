@@ -1,8 +1,8 @@
 # Reconciliation Workbench
 
-> Advanced showcase design | 5 September 2026 | Design only
+> Advanced showcase design | verified implementation updated 9 September 2026
 >
-> I am designing a complete, polished transaction-reconciliation application that demonstrates algorithmic reasoning, temporal correctness, and an effective investigation workflow. The advanced design from the earlier conversation is the baseline for the first release. There is no sign-in. No application implementation is included in this document.
+> Reconciliation Workbench is a complete, polished transaction-reconciliation application that demonstrates algorithmic reasoning, temporal correctness, and an effective investigation workflow. This document records the implemented first-release design. There is no sign-in.
 
 **Reading guide:** [Intent](#1-intent-and-design-status) · [HLD](#4-hld-and-technology-choices) · [Import semantics](#6-canonical-records-and-import-contracts) · [Advanced algorithm](#7-advanced-reconciliation-algorithm) · [Data model](#10-lld-relational-model-and-integrity) · [Run consistency](#13-run-consistency-jobs-and-state-transitions) · [UI](#14-product-and-visual-design) · [Evaluation](#15-evaluation-tests-and-performance-targets) · [Demo and delivery](#17-demonstration-and-delivery-plan)
 
@@ -10,7 +10,7 @@
 
 I want this project to remain useful as a portfolio project independently of the hiring outcome. The first release should demonstrate the complex behavior working together: source normalization, weighted record linkage, global one-to-one assignment, ambiguity handling, corrections, durable decisions, and reproducible history.
 
-The assignment is the source of functional requirements. The earlier conversation is design context. Instructions in those materials to submit a repository, send an email, or record a video are future delivery requirements; creating this document does not execute those actions.
+The assignment is the source of functional requirements. The earlier conversation is design context. Repository publication and the narrated video are delivery artifacts outside the application architecture.
 
 The email exchange accepted Wednesday EOD; I use 9 September 2026 as the planning date inferred from that exchange. The original brief suggests 5–6 hours for its smaller assignment. I do not treat that estimate as evidence that this expanded showcase can be completed in the same effort.
 
@@ -20,16 +20,16 @@ The email exchange accepted Wednesday EOD; I use 9 September 2026 as the plannin
 |---|---|
 | Release ambition | Advanced reconciliation and a polished interface in the first release |
 | Access | Anonymous, isolated workspace retained in the same browser |
-| Backend and UI | Django, PostgreSQL, server-rendered templates, HTMX, and focused JavaScript |
+| Backend and UI | Django, PostgreSQL, and full server-rendered pages; no JavaScript required |
 | Architecture | Modular monolith with web and worker processes from one repository |
 | Matching | Authoritative references, weighted candidates, component-based global assignment, and an ambiguity gate |
 | History | Immutable evidence, dataset revisions, observation versions, and frozen runs |
-| Reviewer actions | Manual link, accept unmatched, reject candidate, reaffirm, and revoke |
+| Reviewer actions | Manual link, accept unmatched, reject candidate, reaffirm, revoke, and replace |
 | Explainability | Stored field evidence, score contributions, competing assignments, rules, and provenance |
 
 I return to the earlier chat's Django foundation instead of retaining the intervening FastAPI/React proposal. Interface polish comes from the interaction design, visual execution, and completeness of the workflow.
 
-The formulas, boundaries, and contracts below are selected design defaults. Numeric thresholds, resource limits, and performance figures are hypotheses or targets to validate, not measured achievements. The final dependency patch versions, hosting vendor, and visual brand name can be selected during implementation without changing these domain decisions.
+The formulas, boundaries, and contracts below describe the implemented defaults. Numeric thresholds and resource limits are versioned policy. Performance statements distinguish measured results from targets, including the disclosed 10,000-row runtime miss. Exact dependency versions are locked in `requirements/`; the verified deployment is local Docker Compose with persistent private storage.
 
 ## 2. The hard problem and its boundaries
 
@@ -83,7 +83,7 @@ I use an append-only domain model inside a modular monolith. Mutable pointers id
 
 ~~~mermaid
 flowchart LR
-    B["Browser: templates and HTMX"] --> W["Django web application"]
+    B["Browser: full server-rendered pages"] --> W["Django web application"]
     W --> A["Application services"]
     A --> P[("PostgreSQL")]
     A --> F[("Private file storage")]
@@ -99,18 +99,18 @@ flowchart LR
 | Component | Choice and responsibility |
 |---|---|
 | Web framework | Django 5.2 line; request handling, forms, migrations, sessions, CSRF protection |
-| UI | Templates and HTMX; JavaScript for drawer focus, keyboard shortcuts, and small interactive evidence views |
+| UI | Full server-rendered pages and ordinary HTML forms with responsive CSS |
 | Styling | Tailwind CSS with a small documented set of reusable components |
 | Database | PostgreSQL; relational integrity, exact numeric values, revision pointers, jobs |
 | Assignment solver | SciPy linear assignment solver behind a pure domain adapter |
 | Jobs | PostgreSQL-backed job records and a separate Python worker |
 | Files | Private filesystem storage on a persistent Docker volume |
-| Tests | Pytest, pytest-django, Hypothesis, and Playwright |
+| Tests | Pytest, pytest-django, deterministic property-style cases, and live browser verification |
 | Packaging | One repository and container image, separate web/worker commands, Docker Compose locally |
 
 The core engine accepts plain immutable value objects. It imports no Django models, reads no clock, queries no database, and makes no network calls.
 
-Django's explicit transaction blocks support short atomic mutations. HTMX supports HTML responses and partial updates, which fit the workbench and drawer interactions. These are framework capabilities; the reconciliation decisions remain my own design. [Django transactions](https://docs.djangoproject.com/en/5.2/topics/db/transactions/), [HTMX documentation](https://htmx.org/docs/)
+Django's explicit transaction blocks support short atomic mutations. Full-page templates and redirect-after-post forms keep the complete workflow accessible without a frontend build or client-side state model. The reconciliation decisions remain independent of the web framework. [Django transactions](https://docs.djangoproject.com/en/5.2/topics/db/transactions/)
 
 ### Alternatives considered
 
@@ -523,7 +523,7 @@ erDiagram
 | resolutions | Append decision revisions and maintain endpoint claims |
 | cases | Stable identity, occurrences, transitions, current review projections |
 | jobs | Claim, heartbeat, retry, fence publication, and clean up expired work |
-| web | Full pages, HTMX fragments, forms, exports, accessibility behavior |
+| web | Full server-rendered pages, forms, exports, accessibility behavior |
 
 Domain value objects include CanonicalObservation, SnapshotManifest, DecisionInput, CandidateEdge, FeatureEvidence, AssignmentProposal, FieldDifference, DecisionHealth, and EngineResult.
 
@@ -531,7 +531,7 @@ Repositories and file storage are adapters called by application services. They 
 
 ## 12. LLD: web contracts
 
-The browser primarily receives server-rendered HTML. HTMX requests receive corresponding fragments; ordinary navigation remains usable. A small JSON response is appropriate for job progress and exported machine-readable results.
+The browser receives full server-rendered HTML and uses ordinary forms with redirect-after-post behavior. JSON is reserved for the readiness endpoint and explicit machine-readable exports.
 
 | Method and route | Contract |
 |---|---|
@@ -632,7 +632,7 @@ The central screen answers: **What still needs my attention, and what evidence s
 | Case evidence | Side-by-side values, weighted features, global allocation, candidate rejection/linking, decisions, history |
 | Runs and activity | Historical snapshots, case changes between runs, imports, decisions, and exports |
 
-Source and rule configuration are reachable from setup and the book menu. Case evidence is a desktop drawer with its own stable URL; smaller screens use the dedicated page.
+Source configuration is reachable from each book's preparation page. Case and decision evidence use dedicated stable URLs at every viewport size.
 
 ~~~text
 Reconciliations / Exchange A settlement                 Workspace expires 12 Sep
@@ -686,9 +686,9 @@ There is no generic green matched badge that conceals a discrepancy. Labels such
 
 Use a light neutral background, dark navy text, one primary accent, restrained semantic colors, tabular numerals, right-aligned amounts, explicit currencies, stable column widths, and generous evidence-panel spacing.
 
-Every state has text in addition to color. All forms have labels and announced errors. Keyboard users can open a row, navigate the evidence panel, perform actions, and return focus to the originating row. Drawers trap focus appropriately and support Escape. Table headers remain understandable with assistive technology.
+Every state has text in addition to color. All forms have labels and announced errors. Keyboard users can open a row, follow breadcrumbs, navigate evidence, and perform actions through ordinary pages. Table headers remain understandable with assistive technology.
 
-Desktop supports the complete table workflow. Tablet uses a wider case panel. Mobile supports summary, search, case evidence, and basic decisions through dedicated pages. It does not squeeze a dense desktop table into unreadable columns.
+Desktop supports the complete table workflow. Tablet and mobile use readable single-column evidence and decision pages, while dense tables stay inside horizontally scrollable regions.
 
 ## 15. Evaluation, tests, and performance targets
 
@@ -731,7 +731,7 @@ Property tests require row-order invariance, repeatability, no double pairing, c
 - 10,000 records per source and 25 MiB per file as initial supported limits.
 - Run computation target under 10 seconds for the documented 10,000-by-10,000 synthetic workload on a stated two-vCPU/four-GiB reference environment, subject to component caps.
 - Typical paginated workbench responses below 500 ms p95 on that environment.
-- Immediate acknowledgement of asynchronous work without tying the request to the calculation.
+- Durable work is recorded before execution; the local request path may claim its exact item inline while the standalone worker handles queued, retried, and cleanup work.
 - Complete core demonstration in five minutes without developer tools.
 
 If a target is missed, report the measurement and improve the relevant algorithm, query, or limit. Do not claim the target as achieved because the design names it.
@@ -786,11 +786,11 @@ These are dependency-ordered checkpoints, not an assignment-only release followe
 | Integration and polish | Background jobs, isolation, errors, exports, accessibility, responsive inspection |
 | Release verification | Held-out synthetic evaluation, complete browser flow, deployment check, demo rehearsal |
 
-For the available calendar window, I should finish an executable vertical flow early and add the remaining planned depth in these checkpoints. Algorithm evidence, temporal behavior, and UI quality are reviewed throughout; polish is not reserved for the last hour.
+Implementation followed these checkpoints in dependency order. Algorithm evidence, temporal behavior, and UI quality were reviewed throughout rather than deferred to a final polish pass.
 
 The release is ready when the required tests pass, the full demo works, results and evaluation are honestly documented, and no known issue contradicts the core invariants. The date is a planning constraint, not permission to claim unverified behavior.
 
-The future implementation README should include setup, sample data, assumptions, algorithm explanation, measured evaluation, known limits, architectural decisions, and demo instructions. A public repository and video are planned deliverables; this design document does not publish either.
+The root README includes setup, sample data, assumptions, algorithm explanation, measured evaluation, known limits, architectural decisions, and demo instructions. The public repository carries the complete source and evidence; the narrated video is shared separately as an assignment delivery artifact.
 
 ## 18. Research extension and AI boundary
 
