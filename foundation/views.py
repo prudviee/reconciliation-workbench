@@ -715,6 +715,104 @@ def _run_failed_redirect(book, scope) -> HttpResponse:
     return redirect(f"/books/{book.id}/workbench{query}")
 
 
+def _case_has_pending_changes(book, evidence) -> bool:
+    return (
+        evidence.current_review is not None
+        and evidence.occurrence.timeline_label == "CURRENT"
+        and book.resolution_generation
+        != evidence.current_review.applied_resolution_generation
+    )
+
+
+def _candidate_for_rejection(evidence, left_observation_id, right_observation_id):
+    if evidence.occurrence.timeline_label != "CURRENT" or not evidence.allocation:
+        return None
+    return next(
+        (
+            item
+            for item in evidence.allocation["candidates"]
+            if str(item["left_observation_id"]) == str(left_observation_id)
+            and str(item["right_observation_id"]) == str(right_observation_id)
+        ),
+        None,
+    )
+
+
+def _decisions_for_candidate(decisions, candidate):
+    record_ids = {
+        candidate["left_logical_id"],
+        candidate["right_logical_id"],
+    }
+    return tuple(
+        item
+        for item in decisions
+        if item.authority_active
+        and record_ids.intersection(
+            value
+            for value in (
+                item.left_logical_id,
+                item.right_logical_id,
+                item.record_logical_id,
+            )
+            if value is not None
+        )
+    )
+
+
+def _case_detail_context(
+    request,
+    book,
+    evidence,
+    decisions,
+    *,
+    error=None,
+    rejection_preview=None,
+):
+    active_decisions = (
+        _decisions_for_candidate(decisions, rejection_preview)
+        if rejection_preview is not None
+        else ()
+    )
+    active_rejection = next(
+        (
+            item
+            for item in active_decisions
+            if item.authority_kind == "REJECT_CANDIDATE"
+            and item.left_logical_id == rejection_preview["left_logical_id"]
+            and item.right_logical_id == rejection_preview["right_logical_id"]
+        ),
+        None,
+    )
+    return {
+        "book": book,
+        "evidence": evidence,
+        "decisions": decisions,
+        "pending_changes": _case_has_pending_changes(book, evidence),
+        "workbench_query": urlencode(
+            {"run": str(evidence.occurrence.run_id)}
+            if evidence.occurrence.timeline_label != "CURRENT"
+            else {}
+        ),
+        "message": (
+            "Manual link saved. Run reconciliation again to publish it into a new immutable result."
+            if request.GET.get("linked")
+            else (
+                "Unmatched decision saved. Run reconciliation again to publish it into a new immutable result."
+                if request.GET.get("accepted")
+                else (
+                    "Candidate rejection saved. Run reconciliation again to publish it into a new immutable result."
+                    if request.GET.get("rejected")
+                    else None
+                )
+            )
+        ),
+        "error": error,
+        "rejection_preview": rejection_preview,
+        "rejection_active_decisions": active_decisions,
+        "rejection_already_active": active_rejection,
+    }
+
+
 @workspace_required
 @require_GET
 def reconciliation_case_detail(request: HttpRequest, book_id: object, case_id: object) -> HttpResponse:
@@ -735,44 +833,40 @@ def reconciliation_case_detail(request: HttpRequest, book_id: object, case_id: o
         )
     except ReviewQueryUnavailable:
         raise Http404 from None
-    record_ids = tuple(record.logical_transaction_id for record in evidence.records)
+    record_ids = {record.logical_transaction_id for record in evidence.records}
+    if evidence.allocation:
+        for candidate in evidence.allocation["candidates"]:
+            record_ids.update(
+                (candidate["left_logical_id"], candidate["right_logical_id"])
+            )
     try:
         decisions = DecisionQueryService().list_for_records(
             access.workspace_id,
             book_id=BookId(book.id),
             scope_id=readiness.scope_id,
-            record_ids=record_ids,
+            record_ids=tuple(record_ids),
         )
     except ReviewQueryUnavailable:
         raise Http404 from None
+    rejection_preview = None
+    left_observation_id = request.GET.get("reject_left_observation_id")
+    right_observation_id = request.GET.get("reject_right_observation_id")
+    if left_observation_id or right_observation_id:
+        rejection_preview = _candidate_for_rejection(
+            evidence, left_observation_id, right_observation_id
+        )
+        if rejection_preview is None or _case_has_pending_changes(book, evidence):
+            raise Http404
     return render(
         request,
         "foundation/case_detail.html",
-        {
-            "book": book,
-            "evidence": evidence,
-            "decisions": decisions,
-            "pending_changes": (
-                evidence.current_review is not None
-                and evidence.occurrence.timeline_label == "CURRENT"
-                and book.resolution_generation
-                != evidence.current_review.applied_resolution_generation
-            ),
-            "workbench_query": urlencode(
-                {"run": str(evidence.occurrence.run_id)}
-                if evidence.occurrence.timeline_label != "CURRENT"
-                else {}
-            ),
-            "message": (
-                "Manual link saved. Run reconciliation again to publish it into a new immutable result."
-                if request.GET.get("linked")
-                else (
-                    "Unmatched decision saved. Run reconciliation again to publish it into a new immutable result."
-                    if request.GET.get("accepted")
-                    else None
-                )
-            ),
-        },
+        _case_detail_context(
+            request,
+            book,
+            evidence,
+            decisions,
+            rejection_preview=rejection_preview,
+        ),
     )
 
 
@@ -917,6 +1011,92 @@ def reconciliation_case_accept_unmatched(
     except (DecisionMutationUnavailable, ValueError):
         raise Http404 from None
     return redirect(f"/books/{book.id}/cases/{case_id}?accepted=1")
+
+
+@workspace_required
+@require_POST
+def reconciliation_case_reject_candidate(
+    request: HttpRequest, book_id: object, case_id: object
+) -> HttpResponse:
+    access = workspace_access(request)
+    book = _owned_book(request, book_id)
+    readiness = WorkbenchService().readiness(
+        access.workspace_id, book_id=BookId(book.id)
+    )
+    if readiness.scope_id is None:
+        raise Http404
+    try:
+        evidence = CaseQueryService().get_case_evidence(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            case_id=case_id,
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
+    candidate = _candidate_for_rejection(
+        evidence,
+        request.POST.get("left_observation_id"),
+        request.POST.get("right_observation_id"),
+    )
+    if candidate is None or _case_has_pending_changes(book, evidence):
+        raise Http404
+    try:
+        decisions = DecisionQueryService().list_for_records(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+            record_ids=(
+                candidate["left_logical_id"],
+                candidate["right_logical_id"],
+            ),
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
+    context = _case_detail_context(
+        request,
+        book,
+        evidence,
+        decisions,
+        rejection_preview=candidate,
+    )
+    if context["rejection_already_active"] is not None:
+        context["error"] = "This candidate already has an active rejection."
+        return render(
+            request, "foundation/case_detail.html", context, status=409
+        )
+    reason = str(request.POST.get("reason", "")).strip()
+    if not reason:
+        context["error"] = "Provide a reason before rejecting this candidate."
+        return render(request, "foundation/case_detail.html", context, status=400)
+    try:
+        expected_generation = int(request.POST.get("expected_resolution_generation", ""))
+        command = DecisionCommand(
+            action=DecisionAction.REJECT_CANDIDATE,
+            reason=reason,
+            actor="showcase-reviewer",
+            expected_resolution_generation=expected_generation,
+            authority=DecisionAuthority.reject_candidate(
+                str(candidate["left_logical_id"]),
+                str(candidate["right_logical_id"]),
+            ),
+            reviewed_observation_ids=(
+                str(candidate["left_observation_id"]),
+                str(candidate["right_observation_id"]),
+            ),
+        )
+        DecisionCommandService().commit_initial(
+            access.workspace_id, book_id=BookId(book.id), command=command
+        )
+    except DecisionMutationConflict as conflict:
+        context["error"] = str(conflict)
+        return render(request, "foundation/case_detail.html", context, status=409)
+    except (TypeError, ValueError):
+        context["error"] = "The candidate preview is invalid. Preview it again."
+        return render(request, "foundation/case_detail.html", context, status=400)
+    except DecisionMutationUnavailable:
+        raise Http404 from None
+    return redirect(f"/books/{book.id}/cases/{case_id}?rejected=1")
 
 
 @workspace_required

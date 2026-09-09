@@ -550,6 +550,119 @@ def test_weighted_run_persists_candidates_components_and_comparisons() -> None:
 
 
 @pytest.mark.django_db
+def test_weighted_candidate_can_be_previewed_rejected_and_removed_on_rerun() -> None:
+    from django.test import Client
+
+    from workspaces.sessions import digest_session_key
+
+    graph = create_graph("browser-rejection", left_reference=None, right_reference=None)
+    Dataset.objects.filter(
+        id__in=(graph.scope.left_dataset_id, graph.scope.right_dataset_id)
+    ).update(coverage_key="default")
+    ReconciliationScope.objects.filter(id=graph.scope.id).update(coverage_key="default")
+    graph.scope.refresh_from_db()
+    service = ReconciliationRunService(clock=lambda: NOW)
+    frozen = service.create_run_manifest(WorkspaceId(graph.workspace.id), graph.scope.id)
+    service.execute_and_publish_run(WorkspaceId(graph.workspace.id), frozen.run_id)
+
+    run = ReconciliationRun.objects.get(id=frozen.run_id)
+    candidate = run.candidates.select_related(
+        "left_observation__logical_transaction",
+        "right_observation__logical_transaction",
+    ).get()
+    case_id = CaseOccurrence.objects.get(run=run, result_kind="PAIR").case_id
+    client = Client()
+    session = client.session
+    session.save()
+    Workspace.objects.filter(id=graph.workspace.id).update(
+        session_digest=digest_session_key(session.session_key)
+    )
+    case_url = f"/books/{graph.book.id}/cases/{case_id}"
+    preview = client.get(
+        case_url,
+        {
+            "reject_left_observation_id": candidate.left_observation_id,
+            "reject_right_observation_id": candidate.right_observation_id,
+        },
+    )
+    preview_content = preview.content.decode()
+    assert preview.status_code == 200
+    assert "Reject this candidate relationship" in preview_content
+    assert str(candidate.left_observation.logical_transaction_id) in preview_content
+    assert str(candidate.right_observation.logical_transaction_id) in preview_content
+    assert "No active decisions" in preview_content
+    assert "does not reserve either record" in preview_content
+
+    payload = {
+        "left_observation_id": candidate.left_observation_id,
+        "right_observation_id": candidate.right_observation_id,
+        "expected_resolution_generation": graph.book.resolution_generation,
+    }
+    missing_reason = client.post(f"{case_url}/reject-candidate", payload)
+    assert missing_reason.status_code == 400
+    assert "Provide a reason before rejecting" in missing_reason.content.decode()
+    assert not Decision.objects.filter(book=graph.book).exists()
+
+    forged = client.post(
+        f"{case_url}/reject-candidate",
+        {
+            **payload,
+            "right_observation_id": uuid4(),
+            "reason": "A forged candidate must not be accepted.",
+        },
+    )
+    assert forged.status_code == 404
+    assert not Decision.objects.filter(book=graph.book).exists()
+
+    csrf_client = Client(enforce_csrf_checks=True)
+    csrf_client.cookies = client.cookies
+    assert csrf_client.post(
+        f"{case_url}/reject-candidate",
+        {**payload, "reason": "A request without its CSRF token must fail."},
+    ).status_code == 403
+    foreign = Client()
+    assert foreign.get(
+        case_url,
+        {
+            "reject_left_observation_id": candidate.left_observation_id,
+            "reject_right_observation_id": candidate.right_observation_id,
+        },
+    ).status_code == 404
+    assert foreign.post(
+        f"{case_url}/reject-candidate",
+        {**payload, "reason": "A foreign workspace must learn nothing."},
+    ).status_code == 404
+    assert not Decision.objects.filter(book=graph.book).exists()
+
+    rejected = client.post(
+        f"{case_url}/reject-candidate",
+        {
+            **payload,
+            "reason": "The source owners confirmed these are different trades.",
+        },
+        follow=True,
+    )
+    rejected_content = rejected.content.decode()
+    assert rejected.status_code == 200
+    assert "Candidate rejection saved" in rejected_content
+    assert "pending saved decision" in rejected_content
+    assert "reject candidate" in rejected_content
+    decision = Decision.objects.get(book=graph.book)
+    assert decision.current_revision.action == DecisionAction.REJECT_CANDIDATE
+    assert decision.current_revision.active_claims.count() == 0
+    assert "Changes are waiting for a rerun" in client.get(
+        f"/books/{graph.book.id}/workbench"
+    ).content.decode()
+
+    rerun = client.post(f"/books/{graph.book.id}/runs", follow=True)
+    assert rerun.status_code == 200
+    latest = ReconciliationRun.objects.filter(scope=graph.scope).order_by("-created_at").first()
+    assert latest is not None and latest.id != run.id
+    assert latest.pairs.count() == 0
+    assert latest.unpaired.count() == 2
+
+
+@pytest.mark.django_db
 def test_workbench_keeps_current_result_during_running_and_failed_rerun(
     monkeypatch,
 ) -> None:

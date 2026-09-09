@@ -675,8 +675,20 @@ class CaseQueryService:
             )
             rows.append(
                 {
+                    "left_logical_id": candidate.left_observation.logical_transaction_id,
+                    "right_logical_id": candidate.right_observation.logical_transaction_id,
+                    "left_observation_id": candidate.left_observation_id,
+                    "right_observation_id": candidate.right_observation_id,
                     "left_reference": candidate.left_observation.logical_transaction.source_record_key,
                     "right_reference": candidate.right_observation.logical_transaction.source_record_key,
+                    "left_executed_at_utc": candidate.left_observation.executed_at_utc,
+                    "right_executed_at_utc": candidate.right_observation.executed_at_utc,
+                    "left_instrument": candidate.left_observation.instrument,
+                    "right_instrument": candidate.right_observation.instrument,
+                    "left_gross_amount": str(candidate.left_observation.gross_amount),
+                    "right_gross_amount": str(candidate.right_observation.gross_amount),
+                    "left_currency": candidate.left_observation.currency,
+                    "right_currency": candidate.right_observation.currency,
                     "score_bp": candidate.score_bp,
                     "score_label": candidate.score_label,
                     "blocking_reasons": tuple(candidate.blocking_reasons),

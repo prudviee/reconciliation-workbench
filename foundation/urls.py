@@ -40,6 +40,11 @@ urlpatterns = [
         name="case-accept-unmatched",
     ),
     path(
+        "books/<uuid:book_id>/cases/<uuid:case_id>/reject-candidate",
+        views.reconciliation_case_reject_candidate,
+        name="case-reject-candidate",
+    ),
+    path(
         "books/<uuid:book_id>/decisions/<uuid:decision_id>",
         views.reconciliation_decision_detail,
         name="decision-detail",

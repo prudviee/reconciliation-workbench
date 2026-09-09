@@ -58,6 +58,9 @@
   - [x] **UX-T08E — Expose conflict-complete decision replacement** (`UX-004`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A10`, `UX-A11`)
     - Change: choose current left/right evidence, preview the target and every displaced active decision, require a reason, commit only the exact generation/conflict set, retain superseded history, and mark reconciliation pending.
     - Evidence: [UX-T08E acceptance](./evidence/UX-T08E.md).
+  - [x] **UX-T08F — Expose reasoned candidate rejection** (`UX-004`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A04`, `UX-A10`)
+    - Change: open a rejection preview from retained allocation evidence, show both exact identities and every active decision involving them, require a reason, reject only the reviewed current-run relationship, preserve both records for other matches, and mark reconciliation pending.
+    - Evidence: [UX-T08F acceptance](./evidence/UX-T08F.md).
 
 ## Scope decision
 
