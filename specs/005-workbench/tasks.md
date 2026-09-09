@@ -55,6 +55,9 @@
   - [x] **UX-T08D — Expose saved-decision review and reasoned revocation** (`UX-004`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A10`, `UX-A11`)
     - Change: show active reviewer authorities on relevant cases, open a complete identity/reason/history preview, require a new reason to revoke, release claims append-only, and mark the workbench pending until rerun.
     - Evidence: [UX-T08D acceptance](./evidence/UX-T08D.md).
+  - [x] **UX-T08E — Expose conflict-complete decision replacement** (`UX-004`, `UX-007`, `UX-010`, `UX-011`, `UX-018`; `UX-A10`, `UX-A11`)
+    - Change: choose current left/right evidence, preview the target and every displaced active decision, require a reason, commit only the exact generation/conflict set, retain superseded history, and mark reconciliation pending.
+    - Evidence: [UX-T08E acceptance](./evidence/UX-T08E.md).
 
 ## Scope decision
 

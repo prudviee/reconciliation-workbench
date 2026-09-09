@@ -540,6 +540,129 @@ def test_case_detail_accepts_genuinely_unmatched_with_reason_and_rerun(tmp_path)
 
 
 @override_settings(DEBUG=False)
+def test_decision_replacement_previews_and_supersedes_every_authority(tmp_path) -> None:
+    ledger = (DEMO_ROOT / "atlas-ledger.csv").read_text(encoding="utf-8")
+    counterparty = (DEMO_ROOT / "atlas-counterparty.csv").read_text(
+        encoding="utf-8"
+    )
+    with override_settings(INGESTION_PRIVATE_ROOT=tmp_path):
+        client = Client()
+        book = create_book(client)
+        left = upload(client, f"/books/{book.id}/sources/left/upload", ledger)
+        client.post(f"/imports/{left.headers['Location'].split('/')[-2]}/activate")
+        right = upload(
+            client,
+            f"/books/{book.id}/sources/right/upload",
+            counterparty,
+            adapter="counterparty",
+        )
+        client.post(f"/imports/{right.headers['Location'].split('/')[-2]}/activate")
+        first_page = client.post(f"/books/{book.id}/runs", follow=True)
+
+        cases = {}
+        for case_id in re.findall(
+            r"/cases/([0-9a-f-]{36})", first_page.content.decode()
+        ):
+            detail = client.get(f"/books/{book.id}/cases/{case_id}").content.decode()
+            if "TX-1003 · left" in detail:
+                cases["left"] = case_id
+            elif "CP-9003 · right" in detail:
+                cases["right"] = case_id
+        assert set(cases) == {"left", "right"}
+
+        client.post(
+            f"/books/{book.id}/cases/{cases['left']}/accept-unmatched",
+            {"reason": "Ledger owner confirmed no external settlement."},
+        )
+        client.post(f"/books/{book.id}/runs")
+        client.post(
+            f"/books/{book.id}/cases/{cases['right']}/accept-unmatched",
+            {"reason": "Counterparty owner confirmed an orphan statement row."},
+        )
+        client.post(f"/books/{book.id}/runs")
+
+        target = Decision.objects.get(
+            book=book,
+            current_revision__record_logical__source_record_key="TX-1003",
+        )
+        conflicting = Decision.objects.get(
+            book=book,
+            current_revision__record_logical__source_record_key="CP-9003",
+        )
+        target_url = f"/books/{book.id}/decisions/{target.id}"
+        preview = client.post(
+            target_url,
+            {
+                "action": "preview-replacement",
+                "left_logical_id": target.current_revision.record_logical_id,
+                "right_logical_id": conflicting.current_revision.record_logical_id,
+            },
+        )
+        preview_content = preview.content.decode()
+        assert preview.status_code == 200
+        assert "Review every affected authority" in preview_content
+        assert "TX-1003" in preview_content
+        assert "CP-9003" in preview_content
+        assert "Ledger owner confirmed no external settlement" in preview_content
+        assert "Counterparty owner confirmed an orphan statement row" in preview_content
+        approved = (
+            f"{conflicting.id}:{conflicting.current_revision_id}"
+        )
+        assert approved in preview_content
+
+        book.refresh_from_db()
+        replacement_payload = {
+            "action": "commit-replacement",
+            "target_revision_id": target.current_revision_id,
+            "expected_resolution_generation": book.resolution_generation,
+            "left_logical_id": target.current_revision.record_logical_id,
+            "right_logical_id": conflicting.current_revision.record_logical_id,
+            "approved_conflict": approved,
+        }
+        invalid_preview = client.post(
+            target_url,
+            {
+                **replacement_payload,
+                "target_revision_id": "",
+                "reason": "This forged preview must not mutate authority.",
+            },
+        )
+        assert invalid_preview.status_code == 400
+        assert "replacement preview is invalid" in invalid_preview.content.decode()
+        target.refresh_from_db()
+        assert target.current_revision.action == "ACCEPT_UNMATCHED"
+
+        missing_reason = client.post(target_url, replacement_payload)
+        assert missing_reason.status_code == 400
+        target.refresh_from_db()
+        assert target.current_revision.action == "ACCEPT_UNMATCHED"
+
+        replaced = client.post(
+            target_url,
+            {
+                **replacement_payload,
+                "reason": "Both source owners confirmed these records are counterparts.",
+            },
+            follow=True,
+        )
+        replaced_content = replaced.content.decode()
+        assert replaced.status_code == 200
+        assert "Decision replaced" in replaced_content
+        assert "replace" in replaced_content
+        assert "TX-1003 ↔ CP-9003" in replaced_content
+        assert "Both source owners confirmed these records are counterparts" in replaced_content
+        target.refresh_from_db()
+        conflicting.refresh_from_db()
+        assert target.current_revision.action == "REPLACE"
+        assert target.current_revision.active_claims.count() == 2
+        assert conflicting.current_revision.active_claims.count() == 0
+        assert conflicting.current_revision.superseded_by.exists()
+        assert "Changes are waiting for a rerun" in client.get(
+            f"/books/{book.id}/workbench"
+        ).content.decode()
+
+
+@override_settings(DEBUG=False)
 def test_curated_atlas_demo_completes_the_submission_journey(tmp_path) -> None:
     ledger = (DEMO_ROOT / "atlas-ledger.csv").read_text(encoding="utf-8")
     counterparty = (DEMO_ROOT / "atlas-counterparty.csv").read_text(encoding="utf-8")

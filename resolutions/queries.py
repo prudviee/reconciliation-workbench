@@ -18,7 +18,7 @@ from reconciliation.domain import (
     ReplacementPreview,
     WorkspaceId,
 )
-from reconciliation.models import CurrentDecisionHealth
+from reconciliation.models import CurrentDecisionHealth, RunInput
 from reconciliation.querying import (
     ReviewPage,
     ReviewQueryUnavailable,
@@ -97,6 +97,19 @@ class DecisionHistory:
     current_revision_id: UUID
     resolution_generation: int
     revisions: tuple[DecisionRevisionItem, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionRecordOption:
+    logical_id: UUID
+    observation_id: UUID
+    side: str
+    reference: str
+    executed_at_utc: datetime
+    instrument: str
+    quantity: str
+    gross_amount: str
+    currency: str
 
 
 @dataclass(slots=True)
@@ -286,6 +299,37 @@ class DecisionQueryService:
                 )
                 for item in revisions
             ),
+        )
+
+    def list_replacement_records(
+        self,
+        workspace_id: WorkspaceId,
+        *,
+        book_id: BookId,
+        scope_id: UUID | str,
+    ) -> tuple[DecisionRecordOption, ...]:
+        book, scope = self._context(workspace_id, book_id, scope_id)
+        if scope.current_run_id is None:
+            return ()
+        rows = (
+            RunInput.objects.owned_by(workspace_id)
+            .filter(run_id=scope.current_run_id, run__scope=scope, run__scope__book=book)
+            .select_related("logical_transaction", "observation")
+            .order_by("side", "logical_transaction__source_record_key", "id")[:200]
+        )
+        return tuple(
+            DecisionRecordOption(
+                logical_id=item.logical_transaction_id,
+                observation_id=item.observation_id,
+                side=item.side,
+                reference=item.logical_transaction.source_record_key,
+                executed_at_utc=item.observation.executed_at_utc,
+                instrument=item.observation.instrument,
+                quantity=str(item.observation.quantity),
+                gross_amount=str(item.observation.gross_amount),
+                currency=item.observation.currency,
+            )
+            for item in rows
         )
 
     def preview_replacement(

@@ -944,54 +944,189 @@ def reconciliation_decision_detail(
     current = next(
         item for item in history.revisions if item.revision_id == history.current_revision_id
     )
+    try:
+        replacement_records = query.list_replacement_records(
+            access.workspace_id,
+            book_id=BookId(book.id),
+            scope_id=readiness.scope_id,
+        )
+    except ReviewQueryUnavailable:
+        raise Http404 from None
+    left_options = tuple(item for item in replacement_records if item.side == "LEFT")
+    right_options = tuple(item for item in replacement_records if item.side == "RIGHT")
+    context = {
+        "book": book,
+        "history": history,
+        "current": current,
+        "left_options": left_options,
+        "right_options": right_options,
+        "message": (
+            "Decision revoked. Run reconciliation again to publish the change."
+            if request.GET.get("revoked")
+            else (
+                "Decision replaced. Run reconciliation again to publish the change."
+                if request.GET.get("replaced")
+                else None
+            )
+        ),
+    }
     error = None
     status = 200
     if request.method == "POST":
-        reason = str(request.POST.get("reason", "")).strip()
-        if not reason:
-            error = "Provide a reason before revoking this decision."
-            status = 400
-        elif not current.authority_active:
-            error = "This decision no longer has an active authority to revoke."
-            status = 409
-        else:
-            command = DecisionCommand(
-                action=DecisionAction.REVOKE,
-                target=ExpectedDecisionRevision(
-                    str(history.decision_id), str(history.current_revision_id)
-                ),
-                reason=reason,
-                actor="showcase-reviewer",
-                expected_resolution_generation=history.resolution_generation,
-            )
-            try:
-                DecisionCommandService().commit_change(
-                    access.workspace_id,
-                    book_id=BookId(book.id),
-                    command=command,
-                )
-            except DecisionMutationConflict as conflict:
-                error = str(conflict)
+        action = str(request.POST.get("action", "revoke"))
+        if action == "revoke":
+            reason = str(request.POST.get("reason", "")).strip()
+            if not reason:
+                error = "Provide a reason before revoking this decision."
+                status = 400
+            elif not current.authority_active:
+                error = "This decision no longer has an active authority to revoke."
                 status = 409
-            except (DecisionMutationUnavailable, ValueError):
-                raise Http404 from None
             else:
-                return redirect(
-                    f"/books/{book.id}/decisions/{decision_id}?revoked=1"
+                command = DecisionCommand(
+                    action=DecisionAction.REVOKE,
+                    target=ExpectedDecisionRevision(
+                        str(history.decision_id), str(history.current_revision_id)
+                    ),
+                    reason=reason,
+                    actor="showcase-reviewer",
+                    expected_resolution_generation=history.resolution_generation,
                 )
+                try:
+                    DecisionCommandService().commit_change(
+                        access.workspace_id,
+                        book_id=BookId(book.id),
+                        command=command,
+                    )
+                except DecisionMutationConflict as conflict:
+                    error = str(conflict)
+                    status = 409
+                except (DecisionMutationUnavailable, ValueError):
+                    raise Http404 from None
+                else:
+                    return redirect(
+                        f"/books/{book.id}/decisions/{decision_id}?revoked=1"
+                    )
+        elif action in {"preview-replacement", "commit-replacement"}:
+            left = next(
+                (
+                    item
+                    for item in left_options
+                    if str(item.logical_id) == request.POST.get("left_logical_id")
+                ),
+                None,
+            )
+            right = next(
+                (
+                    item
+                    for item in right_options
+                    if str(item.logical_id) == request.POST.get("right_logical_id")
+                ),
+                None,
+            )
+            if not current.authority_active or left is None or right is None:
+                error = "Choose one current record from each side before previewing."
+                status = 400
+            else:
+                target_revision_id = (
+                    str(history.current_revision_id)
+                    if action == "preview-replacement"
+                    else str(request.POST.get("target_revision_id", ""))
+                )
+                try:
+                    target = ExpectedDecisionRevision(
+                        str(history.decision_id), target_revision_id
+                    )
+                    authority = DecisionAuthority.link(
+                        str(left.logical_id), str(right.logical_id)
+                    )
+                    preview = query.preview_replacement(
+                        access.workspace_id,
+                        book_id=BookId(book.id),
+                        target=target,
+                        authority=authority,
+                    )
+                    conflict_details = []
+                    for conflict in preview.conflicts:
+                        conflict_history = query.get_decision_history(
+                            access.workspace_id,
+                            book_id=BookId(book.id),
+                            scope_id=readiness.scope_id,
+                            decision_id=conflict.decision_id,
+                        )
+                        conflict_current = next(
+                            item
+                            for item in conflict_history.revisions
+                            if item.revision_id == conflict_history.current_revision_id
+                        )
+                        conflict_details.append(
+                            {"conflict": conflict, "current": conflict_current}
+                        )
+                except (ReviewQueryUnavailable, ValueError):
+                    error = "The replacement preview is invalid. Preview it again."
+                    status = 400
+                else:
+                    context.update(
+                        {
+                            "replacement_preview": preview,
+                            "replacement_left": left,
+                            "replacement_right": right,
+                            "replacement_conflicts": tuple(conflict_details),
+                        }
+                    )
+                    if action == "commit-replacement":
+                        reason = str(request.POST.get("reason", "")).strip()
+                        if not reason:
+                            error = "Provide a reason before replacing this decision."
+                            status = 400
+                        else:
+                            try:
+                                approved_conflicts = tuple(
+                                    ExpectedDecisionRevision(*item.split(":", 1))
+                                    for item in request.POST.getlist("approved_conflict")
+                                )
+                                expected_generation = int(
+                                    request.POST.get(
+                                        "expected_resolution_generation", ""
+                                    )
+                                )
+                                command = DecisionCommand(
+                                    action=DecisionAction.REPLACE,
+                                    target=target,
+                                    authority=authority,
+                                    approved_conflicts=approved_conflicts,
+                                    reason=reason,
+                                    actor="showcase-reviewer",
+                                    expected_resolution_generation=expected_generation,
+                                    reviewed_observation_ids=(
+                                        str(left.observation_id),
+                                        str(right.observation_id),
+                                    ),
+                                )
+                                DecisionCommandService().commit_change(
+                                    access.workspace_id,
+                                    book_id=BookId(book.id),
+                                    command=command,
+                                )
+                            except DecisionMutationConflict as conflict:
+                                error = str(conflict)
+                                status = 409
+                            except (
+                                DecisionMutationUnavailable,
+                                TypeError,
+                                ValueError,
+                            ):
+                                error = (
+                                    "The replacement preview is invalid. Preview it again."
+                                )
+                                status = 400
+                            else:
+                                return redirect(
+                                    f"/books/{book.id}/decisions/{decision_id}?replaced=1"
+                                )
+        else:
+            return HttpResponse("Unsupported decision action", status=400)
+    context["error"] = error
     return render(
-        request,
-        "foundation/decision_detail.html",
-        {
-            "book": book,
-            "history": history,
-            "current": current,
-            "error": error,
-            "message": (
-                "Decision revoked. Run reconciliation again to publish the change."
-                if request.GET.get("revoked")
-                else None
-            ),
-        },
-        status=status,
+        request, "foundation/decision_detail.html", context, status=status
     )
